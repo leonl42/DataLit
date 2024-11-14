@@ -1,0 +1,168 @@
+\clearpage
+\appendix
+\tableofcontents
+
+\section{Qualitative Results}
+
+We present our qualitative results in the following website:
+\href{https://diffmimic-demo-main-g7h0i8.streamlitapp.com/}{https://diffmimic-demo-main-g7h0i8.streamlitapp.com/}.
+
+It contains the following qualitative results:
+\begin{itemize}
+    \item Back-Flip 20-second rollout.
+    \item Cartwheel 20-second rollout.
+    \item Crawl 20-second rollout.
+    \item Dance 20-second rollout.
+    \item Jog 20-second rollout.
+    \item Jump 20-second rollout.
+    \item Roll 20-second rollout.
+    \item Side-Flip 20-second rollout.
+    \item Spin-Kick 20-second rollout.
+    \item Walk 20-second rollout.
+    \item Zombie 20-second rollout.
+    \item Back-Flip 20-second rollout, trained for 2.5 hours.
+    \item Back-Flip single cycle rollout, trained for 10 minutes.
+\end{itemize}
+
+\section{Policy Network}
+We use an MLP for the policy network. The network has two hidden layers with sizes 512 and 256. We use Swish~\citep{ramachandran2017searching} for the activation function.
+
+
+
+\section{Hyper-parameters}
+We use Adam optimizer~\citep{kingma2014adam} in training, with a learning rate of 3e-4 that linearly decreases with training iterations. We apply gradient clipping and set the maximum gradient norm to 0.3.  We set the batch size to the same as the number of parallel environments.
+
+\textbf{Cyclic motions.} We set the maximum iterations to 5000. The number of environments is set to 200. 
+
+\textbf{Acyclic motions.} We set the maximum iterations to 1000. The number of environments is set to 300.
+
+\textbf{Expert Replay.} We run experiments with two error thresholds, 0.2 and 0.4, and report the better of the two.
+
+\section{State and Action Space}
+\textbf{Humanoid.}
+We use 6d rotation representation~\citep{zhou2019continuity} in the state feature. The humanoid has an action size of 28 and a state feature size of 193.
+
+\textbf{Humanoid with Sword and Shield.}
+We set up the Sword and Shield character following ASE~\citep{peng2022ase}. Compared to the default humanoid, the new character has 3 additional DOF on the right hand. A sword is attached to its right hand and a shield is attached to its left lower arm. The character has an action size of 31. The state feature size is 208.
+
+\clearpage
+
+\section{Learning Curves}
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{ccc}
+         \hspace{-10pt}\includegraphics[width=0.31\textwidth]{figures/mixed_backflip_legend.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_cartwheel.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_sideflip.png}
+         \\
+        \hspace{-10pt} \includegraphics[width=0.31\textwidth]{figures/mixed_run.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_walk.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_zombie.png}
+         \\
+         \hspace{-10pt}\includegraphics[width=0.31\textwidth]{figures/mixed_jump.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_spinkick_legend.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_jog.png}
+         \\
+         \hspace{-10pt}\includegraphics[width=0.31\textwidth]{figures/mixed_crawl.png}
+         &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_roll.png}
+          &
+         \includegraphics[width=0.31\textwidth]{figures/mixed_dance.png}
+         
+    \end{tabular}
+    \captionof{figure}{Pose error versus the number of samples. DiffMimic (4s): rollout 4 seconds of Diffmimic for evaluation.  DiffMimic (20s): rollout 20 seconds of Diffmimic for evaluation.}
+    \label{fig:imitate_one_full}
+\end{table}
+
+
+
+
+\clearpage
+
+\section{{New Character}}
+{We include Ant as a new character. We use the trajectory in ILD~\citep{chen2022imitation} as the reference motion, which is obtained from a PPO~\citep{schulman2017proximal} agent that learns to move forward as fast as possible. We achieve a 0.059 meter final pose error. We show the training curve in Figure~\ref{fig:ant}.} and the qualitative result on the  \href{https://diffmimic-demo-main-g7h0i8.streamlit.app/}{demo website} under the tab "New Character".
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=.4\textwidth]{figures/Ant.pdf}
+    \captionof{figure}{Pose error versus the number of samples for the new character, Ant.}
+    \label{fig:ant}
+\end{figure}
+
+
+\section{{New Skill}}
+{We run DiffMimic on a new skill, \emph{360-degree Jump}, from the CMU Mocap Dataset (motion sequence CMU\_075\_09). The skill has been reported to be challenging for a RL-based method CoMic~\citep{hasenclever2020comic} in a recent dataset paper~\citep{wagener2022mocapact}. DiffMimic is able to spin in the air and achieve a 0.020 meter final pose error. We show the training curve in Figure~\ref{fig:360-degree Jump}} and the qualitative result on the \href{https://diffmimic-demo-main-g7h0i8.streamlit.app/}{demo website} under the tab "New Skill".
+
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=.4\textwidth]{figures/rebuttal/360-degree-Jump.pdf}
+    \captionof{figure}{Pose error versus the number of samples for the new skill, \emph{360-degree Jump}.}
+    \label{fig:360-degree Jump}
+\end{figure}
+
+
+\section{{New Training Strategy}}
+We additionally include the Reference State Initialization (RSI) technique~\citep{peng2018deepmimic} into the DiffMimic training. RSI starts the training rollout from a random reference frame instead of the first reference frame. We observe a substantial empirical improvement after employing the new training strategy. The samples required are consistently around 90\% less than DeepMimic~\citep{peng2018deepmimic} as shown in \autoref{tab: rsi_sampleeff}. The final pose error has also been slightly improved as shown in \autoref{tab: rsi_poseerror}. We show the qualitative results on the \href{https://diffmimic-demo-main-g7h0i8.streamlit.app/}{demo website} under the tab "New Training". Notably, using RSI alone or RSI+Early Termination (ET)~\citep{peng2018deepmimic} does not converge as shown in Figure~\ref{tab:rsi-curve}.
+\input{tables/RSI_no_falling}
+\input{tables/RSI_comparison}
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{cccc}
+    \includegraphics[width=0.3\textwidth]{figures/rebuttal/DiffMimic_RSI.pdf}&
+    \includegraphics[width=0.3\textwidth]{figures/rebuttal/RSI.pdf}&
+    \includegraphics[width=0.3\textwidth]{figures/rebuttal/RSI_ET.pdf}&
+    \\
+    (a)
+    &
+    (b)
+    &
+    (c)
+    \end{tabular}
+    \captionof{figure}{{Pose error versus the number of samples on \emph{Back-Flip} using (a) DiffMimic+RSI (b) standalone RSI (c) RSI+ET.}
+    }
+    \label{tab:rsi-curve}
+\end{table}
+
+\section{Analysis on Robustness}
+We further evaluate DiffMimic's robustness to external forces. A force is applied to the pelvis of the character halfway through a motion cycle for 0.2 seconds, and we measure the maximum forwards and sideways push each policy can tolerate before falling. DiffMimic achieves comparable robustness to DeepMimic. We show the results in Table~ \ref{tab:robustness} and the qualitative results on the \href{https://diffmimic-demo-main-g7h0i8.streamlit.app/}{demo website} under the tab "Robustness".
+\input{tables/robustness_to_push}
+
+\section{Analysis on Sensitivity}
+DiffMimic with inaccurate estimates of physical parameters. Briefly speaking, DiffMimic is able to learn the control policy well even though the friction coefficient deviates from the original parameters. We show the results in Table~\ref{tab:friction} and the qualitative results on the \href{https://diffmimic-demo-main-g7h0i8.streamlit.app/}{demo website} under the tab "Sensitivity".
+\input{tables/friction}
+
+
+\section{{Analysis on Motion Quality}}
+Motion quality can be severely affected by a small number of large error poses, which can not be reflected by the existing average pose error metric. We propose a Pose Absurdity metric to quantify large-error poses. L2@0.01, 0.05, and 0.1 measure the average L2 pose error on the worst 1\%, 5\%, and 10\% frames
+respectively. Full Horizon Gradient, Demonstration Replay (Random) ratio $\lambda$, and Demonstration Replay (Threshold) threshold $\gamma$ are studied. Demonstration Replay (Threshold) outperforms other baselines by a large margin. We show the results in Table~ \ref{tab:metric}
+
+\input{tables/absurd_pose_metric}
+
+
+
+
+
+
+
+\section{Swording Character}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/qp/sword_shield.png}
+    \caption{Character performing attack move with a sword and a shield. The reference motion clip is from Reallusion~\citep{Reallusion}}
+    \vspace{-20pt}
+    \label{fig:sword}
+\end{figure}
+
+
+
+
+
+
+

@@ -1,0 +1,117 @@
+\section{Experiment}
+\label{sec:4}
+\setlength{\tabcolsep}{1.5mm}{
+\begin{table*}[t]
+    \centering
+    \scalebox{0.9}{
+    \resizebox{1.0\textwidth}{!}{
+    \begin{tabular}{*{10}{c}}
+      \toprule
+      \multirow{2}*{\textbf{Distillation Methods}} & \multicolumn{4}{c}{\textbf{NQ}} & \multicolumn{4}{c}{\textbf{TriviaQA}} & \\
+      \cmidrule(lr){2-5} \cmidrule(lr){6-10}&
+      \textbf{HR@5$\uparrow$} & \textbf{HR@10$\uparrow$} & \textbf{EM$\uparrow$} & \textbf{F1$\uparrow$} & & 
+      \textbf{HR@5$\uparrow$} & \textbf{HR@10$\uparrow$} & \textbf{EM$\uparrow$} & \textbf{F1$\uparrow$}
+      \\
+      % \midrule
+      % w/o RAG & --- & --- & 19.39 & 29.21 & & --- & --- & 51.64 & 59.47 \\
+      \midrule
+      w/o Distillation & 0.478 & 0.583 & 26.09 & 36.75 &  & 0.595 & 0.678 & 54.99 & 63.55 \\
+      % \midrule
+      % \rowcolor{gray!9}
+      % \multicolumn{10}{c}
+      % {\textbf{\textsl{Direct Distilation}}}\\
+      % \midrule
+      % GPT-4o & 0.505 & 0.617 & 26.23 & 36.47 &  & 0.623 & 0.699 & 55.39 & 63.96 \\
+      \midrule
+      \rowcolor{gray!9} 
+      \multicolumn{10}{c}
+      {\textbf{\textsl{Supervised Distillation}}}\\
+      % \textit{Compared Supervised Signal} & & & & & & & & & \\
+      \midrule
+      BM25 & 0.186 & 0.262 & 18.17 & 27.88 & & 0.120 & 0.175 & 46.90 & 55.38 \\
+      Rule-Based & 0.223 & 0.303 & 19.75 & 29.64 & & 0.277 & 0.356 & 50.08 & 58.45 \\
+      Metric (ROUGE-2) & 0.534 & 0.643 & 27.76 & 38.16 &  & 0.641 & 0.716 & 56.17 & 64.92 \\
+      \midrule
+      \rowcolor{gray!9} 
+      \multicolumn{10}{c}
+      {\textbf{\textsl{Intermediate Distillation (Ours)}}}\\
+      \midrule
+      GPT-3.5 Turbo & 0.505 & 0.606  & 25.84 & 36.13 & & 0.587 & 0.664 & 53.72 & 62.16 \\
+      GPT-4o & 0.553 & 0.652 & 27.01 & 37.38 &  & 0.664 & \textbf{0.734} & 56.27 & 64.98 \\
+      GPT-4 Turbo & 0.545 & 0.656 & 28.31 & 38.68 & & 0.662 & 0.727 & 56.15 & 65.07 \\
+      Claude3 Opus & \textbf{0.562} & \textbf{0.665} & \textbf{28.45} & \textbf{38.83} & & \textbf{0.669} & 0.733 & \textbf{56.68} & \textbf{65.36} \\
+      % Atlas-large & 38.51 & 47.42 & 0.655 &\\
+      \bottomrule
+    \end{tabular}
+    }}
+    \caption{The performance comparison of our proposed Intermediate Distillation scheme with other baseline supervised distillation methods on question-answering tasks.}
+    \label{tab:tab02}
+    \vspace{-5mm}  % 调整与下文的间距
+\end{table*}}
+\subsection{Experiment Setup}
+\textbf{Dataset} We conduct experiments on two benchmark open-domain question-answering datasets: \textit{NaturalQuestions (NQ)} \cite{kwiatkowski-etal-2019-natural} and \textit{TriviaQA} \cite{joshi-etal-2017-triviaqa}.
+The \textit{NQ} dataset includes queries from \textit{google.com query} and their corresponding Wikipedia pages, each with an annotated passage containing the answer.
+We use the dataset version provided by ATLAS \cite{izacard2023atlas} and follow its training, validation, and testing splits: 79,168/8,757/3,610. 
+% Similarly, the document source of the question-answer pairs in \textit{TriviaQA} dataset is also collected from Wikipedia and the web. 
+Similarly, we also use the \textit{TriviaQA}, which contains question-answer pairs sourced from Wikipedia and the web, that ATLAS provides and following its training, validation, and testing splits: 78,785/8,837/11,313.
+For the knowledge corpus base, we utilize data from
+Wikipedia as of December 20, 2018, adapting the passage embeddings provided by ATLAS.
+
+For our experiments, we selectively sample 1,000 instances from each training set from \textit{NQ} and \textit{TriviaQA}, keeping validation and testing sets unchanged.
+We further discuss the impact of selecting different types of training data in Section \ref{sec:5-2}.
+This training set size is about 100 to 1,000 times smaller than those used in previous black-box LLM distillation methods within the RAG framework, demonstrating the superior data efficiency of our approach. 
+% We sample only 1,000 data instances from the original training set partitions of the \textit{NaturalQuestions} \textit{TriviaQA} datasets to form our final training dataset while keeping the size of validation and test sets unchanged.
+% The training data sets we select consist of question-answer pairs where the corresponding relevant retrieved document subset contains the answer (i.e., ground truth) but is not directly ranked first in the subset.
+% We choose this training set size and select strategy for two reasons: 1) Obtaining responses from closed-source LLMs leads to considerable costs, and using 1,000 entries instead of tens of thousands of entries strikes a balance between economic expenses and improvements in model performance; 2) Our experimental results, which detailed in the following section, show that this sampling strategy significantly improves the retriever model's performance within the RAG framework, outperforming other training methods.
+The impact of training set size on performance is discussed further in Section \ref{sec:5-3}. \\
+% Section 5 further explore how training set size affects the retriever model's performance improvement.\\
+% \textbf{Experimental Settings} 
+% We use the pre-trained \textit{Contriever} model as our initial reranker model and retriever model. 
+% For knowledge distillation training, we choose the high-performing GPT3.5, GPT4o, GPT4-turbo and Claude3 to serve as the teacher model.\\
+\textbf{Baseline} We evaluate our distillation framework, Intermediate Distillation, against the following established text similarity methods: \textit{ROUGE-2}, an evaluation metric frequently used in NLP, and \textit{BM25}, a popular information retrieval algorithm.
+The idea of employing NLP evaluation metrics like ROUGE-2 for knowledge distillation in retriever models is first proposed by \cite{he2022metric}, which also uses a multi-step distillation approach to solve the Commonsense Reasoning tasks \footnote{We choose ROUGE-2 as our compared baseline metric, as it outperforms other metrics in this prior study.}.
+For both ROUGE-2 and BM25, we use the similarity likelihood between the query and its relevant documents via their calculation to generate re-ranking order as the supervision signals.
+Meanwhile, we do not consider the previous work \textit{RePLUG} \cite{shi2023replug} as a baseline since it uses a larger data scale and relies on LLMs output probabilities, which is not a fair comparison.
+
+In addition, we conduct a \textit{Rule-Based} experiment that ranks documents containing the answer at the top in re-ranking order, which aims to demonstrate that effective re-ranking distillation signals should not only highlight answers.\\
+% We evaluate the effectiveness of our methods and baseline approaches on retriever models, as well as the retriever's performance with the RAG framework.\\
+\textbf{Experimental Settings} 
+We initialize our ranker and retriever models using the Contriever checkpoint \cite{izacard2022unsupervised} with a dual-encoder structure.
+For our proposed distillation scheme, we select several cutting-edge and representative LLMs as the teacher models, including GPT-3.5 Turbo, GPT-4o, GPT-4 Turbo, and Claude3 Opus.
+To comprehensively evaluate the performance of our retriever model, we integrate the distilled retriever model into the RAG framework for question-answering tasks, which allows us to measure the improvement in the quality of responses generated by the language model. 
+In the RAG framework, we use the reader model Llama-3-8B-Instruct \cite{touvron2023llama} to generate answers.
+We also evaluate a baseline version of this RAG framework without additional distillation training for the retriever (i.e., \textit{w/o Distillation} experiment). \\
+\textbf{Implantation Details} We set both the ranker and retriever models with a hidden layer size of 768, thus totally have approximately 10 million training parameters for each model.
+The learning rates are set as 5e-5 for the ranker model and 2e-5 for the retriever model. 
+Both models are trained for 5 epochs on the \textit{NQ} and \textit{TriviaQA} datasets, using a batch size of 20 and optimized with the Adam optimizer.
+Additionally, we restrict the size of the relevant document subset $D_n$ to 5, each retrieved document with a maximum length of 128. We further discuss the impact of the retrieve subset (i.e., re-ranking list) size in Section \ref{sec:5-4}.
+\\
+\textbf{Evaluation Metrics} We evaluate the retrieval performance of our distilled retriever model through the \textit{top-5} and \textit{top-10} retrieval Hit Rates (HR@5 and HR@10), which is the percentage of questions where the relevant document subset $D_n$ includes at lease one correct answers with the top-5 and top-10 documents.
+For question-answering tasks in the RAG framework, we use the standard Exact Match (EM) metric and F1-Score to evaluate the accuracy and precision of the language model generated responses.
+
+\subsection{Experimental Results}
+We present our experimental results, including all the baseline methods and settings evaluated on the testing set of \textit{NQ} and \textit{TriviaQA} in Table \ref{tab:tab02}\footnote{The highest values in the table are highlighted in bold on both the NQ and TriviaQA datasets.}.
+The experimental results show that the retriever model, under our proposed Intermediate Distillation scheme and supervised by Claude3, achieves the best performance in most evaluation metrics, confirming the effectiveness of our proposed method.
+
+Moreover, the quality of supervision signals from LLMs greatly influences the performance of the distilled retriever models.
+For example, the retriever model trained under GPT-4 Turbo supervision outperforms the one supervised by GPT-3.5 Turbo within our Intermediate Distillation scheme, aligning with GPT-4 Turbo’s higher performance across various NLP tasks \cite{openai2023gpt4}. 
+As the rapid development of LLMs, this improvement in supervision quality has also evolved: from being less effective than the ROUGE-2 metric (i.e., as seen the retriever under supervised by GPT-3.5 Turbo) to significantly surpass it (i.e., supervised by GPT-4 Turbo).
+
+In the RAG framework for question-answering tasks, a stronger retriever model is more likely to enhance the output quality of the reader model, demonstrating the effectiveness and adaptability of the Intermediate Distillation framework for NLP downstream tasks.
+% At the same time, while the trend between the retriever's performance and the quality of the reader's output in RAG usually aligned, they do not always match perfectly.
+However, according to our experimental results, while Intermediate Distillation using GPT-4o typically outperforms Supervised Distillation using ROUGE-2 in retrieval performance, the latter can still produce higher quality generations within RAG. 
+This divergence may be due to the different objectives of the retriever and the reader: the retriever focuses on accurately identifying the ground truth, whereas the reader wants the retriever to provide information that more effectively helps the reader in generating accurate responses.
+This discrepancy remains a topic that can be further explored in future work.
+% \textbf{1) Incorporating the external retrieved information can be very helpful for generation.} As the first experiment in Table \ref{tab:tab02} demonstrates, language models without retrieval-augmentation do not perform as well on these two question-answering datasets compared to those enhanced by a retrieval model. 
+% This indicates that for LLMs (especially those with fewer parameters), the generation quality which relys solely on their internal parameters is not ideal.
+% In constrast, retrieval-augmentation can significantly improve their generation quality.\\
+% % 用外部监督信号进行知识蒸馏可以影响检索器的性能
+% \textbf{2) Knowledge distillation using external supervision signals can significantly impact the performance of the retriever.} Specifically, distilling the retriever with reranking signals from metrics or LLM's generation can enhance the performance of the retriever. 
+% However, using supervision signals derived from retrieval algorithms (i.e., BM25) or rule-based ranking method tends to significantly degrade the retriever's performance. \\
+% % 直接蒸馏没有间接蒸馏的效果好
+% \textbf{3) Intermediate distillation yields better performance than directly distill knowledge from LLMs to the retrieval model.} According to the Table \ref{tab:tab02}, we can see that using the relevance score distribution provided directly by GPT-4o (i.e., \textit{Direct Distillation} experiment) as the supervision signal for knowledge distillation can not train retrieval models that perform as well in both retrieval and RAG applications as the models trained using our proposed method via the same LLM, which employs the ranking model as an intermediary. \\
+% % 性能好的语言模型蒸馏效果更好
+% \textbf{4) Supervision signals generated by higher-performing LLMs are of better quality, resulting in more effective distillation training.} Compared the performance of the trained retriever models distilled by GPT3.5 and GPT4 series (i.e., GPT4o and GPT4-turbo), the retrieval models distilled using the GPT-4 series exhibit significant advantages both in retrieval-augmented generation performance. 
+% This aligns with the high performance reported for these LLMs across various NLP tasks. \\
+% % retrieve和rag的性能不强相关
+% \textbf{5) For distilled retrieval models, the performance in retrieval tasks is not strongly correlated with the enhancement effect on language model generation.} From Table \ref{tab:tab02} we can see that although GPT-4o improves the retrieval capabilities of the model more than signals derived from rouge2 during distillation training, the retrievers trained with the latter actually perform better in retrieval-enhanced generation than those trained with the former.

@@ -1,0 +1,151 @@
+\section{Experiments}
+
+\subsection{Setup}
+
+\subsubsection{Dataset}
+For a fair and reproducible comparison against other competing methods, we used the benchmark LJSpeech dataset~\cite{LJSpeech}. LJSpeech consists of 13,100 audio clips of 22050 Hz from a Female speaker with about 24 hours in total. To evaluate the generalization ability of our model over unseen speakers in multi-speaker scenarios, we also used the VCTK dataset~\cite{yamagishi2019cstr}, which was downsampled to 22050 Hz to match the sampling rate with the LJSpeech datset. VCTK consists of approximately 44,200 audio clips uttered by 109 native English speakers with various accents. For both datasets, we used 80-band Mel-spectrograms as the condition for the vocoding task. The FFT size, window size, and hop size were, respectively, set to 1024, 1024, and 256. 
+
+\subsubsection{Model Configurations}
+FastDiff mainly consists of the refinement model $\theta$ and noise schedule predictor $\phi$. The refinement model $\theta$ comprises three Diffusion-UBlock and DBlock with the upsample or downsample rate of $[8, 8, 4]$, respectively. We adopt a lightweight GALR network effective in separating the added gaussian noise from audio as the noise schedule predictor $\phi$. For end-to-end text-to-speech generation, FastDiff-TTS follows the basic structure in FastSpeech 2~\cite{ren2020fastspeech}, which consists of 4 feed-forward transformer blocks in the phoneme encoder. More details have been attached in the Appendix~\ref{appendix:arch}. 
+
+\subsubsection{Training and Evaluation}
+The complete training pipeline has been illustrated in Algorithm~\ref{alg: training}: FastDiff was trained with constant learning rate $lr = 2\times 10^{-4}$. The refinement model $\theta$ and noise predictor $\phi$ were trained for 1M and 10K steps until convergence, respectively. FastDiff-TTS was trained until 500k steps using the AdamW optimizer with $\beta_{1}=0.9,\beta_{2}=0.98,\epsilon=10^{-9}$. Both models were trained on 4 NVIDIA V100 GPUs using random short audio clips of 16,000 samples from each utterance with a batch size of 16 each GPU. More details have been attached in the Appendix~\ref{appendix:Training}.
+
+We crowd-sourced 5-scale MOS tests via Amazon Mechanical Turk to evaluate the audio quality. The MOS scores were recorded with 95\% confidence intervals (CI). Raters listened to the test samples randomly, where they were allowed to evaluate each audio sample once. We further include additional objective evaluation metrics including  STOI and PESQ to test sample quality. To evaluate the sampling speed, we implemented real-time factor (RTF) accessment on a single NVIDIA V100 GPU. In addition, we employed two metrics NDB and JSD to explore the diversity of generated mel-spectrograms. More information about both objective and subjective evaluation has been attached in Appendix~\ref{appendix:evaluation}.
+
+
+\begin{table*}[]
+  \centering
+%   \vspace{-2mm}
+  % \hspace{-3cm}
+  \small
+  \begin{minipage}[t]{0.7\linewidth}
+  \centering
+  % \hspace{-1.8cm}
+  \scalebox{0.9}{
+    \begin{tabular}{l|ccc|c|cc}
+    \toprule
+    \bfseries \multirow{2}{*}{Model} & \multicolumn{3}{c|}{\bf Quality} & \multicolumn{1}{c|}{\bf Speed} & \multicolumn{2}{c}{\bf Diversity} \\
+            & MOS ($\uparrow$) & STOI ($\uparrow$) & PESQ ($\uparrow$)  & RTF ($\downarrow$)&NDB ($\downarrow$)&JSD ($\downarrow$) \\
+    \midrule
+    GT               &  4.52$\pm$0.09   &  /     &  /      & /          & /   & /        \\
+    \midrule
+    WaveNet (MOL)    &  4.20$\pm$0.06    &  /    &  /     &  85.230    & {33}  & {0.002}\\
+    WaveGlow         & 3.89$\pm$0.07     & 0.961 & 3.16   &  0.029    & 66           & 0.014\\
+    HIFI-GAN         & 4.08$\pm$0.08     & 0.956 & 3.28   & 0.002     & 72           &  0.010\\
+    UnivNet          & 4.13$\pm$0.09     & 0.971 & 3.45   &  0.002    & 68           & 0.013\\
+    \midrule
+    Diffwave (6 steps)     & 4.18$\pm$0.08   & 0.966 & 3.62   & 0.093       & 72            & 0.007\\
+    WaveGrad (50 steps)    & 4.09$\pm$0.07   & 0.911 & 2.70   & 0.390       & 61            & 0.008\\
+    \midrule
+    FastDiff (4 steps)      &\textbf{4.28$\pm$0.07}& \textbf{0.976} &\textbf{3.71}  &  0.017  & 49 & 0.006 \\
+    \bottomrule   
+    \end{tabular}}
+    \protect\caption{Comparison with other nerual vocoders in terms of quality, synthesis speed and sample diversity. For sampling, we used 50 steps in WaveGrad and 6 steps in DiffWave, respectively}
+    % , following~\protect\cite{github2020WaveGrad} and~\protect\cite{github2021DiffWaveVocoder}.
+    % \vspace{-4mm}
+    \label{table:mos}
+  \end{minipage}
+  \hspace{0.5cm}
+  \begin{minipage}[t]{0.25\linewidth}
+  \centering
+  \small
+    \scalebox{0.9}{
+            \begin{tabular}{lcc}
+              \toprule
+              \bf{Model}                   & MOS \\
+              \midrule
+              GT                     &  4.37$\pm$0.06  \\
+              \midrule
+              WaveNet (MOL)          &  4.01$\pm$0.08  \\
+              WaveGlow               &  3.66$\pm$0.08  \\
+              HIFI-GAN               &  3.74$\pm$0.06   \\
+              UnivNet                &  3.85$\pm$0.07   \\
+              \midrule
+              Diffwave (6 steps)               &  3.90$\pm$0.07   \\
+              WaveGrad (50 steps)               &  3.72$\pm$0.06    \\
+              \midrule
+              FastDiff (4 steps)               & \textbf{4.10$\pm$0.06}  \\
+              \bottomrule
+              \end{tabular}}
+              \vspace{1mm}
+              \protect\caption{Comparison with other neural vocoders of synthesized utterances for unseen speakers.}
+              \label{table:mos4}
+          \end{minipage}
+        %   \vspace{-2mm}
+    \end{table*}
+    
+    \begin{table*}[ht]
+        \centering
+        % \vspace{-8mm}
+        % \hspace{-0.4cm}
+        \small
+        \begin{minipage}[t]{.5\linewidth}
+        \centering
+        \scalebox{0.9}{
+        \begin{tabular}{lccccc}
+        \toprule
+        \bfseries Model   & MOS ($\uparrow$)   & STOI($\uparrow$) & PESQ ($\uparrow$) & RTF ($\downarrow$) \\
+        \midrule
+        GT                   &  4.52$\pm$0.09           & /  & /   & /  \\
+        \midrule
+        w/o Time-aware LVC                 & 4.08$\pm$0.05         & 0.971         & 3.45   & 0.081  \\
+        w/o Noise Predictor                  & 4.10$\pm$0.06         & 0.968         & 3.50   & 0.033    \\
+        \midrule
+        Continuous, 4 steps     &  4.09$\pm$0.08        & 0.970         & 3.37   &\textbf{0.015} \\
+        Continuous, 1000 steps &  4.14$\pm$0.07        & 0.980         & 3.64   &  3.80    \\
+        \midrule
+        Discrete, 4 steps      & 4.28$\pm$0.07          & 0.976         & 3.71    & 0.017 \\
+        Discrete, 1000 steps   & \textbf{4.36$\pm$0.08} & \textbf{0.989} & \textbf{3.86}  & 4.70 \\
+        \bottomrule
+      \end{tabular}}
+      \protect\caption{Ablation study results. Comparison of the effect of each component in terms of quality and synthesis speed.}
+    %   \vspace{-4mm}
+      \label{table:mos2}
+    \end{minipage}
+      \hspace{0.6cm}
+      \begin{minipage}[t]{0.3\linewidth}
+      \centering
+      \small
+      % \hspace{1cm}
+      \scalebox{0.95}{
+      \begin{tabular}{lcc}
+        \toprule
+        \bf{Model}                   & MOS \\
+        \midrule
+        GT                     &  4.52$\pm$0.09   \\
+        GT(voc.)               &  4.28$\pm$0.07   \\
+        Cascaded               &  4.13$\pm$0.07   \\
+        \midrule
+        FastSpeech 2s          &  3.94$\pm$0.06  \\
+        WaveGrad 2             &  3.68$\pm$0.09   \\
+        \midrule
+        FastDiff-TTS           &  \textbf{4.03$\pm$0.09}  \\
+        \bottomrule
+        \end{tabular}}
+        \vspace{1mm}
+        \protect\caption{Comparison with other text-to-speech models in terms of quality.}
+        % \vspace{-4mm}
+        \label{table:mos3}
+      \end{minipage}
+    \vspace{-2mm}
+      \end{table*}
+
+% \vspace{-8mm}
+\subsection{Comparsion with other models}
+We compared our FastDiff in audio quality, diversity, and sampling speed with competing models, including 1) WaveNet~\cite{oord2016wavenet}, the autoregressive generative model for raw audio. 2) WaveGlow~\cite{prenger2019waveglow}, non-autoregressive flow-based model. 3) HIFI-GAN V1~\cite{kong2020hifi} and UnivNet~\cite{jang2021univnet}, the most dominant and popular GAN-based models. 4) Diffwave~\cite{kong2020diffwave} and WaveGrad~\cite{chen2020wavegrad}, recently proposed diffusion probabilistic models which achieve state-of-the-art in speech synthesis. For easy comparison, the results are compiled and presented in Table~\ref{table:mos}, and we have the following observations: 
+
+In terms of audio quality, FastDiff achieved the highest MOS with a gap of $0.24$ compared to the ground truth audio, and it matched the performance of the autoregressive WaveNet baseline and outperformed the non-autoregressive baselines. For objective evaluation, FastDiff also demonstrated a large improvement in PESQ and STOI. For inference speed, with the efficient noise schedules searched by noise predictor, FastDiff could generate high-quality speech samples within as few as $4$ reverse steps, significantly reducing the inference time compared with competing diffusion architectures. To the best of our knowledge, FastDiff makes diffusion models for the first time applicable to interactive, high-quality real-world speech synthesis at a low computational cost. In terms of sample diversity, we can see that FastDiff still witnessed a gap from autoregressive WaveNet, but it achieve a higher variety for generated speeches than non-autoregressive baselines. More detailed evaluation on sample diversity has been attached in Appendix~\ref{appendix:diversity}.
+
+\subsection{Ablation study}\label{ablation}
+We conducted ablation studies to demonstrate the effectiveness of several designs in FastDiff, including the time-aware location variable convolution and noise predictor in neural vocoding. The results of both subjective and objective evaluations have been presented in Table~\ref{table:mos2}, and we have the following observations: 1) Replacing time-aware location-variable convolution by traditional convolutional operations causes a distinct degradation in sampling speed and perceptual quality. 2) Using grid search instead of the noise predictor to search schedules had witnessed the decreased audio quality, demonstrating that the noise schedule prediction process provides more efficient reverse sampling without sacrificing quality.
+
+Further, we compare two variants of FastDiff to test the modality differences of diffusion condition (i.e., continuous noise-level or discrete time-step). Note that the former model does not require the schedule alignment process mentioned in Section~\ref{schedule}. We empirically find that the FastDiff model conditioned on discrete time steps could synthesize samples with higher quality, demonstrating that learning proposed FastDiff with discrete diffusion times could be a better choice. More information on the variant of FastDiff extended to continuous noise schedules has been attached in Appendix~\ref{appendix:extension}
+
+\subsection{Generalization to unseen speakers}\label{Generalization}
+
+We used $50$ randomly selected utterances of $5$ unseen speakers in the VCTK dataset that were excluded from the training set for the MOS test. Table~\ref{table:mos4} shows the experimental results for the mel-spectrogram inversion of the unseen speakers: In summary, we noticed that FastDiff achieved state-of-the-art in terms of audio quality for out-of-domain generalization, indicating that FastDiff could universally generate high-fidelity audio from entirely new (unseen) speakers outside the train set. 
+
+\subsection{End-to-End Text-to-Speech}
+
+To demonstrate the robustness of the proposed model in end-to-end text-to-speech synthesis, we compare FastDiff-TTS with other neural TTS systems, including 1) GT, the ground truth audio; 2) GT (voc.), where we first convert the ground truth audio into mel-spectrograms, and then convert the mel-spectrograms back to audio using FastDiff; 3) PortaSpeech~\cite{ren2021portaspeech} + FastDiff: vocoder cascaded with mel-spectrogram generation using the most popular non-autoregressive TTS models; 4) FastSpeech 2s~\cite{ren2020fastspeech}: the extension of FastSpeech 2 to fully end-to-end text-to-waveform generation with multi-task learning; 5) WaveGrad 2~\cite{chen2021wavegrad}: a diffusion probabilistic model to generate waveforms via gradient estimation. The results are shown in Table~\ref{table:mos3}: FastDiff-TTS could surpass competing end-to-end speech synthesis models and match the voice quality of the state-of-the-art cascaded TTS systems, demonstrating that FastDiff-TTS is efficient in simplifying the overall text-to-speech synthesis pipeline.

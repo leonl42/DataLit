@@ -1,0 +1,58 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Experimental Details}
+\label{app:sec:details}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We attached our code in supplementary material. Our codes used python libraries JAX~\citep{jax2018github}, Flax~\citep{flax2020github} and Optax~\citep{optax2020github}. 
+These python libraries are available under the Apache-2.0 license\footnote{\href{https://www.apache.org/licenses/LICENSE-2.0}{https://www.apache.org/licenses/LICENSE-2.0}}.
+
+
+We conducted all experiments on a single NVIDIA GeForce RTX 3090 GPU, except for the image completion tasks presented in~\cref{main:sec:experiments:imagecompletion}; we used 8 TPUv3 cores supported by TPU Research Cloud\footnote{\href{https://sites.research.google/trc/about/}{https://sites.research.google/trc/about/}} for the 2D image completion task. For optimization, we used Adam~\citep{kingma2015adam} optimizer with a cosine learning rate schedule. Unless specified, we selected the base learning rate from a grid of $\{5 \times 10^{-4.50}, 5 \times 10^{-4.25}, 5 \times 10^{-4.00}, 5 \times 10^{-3.75}, 5 \times 10^{-3.50}\}$ based on validation task log-likelihood.
+
+
+% For all experiments, we use Adam optimizer with learning rate $5 \cdot 10^{-4}$. For image completion tasks, we also use cosine learning rate scheduling.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \subsection{Experimental Resources}
+% We conduct most of the experiments on 8 TPUv3 cores, supported by TPU Research Cloud\footnote{\href{https://sites.research.google/trc/about/}{https://sites.research.google/trc/about/}} and the others on 8 RTX3090 cores.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Evaluation metric}
+Following \citet{le2018empirical},  for \gls{cnp} and \gls{canp}, which are deterministic models, we used the normalized predictive log-likelihood $\frac{1}{n}\sum_{i=1}^n\log p(y_i|x_i,Z_c)$. For other models, we used a approximation of the normalized predictive log-likelihood as:
+\[
+\frac{1}{n}\sum_{i=1}^n\log p(y_i|x_i,Z_c)\approx \frac{1}{n}\sum_{i=1}^n\log\frac{1}{K}\sum_{k=1}^K p(y_i|x_i,\theta^{(k)}),
+\]
+where $\theta^{k}$s are independent samples for $k\in[K]$.
+\subsection{1D Regression}
+To generate tasks $(Z, c)$, we first sample $x \iidsim \text{Unif}(-2, 2)$ and generate $Y$ using each kernel. We use RBF kernel $k(x, x') = s^2 \cdot \exp\left(\frac{-|| x - x' ||^2}{2\ell^2}\right)$, Matern $5/2$ kernel $k(x, x') = s^2 \cdot \left( 1 + \frac{\sqrt{5}d}{\ell} + \frac{5d^2}{3\ell^2} \right)$, and periodic kernel $k(x, x') = s^2 \cdot \exp\left( \frac{-2 \sin^2 (\pi||x-x'||^2 / p)}{\ell^2} \right)$ where all kernels use $s \sim \text{Unif}(0.1. 1.0)$, $\ell \sim \text{Unif}(0.1. 0.6)$, and $p \sim \text{Unif}(0.1. 0.5)$. To generate t-noise dataset, we use Student-$t$ with degree of freedom $2.1$ to sample noise $\epsilon \sim \gamma \cdot \calT(2.1)$ where $\gamma \sim \text{Unif}(0, 0.15)$. Then we add the noise to the curves generated from RBF kernel. We draw index set $|c| \sim \text{Unif}(3, 50 - 3)$ and $n - |c| \sim \text{Unif}(3, 50 - |c|)$ to maintain $\max |Z| \leq 50$. We use a batch size of $256$ for training.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Image Completion}
+
+We use the following datasets for image completion experiments.
+
+\paragraph{MNIST}
+We split MNIST~\citep{lecun1998gradient} train dataset into train set with 50,000 samples and validation set with 10,000 samples. We use whole 10,000 samples in test dataset as test set. We make $28 \times 28$ grids which both axes starting from $-0.5$ to $0.5$ to indicate the coordinate of pixels, and normalize pixel values into $[-0.5, 0.5]$. We use a batch size of $128$ for training.
+
+\paragraph{SVHN}
+We split SVHN~\citep{netzer2011reading} train dataset into train set with 58,600 samples and validation set with 14,657 samples. We use whole 26,032 samples in test dataset as test set. We make $32 \times 32$ grids which both axes starting from $-0.5$ to $0.5$ to indicate the coordinate of pixels, and normalize pixel values into $[-0.5, 0.5]$. We use a batch size of $128$ for training.
+
+\paragraph{CelebA}
+We use splits of CelebA~\citep{liu2015faceattributes} dataset as provided (162,770 train samples, 19,867 validation samples, 19,962 test samples). We crop $32 \times 32$ pixels of center of images. We make $32 \times 32$ grids which both axes starting from $-0.5$ to $0.5$ to indicate the coordinate of pixels, and normalize pixel values into $[-0.5, 0.5]$. We use a batch size of $128$ for training.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Bayesian Optimization}
+\label{app:sec:details:bo}
+
+We use the following benchmark functions for Bayesian optimization experiments. Throughout the experiments, we adjust the function to  have the domain of $[-2.0, 2.0]$.
+\paragraph{\citet{gramacy2012cases} function}
+\[
+f(x)=\frac{\sin(10\pi x)}{2x} + (x-1)^4,
+\]
+where $x\in [0.5,2.5]$ and a global optimum is at $x^\ast\approx 0.5486$.
+\paragraph{\citet{sobester2008engineering} function}
+\[
+f(x)=(6x-2)^2\sin (12x-4),
+\]
+where $x\in [0,1]$ and a global optimum is at $x^\ast\approx0.7572$.
+

@@ -1,0 +1,41 @@
+\vspace{-0.5mm}
+\section{Preliminaries: Notations and Problem Formulation} \label{sec:prelim}
+\vspace{-1mm}
+%\subsection{Problem Formulation of Combinatorial Optimization (CO)}
+\textbf{Combinatorial Optimization on Graphs.} We follow the settings considered in~\citep{karalias2020erdos,wang2022unsupervised,schuetz2022combinatorial} and study CO problems on graphs whose solutions can be represented as a subset of nodes of the input graph instance, although our method could be applied to a broader range of problems. Suppose $\mathcal{G}$ is the universe of graph instances. Let $G(V,E)\in \mathcal{G}$ denote a graph instance where $V=\{1,2,...,n\}$ is the node set and $E$ is the edge set. Let $X=(X_i)_{1\leq i \leq n} \in \{0,1\}^n$ denote the discrete optimization variables defined on $V$, where $X_i=1$ denotes that node $i$ is selected in the output node subset. A CO problem on $G$ consists of a cost function $f(\cdot;G):\{0,1\}^n \rightarrow \mathbb{R}_{\geq0}$ and a feasible set $\Omega\subseteq \{0,1\}^n$ that stands for the finite set of all feasible $X$'s, and asks to solve %Given a CO asks to solve 
+\begin{equation}
+\label{eq:def_CO}
+\begin{aligned}
+\min_{X\in \{0,1\}^n} f(X;G) \quad \quad \text{s.t.} \quad X \in \Omega
+\end{aligned}
+\end{equation}\vspace{-2mm}
+
+%Let $\Omega$ stand for the finite set of all feasible $X$'s that satisfy the constraints of a problem. For example, in the max independent set problem, $\Omega$ contains all $X$'s where for any pair of adjacent nodes $i,j$, $X_i\neq 1$ or $X_j\neq 1$. 
+
+%The primary goal of CO is, given any instance $G$ from instance space $\mathcal{G}$, to minimize a cost function $f(\cdot;G)$ by finding out the best assignment of $X$ from the feasible set $\Omega$:
+%discrete optimization variables are binary variables defined on the nodes of graphs
+%each entry of $X$ corresponds to whether a vertex is chosen in the independent set and
+% \begin{equation}
+% \label{method:def_CO}
+% \begin{aligned}
+% \min_{X\in \{0,1\}^n} f(X;G) \quad \quad \text{s.t.} \quad X \in \Omega
+% \end{aligned}
+% \end{equation}
+\textbf{Unsupervised Learning for CO.} The Erd\"{o}s-Goes-Neural (EGN) framework of unsupervised learning for CO proposed in~\citep{karalias2020erdos} is reviewed as follows. Here, we use the notation system in a follow-up work~\citep{wang2022unsupervised} as it is more clear. Learning for CO problem is to learn an algorithm $\mathcal{A}_{\theta}(\cdot):\mathcal{G}\rightarrow \{0,1\}^n$ typically parameterized by an NN where $\theta$ denotes the parameters of the NN such that given a graph instance $G$, $X=\mathcal{A}_{\theta}(G)$ gives a solution of Eq.~\ref{eq:def_CO}. %feasible solution $X\in\Omega$ and minimizes $f(X;G)$. 
+In practice, directly optimizing the parameters $\theta$ is hard in general. 
+
+Therefore, we may consider a relaxed cost function $f_r(\cdot;G):[0,1]^n \rightarrow \mathbb{R}_{\geq0}$ where $f_r(X;G)=f(X;G)$ on any discrete points $X\in\{0,1\}^n$ and a relaxed constraint $g_r(\cdot;G):[0,1]^n \rightarrow \mathbb{R}_{\geq0}$ where $\{X\in\{0,1\}^n: g_r(X;G) = 0\}$ and $\{X\in\{0,1\}^n: g_r(X;G) \geq 1\}$ defines the feasible set $\Omega$ and the infeasible set $\Omega^c$ respectively. Also, suppose the NN in $\mathcal{A}_{\theta}$ can give soft solutions $\bar{X}\in[0,1]^n$. Then, we may train $\theta$ by minimizing a label-independent loss function:
+\begin{equation}
+\label{eq:relax}
+\begin{aligned}
+\min_{\theta}\; l(\theta;G) \triangleq f_r(\bar{X};G) + \beta g_r(\bar{X};G) , \quad \bar{X} = \mathcal{A}_{\theta}(G),\;\text{for some}\;\beta>0.
+\end{aligned}
+\end{equation}
+The significant observation made by \citep{wang2022unsupervised}, which generalizes the argument in~\citep{karalias2020erdos}, is a type of performance guarantee on the condition that $f_r$ and $g_r$ are entry-wise concave, which is satisfied in all the cases studied in this work: If the loss that achieves $l(\theta;G)<\beta$ for some $\beta > \max_{X\in\{0,1\}^n} f(X;G)$, then the discrete solution $X$ obtained by rounding the soft solution $\bar{X}=\mathcal{A}_{\theta}(G)$ according to Def.~\ref{def:rounding} is feasible $X\in\Omega$ and of good quality $f(X;G) \leq l(\theta;G)$.
+\begin{definition}[Rounding]
+%\vspace{-0.3cm}
+\label{def:rounding}
+For a soft solution $\bar{X} \in [0,1]^n$ and an arbitrary order of the entries (w.l.o.g 1,2,...,n), fix all the other entries unchanged and round $\bar{X}_i$ into $0$ or $1$ as $X_i = \arg\min_{j=0,1} f_r(X_1,...,X_{i-1},j,\bar{X}_{i+1},...,\bar{X}_n)+\beta g_r(X_1,...,X_{i-1},j,\bar{X}_{i+1},...,\bar{X}_n)$, replace $\bar{X}_i$ with $X_i$ and repeat this operation until all the entries are discrete.
+%\vspace{-0.2cm}
+\end{definition}
+

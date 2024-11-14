@@ -1,0 +1,37 @@
+\begin{table}[htb]
+    \caption{Test accuracy for each task for wide and deep mixed attention models alongside the averages of all homogeneous models, and the best performing homogeneous model for that task.}
+    \label{table:mixed}
+    \begin{center}
+        \begin{tabular}{l | l l l | l l l}
+            \toprule
+            \multirow{2}{*}{\bf Task} & \multicolumn{3}{c}{\bf Deepest} & \multicolumn{3}{c}{\bf Widest} \\
+            & Hom. Avg & Hom. Best & Mixed & Hom. Avg & Hom. Best & Mixed \\
+            \midrule
+            IMDb Token Level & 84.8 & 87.0 & 87.3 & 84.7 & \textbf{88.0} & 86.8 \\
+            IMDb Byte Level & 61.3 & 64.5 & 60.1 & 60.7 & \textbf{64.8} & 63.0 \\
+            Listops & 34.2 & 37.1 & 37.1 & 35.7 & 37.7 & \textbf{38.0} \\
+            Document Matching & 63.9 & 71.1 & - & 64.0 & \textbf{72.3} & 66.9 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+\end{table}
+
+With wider attention layers, the advantages of mixing attention methods becomes more viable.
+We test a uniform mixture of attentions in both wide and deep variants to see how these models perform.
+For each layer we use an equal mix of the following attention mechanisms: BigBird, Linear Transformer, Linformer, Local, Longformer, Performer, Sparse Transformer, and Synthesizer.
+
+We omit Sinkhorn since it does not use the [CLS] token for classification like the other attention methods.
+We also omit vanilla attention so that we have a total of 8 mechanisms, and our overall attention operation is efficient (sub-quadratic time and space complexities).
+
+We initialise a separate multiheaded attention block for each mechanism and average all of their outputs when going back to the sequence features.
+The number of attention heads in each block is scaled such that the total number equals that of the homogeneous model.
+For example in the 6 layers, 8 heads configuration, each of our attention blocks has a single head.
+In the 1 layer 48 heads configuration, each has 6 heads.
+
+Results are given in \Cref{table:mixed}.
+Deep mixed attention on matching is not tested as there are not enough heads to include every attention mechanism.
+We also include in this table repeats of the averages and bests for each task across all attention mechanisms.
+From the table we can see that even with mixed attention, the widest single layer models typically perform better (IMDb byte level, Listops) or only marginally worse (IMDb token level) than the deep Transformer models.
+Whilst beating the averages, all the best mixed models except Listops are outperformed by one of the homogeneous attention models in its widest configuration.
+The widest mixed model on Listops however points towards mixed attention having possible advantages over homogeneous attention for certain tasks.
+

@@ -1,0 +1,1055 @@
+\documentclass{article} % For LaTeX2e
+
+% -- custom package (need to put here to avoid clash)
+\usepackage[table,dvipsnames]{xcolor}
+\usepackage{url}
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+\usepackage{tikz}
+\usepackage{comment}
+\usepackage{amsmath,amssymb,amsthm} % define this before the line numbering.
+\usepackage{color}
+\usepackage{epsfig}
+\usepackage{graphicx}
+
+% Include other packages here, before hyperref.
+\usepackage{wrapfig}
+\usepackage{xspace}
+\usepackage{bbold}
+\usepackage[nice]{nicefrac}
+\usepackage{mathtools}
+\usepackage{booktabs}
+\usepackage{fontawesome}
+\usepackage[font={footnotesize}]{caption}
+\usepackage{subcaption}
+\usepackage{stfloats}
+\usepackage{pbox}
+\usepackage{multirow}
+\usepackage{microtype}
+
+\definecolor{fbpurple3}{HTML}{f0ebf5}
+\definecolor{fbteal2}{HTML}{199696}
+\definecolor{fborange2}{HTML}{f06919}
+\definecolor{fbApp}{HTML}{dee3e9}
+\definecolor{fborange3}{HTML}{ffefe1}
+\definecolor{fbApp}{HTML}{c8e7fa}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\defeq}{\coloneqq}
+\newcommand{\mido}[1]{{\color{blue}#1}}
+\newcommand{\florian}[1]{{\color{green}#1}}
+\newcommand{\quentin}[1]{{\color{purple}#1}}
+
+\newtheorem{example}{Example}
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+
+\usepackage[colorlinks=true, citecolor=citecolor, linkcolor=linkcolor, breaklinks=true]{hyperref}
+\definecolor{citecolor}{HTML}{0071BC}
+\definecolor{linkcolor}{HTML}{ED1C24}
+
+\usepackage{ICLRtemplate/iclr2023_conference,times}
+\input{ICLRtemplate/math_commands}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+
+
+\title{The hidden uniform cluster prior in\\self-supervised learning}
+
+\author{Mahmoud Assran$^{1,2,3}$\thanks{\texttt{massran@meta.com}}, Randall Balestriero$^{1}$, Quentin Duval$^{1}$, Florian Bordes$^{1,3,4}$, Ishan Misra$^{1}$\\
+\bf Piotr Bojanowski$^{1}$, Pascal Vincent$^{1}$, Michael Rabbat$^{1,3}$, Nicolas Ballas$^{1}$\\
+$^{1}$Meta AI (FAIR) \\
+$^{2}$McGill University, ECE \\
+$^{3}$Mila, Quebec AI Institute\\
+$^{4}$Universite de Montreal, DIRO
+}
+
+
+\begin{document}
+\maketitle
+
+
+\begin{abstract}
+%A successful paradigm in representation learning is to perform self-supervised pretraining using tasks based on mini-batch statistics; (e.g., SimCLR, VICReg, SwAV, MSN).
+%We show that in the formulation of all these methods is an overlooked prior to learn features that enable uniform clustering of the data.
+%While this prior has led to remarkably semantic representations when pretraining on class-balanced data, such as ImageNet, we demonstrate that it can  hamper performance when pretraining on class-imbalanced data.
+%By moving away from conventional uniformity priors and instead reformulating self-supervised criteria to prefer power-law distributed feature clusters, we show that one can improve the quality of the learned representations on real-world class-imbalanced datasets.
+A successful paradigm in representation learning is to perform self-supervised pretraining using tasks based on mini-batch statistics (e.g., SimCLR, VICReg, SwAV, MSN).
+We show that in the formulation of all these methods is an overlooked prior to learn features that enable uniform clustering of the data.
+While this prior has led to remarkably semantic representations when pretraining on class-balanced data, such as ImageNet, we demonstrate that it can hamper performance when pretraining on class-imbalanced data.
+% , which occur in many applications.
+By moving away from conventional uniformity priors and instead preferring power-law distributed feature clusters, we show that one can improve the quality of the learned representations on real-world class-imbalanced datasets.
+To demonstrate this, we develop an extension of the Masked Siamese Networks (MSN) method to support the use of arbitrary features priors.
+% In particular, we extend the Masked Siamese Networks method (MSN) to support the use of arbitrary features prior such as power-law distribution.
+
+
+% By moving away from conventional uniformity priors and instead reformulating self-supervised criteria to match the expected class prior of downstream tasks, we show that one can improve the quality of the learned representations on real-world class-imbalanced datasets. We coin this prior-aware criterion {\em Prior Matching Siamese Networks} (PMSN).
+
+
+
+%% FIXME add some INAT number ideally
+% In this work, we highlight that those pretraining approaches have limited applicability to dataset with class-imbalanced distribution. Specificaly, joint-embedding approaches require examples within a mini-batch to be uniformly sampled across classes to learn class-discriminative features. The sensitivity to the uniform classes distribution is due to the model prior distribution which penalizes features that are not uniformly distributed.
+% To enable the use of joint-embedding architectures to class-imbalanced dataset, we extend current approach to the use of different model prior. We show that we improve  the quality of the learned representation on real-world dataset with long-tailed class distribution by a power-law prior. %% FIXME add some INAT number ideally
+% TENTATIVE:\\
+% A successful paradigm in representation learning is to perform self-supervised learning (SSL) which consists in (i) collapsing the representations of semantically related inputs, while (ii) preventing a collapse of the entire mapping. Solving those two goals can be done in various ways leading to SSL variants e.g. contrastive and non-contrastive methods. In this study, we demonstrate how solving (ii) ---regardless of the SSL variant being used--- is done under a (too) strong assumption of observing a class-balanced dataset. This finding directly explains why SSL on class-balanced data, such as ImageNet-1K, is successful but SSL on imbalanced data fails. Our finding emerges from theoretically tying SSL methods to known algorithms such as K-means which are known to assume balanced classes.
+% From this understanding, we are able to move away from this common assumption by reformulating SSL losses to instead expect power-law class distributions, a much more realistic setting. Through thorough experiments, we validate that our adapted SSL losses reach high quality of the learned representations on real-world class-imbalanced datasets.
+\end{abstract}
+
+
+\section{Introduction}
+
+Self-supervised pretraining has emerged as a highly effective strategy for unsupervised representation learning, with remarkable advances demonstrated by joint-embedding methods~\citep{chen2020simple,caron2021emerging,bardes2021vicreg,assran2022masked}.
+In the context of visual data, these approaches typically learn representations by training a neural network encoder to produce similar embeddings for two or more views of the same image.
+However, since outputting a constant vector regardless of the input would satisfy this objective, one of the main challenges with joint-embedding methods is to prevent such pathological solutions.
+A common remedy is to employ a regularizer that maximizes the volume of space occupied by the representations.
+This is sometimes referred to as the volume maximization principle.
+In practice, the volume maximization principle is implemented in a variety of ways, for example, by contrasting negative samples~\citep{bromley1993signature,he2019moco,chen2020simple}, by removing correlations in the feature space~\citep{bardes2021vicreg, zbontar2021barlow}, or by finding high entropy clusterings of the data~\citep{asano2019self, caron2020unsupervised, assran2021semi, assran2022masked}.
+When pretrained on the ImageNet dataset~\citep{russakovsky2015imagenet}, these methods have been shown to produce representations that encode highly semantic features~\citep{caron2020unsupervised, caron2021emerging, assran2022masked}.
+
+
+However, the commonly used ImageNet-1K dataset is relatively class-balanced, which is in contrast to most real-world settings, where data is often \emph{class-imbalanced} and semantic concepts follow a long-tailed power-law distribution~\citep{newman2005power, mahajan2018exploring, van2018inaturalist}.
+Indeed, it has been shown that pretraining the same joint-embedding methods on long-tailed datasets can lead to significant drops in performance~\citep{tian2021divide}.
+Such an observation is problematic in that it significantly hinders the applicability of modern research advances with joint-embedding methods to real-world settings.
+
+%\textcolor{red}{list the SSL methods for which we show the  uniform prior}
+In this work, we explore the use of joint-embedding methods for class-imbalanced datasets.
+First, we theoretically show that current methods with volume maximization regularizers such as VICReg~\citep{bardes2021vicreg}, SwAV~\citep{caron2020unsupervised}, %DINO~\citep{caron2021emerging}, and (we don't have DINO)
+MSN~\citep{assran2022masked} and SimCLR~\citep{chen2020simple} (with limited assumptions),  have a uniform feature prior; i.e., a bias to learn features that enable grouping the data into clusters of roughly equal size.
+Consequently, these joint-embedding methods will penalize features that do not uniformly cluster the data, even if such features correlate well with class information; see Figure~\ref{fig:kmeans}.
+
+
+% discalimer on theory w. projectino head
+
+Second, we empirically validate that joint-embedding methods employing volume maximization regularizers are sensitive to the mini-batch class distributions.
+These approaches fail to learn class-discriminative features when the samples within a mini-batch do not follow a uniform class distribution.
+% Thus, in practice, these methods work well on ImageNet because of its uniform class prior. 
+This observation partially explains why performance degrades when pretraining with real-world data, where sampled mini-batches often contain highly imbalanced class distributions.
+% \setlength{\intextsep}{0pt}
+\setlength{\columnsep}{4.5mm}
+\begin{wrapfigure}[33]{r}{0.3\linewidth}
+% \begin{figure}[t]
+    \centering
+    \begin{subfigure}{\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/kmeans_0.5.pdf}
+        \caption{K-means with class-balanced data}
+        \label{fig:visu_rcdm_balanced}
+    \end{subfigure}\\[1em]
+    \begin{subfigure}{\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/kmeans_0.95.pdf}
+        \caption{K-means with class-imbalanced data}
+        \label{fig:visu_rcdm_unbalanced}
+    \end{subfigure}
+    \caption{Impact of uniform cluster prior in K-means when class distribution of data is imbalanced.  K-means clustering depicted in color (green vs red). Ground-truth cluster separation depicted with a dotted black line. When uniform feature prior is not satisfied, K-means can identify undesirable features for discriminating between data points.}
+    \label{fig:kmeans}
+\end{wrapfigure}
+
+Finally, based on this observation, we propose to move away from conventional uniformity priors and instead reformulate self-supervised criteria to prefer long-tailed feature priors that are more aligned with the distribution of semantic concepts in real-world datasets.
+In particular, we extend Masked Siamese Networks (MSN) of~\citet{assran2022masked} to support the use of arbitrary features priors, and refer to this extension as  {\em Prior Matching for Siamese Networks (PMSN)}. 
+%we use the Masked Siamese Network (MSN) framework of~\citet{assran2022masked} and replace the high entropy cluster prior with a power-law prior.
+When pretraining on the iNaturalist 2018 dataset~\citep{van2018inaturalist}, which is naturally long-tailed, we demonstrate that moving away from uniform priors leads to more semantic representations and improved transfer on downstream tasks.
+
+%Indeed, many real-world datasets are class-imbalanced and the semantic concepts we wish to capture actually follow long-tailed power-law distributions~\citep{newman2005power,mahajan2018exploring}.
+
+\section{Background}
+
+Given the recent success of joint-embedding methods, there is a growing literature that aims to build a better understanding of their behaviour.
+Several works have sought to develop generalization bounds for joint-embedding methods with volume maximization penalties~\citep{arora2019theoretical, balestriero2022contrastive}.
+Other works have sought to better understand the differences between various volume maximization penalties and connect them under limited assumptions~\citep{garrido2022duality}.
+In general, it has been shown that $\ell_2$-normalized contrastive losses can be decomposed into an ``alignment'' plus volume maximization component that scatters the representations uniformly on the unit hypersphere~\citep{wang2020understanding}.
+Following this observation, other works~\citep{chen2021intriguing} have sought to reformulate contrastive losses to scatter representations either (a) uniformly on the unit hypercube, or (b) onto Gaussian distributions (which have the highest entropy amongst all distributions with a given variance).
+There is also theoretical work~\citep{tian2021understanding} which aims to understand why certain joint-embedding methods, such as BYOL~\citep{grill2020bootstrap}, can avoid representation collapse without explicit use of a volume maximization penalty.
+
+While these works have helped build our understanding on the training dynamics of joint-embedding methods, they do not directly explain why empirical use of these methods with real-world class-imbalanced data has often led to a degradation in downstream task performance~\citep{tian2021divide, goyal2022vision} (see Appendix~\ref{apndx:relatedwork} for a broader discussion of related work).
+In this work, we explore the use of joint-embedding methods with class-imbalanced data.
+In particular, we theoretically show that a broad range of methods (beyond contrastive) prescribe a uniform \emph{feature} prior, and that this prior is detrimental when pretraining with class-imbalanced data.
+
+\section{Uniform priors in modern self-supervised learning}
+\label{sec:theory}
+
+In this section, we theoretically show that common SSL methods such a, VICReg~\citep{bardes2021vicreg}, SwAV~\citep{caron2020unsupervised}, MSN~\citep{assran2022masked}, and (with limited assumptions) SimCLR~\citep{chen2020simple}, correspond to variants of K-means, and thereby impose a uniform cluster prior; i.e., a bias to learn features that enable uniform clustering of the data.
+The governing assumption in K-means is the presence of isotropic data clusters, with roughly an equal number of samples per cluster~\citep{wu2009adapting,liang2012k}.
+When this assumption is not satisfied in practice, K-means may learn undesirable features for discriminating between samples (cf.~Figure~\ref{fig:kmeans}).
+
+\subsection{Background: K-means formulations and the uniform prior}
+
+\paragraph{Explicit (Centroid) K-means.} 
+Recall that K-means proposes a centroid based clustering of the data.
+In particular, given a set of $N$ data points $\{\vx_n\}^N_{n=1}$, K-means partitions the elements into $K$ disjoint groups $\sX_1,\dots,\sX_K$, such that $\sum^K_{i=1}\lvert\sX_i\rvert = N$.
+The K-means objective can be written as
+\begin{equation}
+\label{eq:kmeans}
+    \min_{\{\sX_k\}_{k=1}^K}
+    \sum_{k=1}^K \sum_{\vx \in \sX_k} \|\vx-\mu_k\|^2_2,
+\end{equation}
+where the optimization problem is to identify the members of the disjoint sets $\sX_1, \ldots, \sX_K$, and $\mu_k$ (the $k^\text{th}$ cluster centroid) is precisely the average of the members of $\sX_k$.
+
+\paragraph{Implicit (Centroid) K-means.}
+One important note that we will carry through our study is that K-means does not require explicit computation of the cluster centroids $\mu_k$ to evaluate the objective.
+To see this standard result, one can relate the sum of pairwise distances to the sum of radial distances for any data partition,
+\begin{align} 
+    \sum_{k=1}^K \sum_{\vx \in\sX_k} \lVert\vx-\mu_k\rVert^2_2 & = \sum_{k=1}^K \frac{1}{2\lvert\sX_k\rvert} \sum_{\vx, \vx^\prime \in \sX_k} \lVert\vx-\vx'\rVert^2_2. \label{eq2}
+\end{align}
+This result suggests that the K-means loss can be minimized by either learning cluster centroids (explicit K-means), or by learning cluster memberships (implicit K-means). 
+We make this relation precise in Proposition~\ref{prop:kmeans}, which is proven in Appendix~\ref{proof:kmeans1} and was already noted in~\citet{zha2001spectral,awasthi2015relax}.
+
+
+\begin{proposition}
+    \label{prop:kmeans}
+    The explicit K-means problem, defined by learning a set of $K$ centroids $\mu_1,\dots,\mu_{K}$, admits the same global optimum as the implicit K-means problem, defined by learning a cluster membership matrix $\mP \in \{0,1\}^{N \times K}$, such that $\mP\mathbf{1}_{K}=\mathbf{1}_{N}$.
+\end{proposition}
+The fundamental assumptions governing the success of K-means lie in having clusters with roughly the same number of samples and intra-cluster data covariance that is isotropic with the form $\sigma \mI$, where $\sigma > 0$ and $\mI$ is the identity matrix~\citep{wu2009adapting,liang2012k}.
+In the sequel, we will show that various SSL methods can be seen as employing either explicit or implicit K-means.
+
+\subsection{How K-means naturally emerges from self-supervised losses}
+\label{sec:swav}
+
+In this section, we demonstrate how standard SSL methods naturally employ K-means at their core.
+Although this result might seem intuitive for methods that explicitly compute a clustering of the representations, we surprisingly found that this is also the case for some methods (e.g., VICReg) that do not explicitly involve centroid parameters or a clustering step.
+
+
+{\bf Implicit K-means:~VICReg and SimCLR.}~
+The VICReg loss~\citep{bardes2021vicreg} consists of three terms, one measuring the $\ell_2$ distance between the positive view pairs, one encouraging the off-diagonal entries of the embedding covariance matrix to go to $0$, and one encouraging its diagonal entries to be greater than $1$.
+One standard simplification done in practice to study VICReg is to switch the variance and covariance terms to a single term so that the new VICReg loss is given by
+\begin{align}
+    \mathcal{L}=&\alpha \|\Cov(\mZ) - \mI \|_F^2 +\frac{\gamma}{N} \sum_{i,j=1}^{N}(\mG)_{i,j}\|\vz_{i}-\vz_{j}\|_2^2,\label{eq:VICR2}
+\end{align}
+where $\Cov(\mZ)$ is the covariance matrix of the vectors $\vz_1,\ldots,\vz_n$, the constants $\alpha, \gamma > 0$ are hyper-parameters, and $G_{i,j} \in \{0,1\}$ is equal to 1 when the representations $z_i$ and $z_j$ correspond to positive views of the same image.
+From this formulation, we relate VICReg to the implicit K-means algorithm in Proposition~\ref{prop:vicreg}, which is proven in Appendix~\ref{proof:kmeans2}.
+In particular, note how the summation term on the right hand side of~\eqref{eq:VICR2} recovers the right hand side of~\eqref{eq2}.
+% Although not needed for the VICReg loss, the (implicit) centroids from VICReg can be obtained by averaging the embeddings of the augmented samples $\mu_n=\mathbb{E}_{t \sim \mathcal{T}}[f_{\theta}(t(\vx_n))]$,
+% where $\mathcal{T}$ is the random data-augmentation defining the positive samples, and $f_{\theta}$ is the DN mapping. In fact, VICReg employs as many centroids as there are {\em original} samples i.e. $K=N/T$ with $T$ the number of augmentation per sample. We now obtain our first result.
+
+\begin{proposition}
+\label{prop:vicreg}
+    VICReg with hyper-parameters $\gamma \gg \alpha$ recovers the K-means loss from~\eqref{eq:kmeans} on the embeddings, with an additional regularizer enforcing orthogonality of the centroids.
+\end{proposition}
+The hyper-parameter requirement $\gamma \gg \alpha$ is commonly employed with VICReg in practice to ensure invariance to the pre-defined set of data-augmentations used to construct the positive image views.
+In fact, in the opposite case, where $\alpha \gg \gamma$, a degenerate whitening can be learned without keeping any information about the input samples due to the non-linearity of the deep neural network mapping, as shown in~\citet{balestriero2022contrastive}.
+Note that under mild conditions, the VICReg loss has been shown to be equivalent to the SimCLR loss~\citep{garrido2022duality}.
+In such scenarios, Proposition~\ref{prop:vicreg} would also directly apply to the SimCLR method.
+
+{\bf Explicit K-means with soft constraints:~MSN.}
+~
+A common relaxation of constrained K-means is to remove the hard cluster assignment constraint, such that the condition $\mP_{i,j} \in \{0,1\}$ is generalized to $\mP_{i,j} \in [0,1]$~\citep{wang2010learning}.
+This relaxes constrained K-means to the more general Gaussian Mixture Model (GMM) formulation, where each data point can partially belong to all clusters with some probability mass.
+Since, the derivation of the GMM loss (i.e., the ELBO and log-likelihood) is beyond the scope of this section, we simply state the objective as
+\begin{equation}
+    \min_{\{\mu_k,\Sigma_k\}_{k=1}^K}\sum_{\vx \in \sX}\sum_{k=1}^{K}
+     \frac{[p(\vx)]_k}{2}\lVert\vx-\mu_k\rVert^2_{\Sigma^{-1}}+N\sum_{k=1}^{K}\log\det(\Sigma_k)+
+     \sum_{\vx \in \sX}D_{\text{KL}}(p(\vx)\ \lVert\ \vpi),\label{eq:GMM}
+\end{equation}
+where $\vpi$ is the cluster prior and $[p(\vx)]_k$ is the posterior probability of input $\vx$ belonging to cluster $k$, obtained from
+\[
+    p(\vx)=\text{softmax}\left(\mW^T \vx+\log (\vpi)-\frac{1}{2}\lVert \vx \rVert_2^2 - \frac{1}{2}\text{diag}(\mW^T\mW)\right),
+\]
+where $\mW=[\mu_1,\dots,\mu_K]$ concatenates the centroids, and $\text{diag}(\cdot)$ extracts the diagonal of its matrix argument into a column vector.
+
+Of particular interest to us is the case in which the prior is set to the uniform distribution, $[\vpi]_k = \nicefrac{1}{K}$ for all $k \in [K]$, the covariance matrix is isotropic, $\Sigma_k=\sigma \mI$ for $\sigma \geq 0$, and the centroids and data vectors are $\ell_2$-normalized, in which case~\eqref{eq:GMM} simplifies to 
+\begin{equation}
+    \min_{\mu_1,\ldots,\mu_K}\sum_{\vx \in \sX}\sum_{k=1}^{K}
+     \frac{[\text{softmax}(\mW^T\vx)]_k}{2}\|\vx-\mu_k\|^2_{2}-\sum_{x\in \sX} H\left(\text{softmax}(\mW^T\vx)\right).
+     \label{eq:GMM_uni}
+\end{equation}
+One can also express the simplified GMM objective in~\eqref{eq:GMM_uni} in terms of the marginal entropy (with a summation inside the entropy term) by following the ELBO derivations of~\citet{hoffman2016elbo}.
+%Replacing the feature-space $\ell_2$ distance in~\eqref{eq:GMM_uni} with a cluster-assignment cross-entropy provides an alternative metric sometimes leveraged in the context of K-means~\citep{meilua2006uniqueness}.
+The Masked Siamese Network (MSN) loss~\citep{assran2022masked} with positive pairs $\vx_n,\vx_n^+$ and posteriors $\vp_n=\text{softmax}(\mW^T\vx_n/\sigma)$, $\vp_n^+=\text{softmax}(\mW^T\vx_n^+/\sigma)$, with temperature $\sigma$, is
+\begin{equation}
+    \label{eq:msn}
+    \frac{1}{N} \sum^N_{n=1} H(\vp_{n}^+, \vp_n) - \lambda H({\overline{\vp}}),
+    % \frac{1}{N} \sum^N_{n=1} H(\vp_{n}^+, \vp_n) + \lambda D_{\text{KL}}({\overline{\vp}\ \lVert\ \vp_\text{prior}}),
+\end{equation}
+where $\lambda > 0$, and $\overline{\vp} \defeq \frac{1}{N} \sum^N_{n=1} \vp_n$.
+We show that the MSN objective can be seen as variant of K-means variant employing an explicit cluster-membership penalty (cf.~Appendix~\ref{proof:kmeans3}).
+\begin{proposition}
+\label{prop:msn}
+    MSN recovers the GMM loss from~\eqref{eq:GMM_uni} with the variation that the $\ell_2$ distance is replaced with the cross-entropy distance of the posterior.
+\end{proposition}
+
+{\bf Explicit K-means with hard constraints:~SwAV}~
+Among popular K-means variants, one particular version requires specification of the cardinality of the clusters~\citep{kleindessner2019fair, bradley2000constrained, rujeerapaiboon2019size}.
+Specifically, the number of items in each cluster $\lvert\sX_k\rvert$ is strictly enforced to take a specific value $N_k$.
+The resulting K-means formulation becomes
+\begin{equation}
+    \min_{\{\sX_k\}_{k=1}^K \text{s.t.} |\sX_k|=N_k}
+    \sum_{k=1}^K \sum_{\vx \in \sX_k} \|\vx-\mu_k\|^2_2.\label{eq:constrained}
+\end{equation}
+When $N_k=\frac{N}{K}$, we obtain strict enforcement of the uniform cluster prior, which is otherwise implicit in the formulation, but not strictly enforced.
+This variant of K-means was previously used in~\citet{wang2010learning}.
+The SwAV~\citep{caron2020unsupervised} loss with  positive posterior pairs $\vp_n,\vp_n^+$ (defined similarly to those in~\eqref{eq:msn}) is
+\begin{equation}
+    \label{eq:swav}
+    \frac{1}{N} \sum^N_{n=1} H(\vp_{n}^+, \vp_n)
+    \quad \text{subject to}
+    \quad \mP \mathbf{1}_N = \frac{N}{K} \mathbf{1}_K;
+    \quad \mP^\top \mathbf{1}_K = \mathbf{1}_N,
+\end{equation}
+where $\mP = [\vp^+_1, \ldots, \vp^+_n]$ concatenates the predictions.
+In~\citet{caron2020unsupervised}, this constraint is enforced in practice by projecting the matrix $\mP$ onto the constraint set in each iteration using the Sinkhorn-Knopp algorithm~\citep{cuturi2013sinkhorn}.
+SwAV thus recovers a strictly constrained variant of K-means (cf.~Appendix~\ref{proof:swav}).
+
+\begin{proposition}
+\label{prop:swav}
+SwAV recovers the constrained K-means loss from~\eqref{eq:GMM_uni} with constraint enforcement through Sinkhorn-Knopp normalization.
+\end{proposition}
+
+Note that for all presented SSL methods and their corresponding K-means variants, enforcing normalization of the centroids and features does not reduce the generality of the results; in this case, we simply obtain a correspondence to similar variants of spherical K-means~\citep{hornik2012spherical}.
+
+
+\section{Negative effect of uniform priors for class-imbalanced data}
+\label{sec:class_stratified}
+
+As proven in Section~\ref{sec:theory}, joint-embedding methods employing volume maximization regularizers have an uniform feature prior.
+% Whenever the data distribution fails in any of its assumptions, uniform cluster priors can lead to undesirable representations (cf.~Figure~\ref{fig:kmeans}) and have been linked to issues such as bias in facial recognition models~\citep{buolamwini2018gender}, and gender bias in word-level language models~\citep{bordia2019identifying}. 
+Following this observation, in this section we empirically demonstrate that such methods are sensitive to non-uniform mini-batch class distributions.
+% To solve this limitation, two strategies are available. One is to interact with this prior, either by moving away from K-means to GMM and imposing or learning the correct cluster prior, or by strictly enforcing a given prior through explicit constraints in K-means. The second solution is to leave the prior uniform but instead replace the distance used to compare pairs of samples as done for example in t-SNE~\citep{van2008visualizing} and k-medoids~\citep{park2009simple}. We will explore in a later Sec.~\ref{sec:priors} how one can adopt the first strategy i.e. adapting the cluster prior, to better fit the data distribution.
+
+
+
+%{\bf Known issues with uniform priors of K-means variants}
+%~
+%Whenever the data distribution fails in any of its assumptions, K-means gets skewed toward producing an incorrect representation (see Figure~\ref{fig:kmeans}) which negatively impacts performances causing, e.g., bias in facial recognition models \cite{buolamwini2018gender}, gender bias in word-level language models \cite{bordia2019identifying}. To solve this limitation, two strategies are available. One is to interact with this prior, either by moving away from K-means to GMM and imposing or learning the correct cluster prior, or by strictly enforcing a given prior through explicit constraints in K-means. The second solution is to leave the prior uniform but instead replace the distance used to compare pairs of samples as done for example in t-SNE \cite{van2008visualizing} and k-medoids \cite{park2009simple}. After empirically validating that joint-embeddings methods also suffer from this uniform prior, we will explore in a later Sec.~\ref{sec:priors} how one can adopt the first strategy i.e. adapting the cluster prior, to better fit the data distribution.
+
+
+
+\paragraph{Experimental setup.}
+
+We explore three joint-embedding methods employing diverse collapse prevention strategies: SimCLR~\citep{chen2020simple}, VICReg~\citep{bardes2021vicreg}, and MSN~\citep{assran2022masked}.
+We also compare the performance of those models to instance-based methods such as MAE~\citep{he2021masked} and data2vec~\citep{baevski2022data2vec}, which do not employ volume maximization regularizers.
+In this evaluation, all models are pretrained on the ImageNet-1K dataset without access to the class labels.
+To explore sensitivity to mini-batch class distributions, we explore two dichotomous sampling strategies (which do require semantic knowledge of the image classes).
+
+One strategy, termed \emph{class-balanced sampling}, constructs the mini-batches in each iteration by first randomly selecting 960 classes out of the 1000 ImageNet-1K classes, and then sampling an equal number of images from each class.\footnote{We choose 960 classes instead of 1000 so that the overall batch size is divisible by the number of GPUs utilized for distributed training.}
+Given that ImageNet is relatively class-balanced, this strategy produces mini-batches with similar statistics to traditional uniform sampling.
+Another strategy, termed \emph{class-imbalanced sampling}, constructs the mini-batches in each iteration by first randomly selecting $K \ll 960$ classes out of the 1000 ImageNet-1K classes, and then sampling an equal number of images from each class, such that the total mini-batch size is the same as under the {class-balanced} sampling strategy. We pick $K$ as the smallest value needed to reach the default batch size for each respective method: $8$ for SimCLR (which has the a default batch size of $4096$) and $2$ for VICReg and MSN (which have default batch sizes of $1024$).
+Note that the {class-imbalanced} strategy maintains the same marginal probability of sampling individual data points as compared to the {class-balanced} sampling strategy (see Appendix~\ref{app:marginalprob} for a derivation of this equivalence).
+
+
+After pretraining all models using the various sampling strategies, we evaluate performance on a wide range of downstream tasks requiring different levels of abstraction, i.e., classification with CIFAR100~\citep{krizhevsky2009learning}, Places205~\citep{zhou2014learning}, and iNat18~\citep{van2018inaturalist}; object counting with Clevr/Count~\citep{johnson2017clevr}; and depth prediction with Clevr/Dist~\citep{johnson2017clevr} and KITTI~\citep{geiger2013vision}.
+We also evaluate in-distribution performance of ImageNet classification~\citep{russakovsky2015imagenet,chen2020simple}.
+Additional pretraining and evaluation details can be found in Appendix~\ref{apndx:classstratified_sampling}; the full set of results can be found in Appendix~\ref{apndx:classstratified_results}.
+
+\begin{table}[h]
+    \centering
+    \footnotesize
+    \caption{\textbf{Transfer:} Evaluation of the pretraining mini-batch sampling distribution on various downstream tasks. Each cell reports the task performance when pretraining with class-balanced sampling minus the task performance when pretraining with class-imbalanced sampling. Sampling imbalanced mini-batches during pretraining leads to a significant drop in image classification tasks for joint-embedding methods with volume maximization priors (SimCLR, MSN, VICReg), whereas instance-based methods, which do not employ such regularization (MAE, data2vec), are relatively unaffected.
+    }
+    \label{tb:class_stratified_sampling}
+    \begin{tabular}{r|ccccc|cc}
+        \toprule
+        & ImageNet & iNat18 & CIFAR100 & Places205 & Clevr/Count & Clevr/Dist & KITTI\\
+        \toprule\toprule
+        SimCLR & \color{red} -11.2 & \color{red}-8.0 & \color{red}-10.2 & \color{red}-5.2 & \color{red}-4.3 & +0.9 & +1.2 \\
+        MSN & \color{red}-17.7 & \color{red}-15.1 & \color{red}-13.2 & \color{red}-4.6 & \color{red}-6.4 & +1.9 & -1.6 \\
+        VICReg & \color{red}-17.7 & \color{red}-17.3 & \color{red}-12.0 & \color{red}-6.0 & \color{red}-3.0 & +0.7 & -1.1 \\\midrule
+        data2vec & -0.8 & +0.3 & -1.6 & +0.0 & -2.1 & -1.5 & -0.1 \\
+        MAE & -0.1 & +1.4 & +2.5 & +0.1 & -0.8 & +0.0 & +0.0 \\\bottomrule
+    \end{tabular}
+\end{table}
+
+%\begin{figure}
+%    \centering
+%    \includegraphics[width=\textwidth]{assets/balanced_vs_imbalanced.pdf}
+%    \caption{Visual representations of the results of Table \ref{tb:class_stratified_sampling}. Methods relying on volume maximization regularizers all exhibit similar performance alteration across diverse transfer tasks.}
+%    \label{fig:visu_rcdm_unbalanced}
+%\end{figure}
+
+
+\paragraph{Empirical observations.}
+As can be seen in Table~\ref{tb:class_stratified_sampling}, the performance of joint-embedding methods employing volume maximization regularizers degrades significantly on all the semantic downstream tasks (IN1K, CIFAR100, Places205, Clevr/Count) when the mini-batches sampled during pretraining are not class-balanced (e.g., drops by as much as 17.7 top-1 on IN1K), but remain relatively stable (and even marginally improve) on low-level depth prediction tasks Clevr/Dist and KITTI, suggesting that class-imbalanced pretraining leads the model to capture lower-level (less semantic) features. 
+
+By contrast, evaluations with instanced-based methods data2vec and MAE in Table~\ref{tb:class_stratified_sampling} show different trends.
+The MAE method employs a simple pixel-reconstruction loss for representation learning, and thus does not explicitly compute mini-batch statistics during pretraining.
+The data2vec method is more similar to MSN, SimCLR, and VICReg in that it utilizes a joint-embedding architecture; however, in contrast to those methods, data2vec does not explicitly compute mini-batch statistics during pretraining, and instead relies on architectural heuristics and careful hyperparameter choices to prevent collapse.
+When evaluating these methods with class-balanced pretraining versus class-imbalanced pretraining, we observe virtually no change in downstream task performance.
+Only methods with explicit volume maximization terms exhibit sensitivity to the mini-batch class distribution.
+
+\paragraph{Visualizing learned prototype vectors.}
+In Figure~\ref{fig:visu_rcdm_sampling}, we use RCDM~\citep{bordes2022high} to visualize the prototypes learned by an MSN model pretrained on IN1K with either class-balanced or class-imbalanced mini-batch distributions.
+A prototype here refers to a row in the weight matrix of the final linear layer in the encoder.
+Each row in Figure~\ref{fig:visu_rcdm_sampling} corresponds to samples generated by conditioning on a \emph{single prototype} using various random seeds.
+Characteristics that remain constant across a row in Figure~\ref{fig:visu_rcdm_sampling} reflect information contained in the prototype, whereas characteristics that vary reflect information that is not contained (i.e., to which the representations are invariant).
+When pretraining with class-balanced mini-batches, the emergent features tend to be associated with high-level concepts, such as specific ImageNet classes (Figure~\ref{fig:visu_rcdm_balanced}).
+In contrast, when pretraining with class-imbalanced mini-batches, the learned features tend to be associated with low-level concepts, such as shape, pose, or texture (Figure~\ref{fig:visu_rcdm_unbalanced}).
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/MSN_fig_balanced.pdf}
+        \caption{Pretraining with class-balanced mini-batch sampling}
+        \label{fig:visu_rcdm_balanced}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{assets/MSN_fig_unbalanced.pdf}
+        \caption{Pretraining with class-imbalanced mini-batch sampling}
+        \label{fig:visu_rcdm_unbalanced}
+    \end{subfigure}
+    \caption{
+    Visualization of prototypes learned by an MSN model pretrained on ImageNet-1K with either class-balanced or class-imbalanced mini-batch distributions.
+    We use RCDM~\citep{bordes2022high} to enable visualization of the prototypes (details in Appendix~\ref{apndx:rcdm}).
+    Each row corresponds to samples generated by conditioning on a prototype with various random seeds.
+    Features that remain constant across the row depict information contained in the prototypes, whereas features that vary depict information that is not contained.
+    a) When pretraining with class-balanced mini-batches, the emergent features tend to be associated with high level concepts, such as specific ImageNet classes.
+    b) By contrast, when pretraining with class-imbalanced mini-batches, the learned features tend to be associated with low-level concepts, such as shape, pose, or texture.}
+    \label{fig:visu_rcdm_sampling}
+\end{figure}
+
+%\section{Power-law prior matching real-world class distributions}
+\section{Prior Matching for Siamese Networks}
+\label{sec:priors}
+
+Section~\ref{sec:class_stratified} validates that in settings where the samples within a mini-batch do not follow a uniform class distribution, joint-embedding methods with volume maximization penalties encode less class-oriented features, and perform  worse on downstream semantic classification tasks.
+In this section, we demonstrate that using alternative (long-tailed) feature priors can lead to representations of a higher semantic level when pretraining on real-world class-imbalanced data.
+
+\paragraph{Siamese Networks with Arbitrary Prior.}
+In~\citet{assran2022masked}, the MSN prior is explicitly set to the uniform distribution.
+As discussed in [Section~\ref{sec:theory}, \eqref{eq:GMM}], the KL penalty in MSN explicitly encourages learning representations that enable uniform clustering of the data.
+However, when pretraining with class-imbalanced data, the semantic concepts of interest no longer satisfy the assumptions of the uniformity prior.
+In particular, natural observations ``in the wild'' tend to follow long-tailed (often power-law) distributions~\citep{newman2005power, mahajan2018exploring, van2018inaturalist}.
+%Based on this observation, we explore the effect of swapping the uniform feature prior in MSN with an alternative long-tailed feature prior.
+Based on this observation, we introduce Prior Matching for Siamese Networks (PMSN), which extends MSN to support the use of arbitrary feature priors.
+Specifically, we modify MSN by replacing the negative entropy term in~\eqref{eq:msn} with the KL-divergence to a user-specified distribution.\footnote{The negative entropy in~\eqref{eq:msn} is simply the KL-divergence to the uniform distribution plus a constant.}
+For instance, we can instantiate PMSN as
+ \begin{equation}
+     \label{eq:msn_prior}
+     \frac{1}{N} \sum^N_{i=1} H(\vp_{i}^+, \vp_i) + \lambda D_{\text{KL}}( \overline{\vp}\ \lVert\ \vp_{\text{\sc pl}(\tau)}),
+ \end{equation}
+where $\vp_{\text{PL}(\tau)}$ is a power-law distribution with exponent $\tau > 0$.
+
+\subsection{Toy setting}
+
+We claim that the uniform prior in joint-embedding methods significantly impacts the features captured in their learned representations.
+To illustrate this point to the research community using well-known data,  we construct a toy setting to study how changes in the prior affect the suppression and selection of features by the encoder. 
+We take grayscaled CIFAR10~\citep{krizhevsky2009learning} images and overlay one of ten MNIST digits~\citep{lecun-mnisthandwrittendigit-2010} in the top left corner, such that the overall distribution of MNIST digits in the dataset follows a power-law distribution with exponent $0.5$.\footnote{Note the image distribution is still uniform over the CIFAR10 classes.}
+Next we perform self-supervised pretraining on this dataset using PMSN.
+We compare pretraining using a uniform feature prior, to pretraining using a power-law prior with exponent equal to $0.5$, which corresponds to the true power-law distribution of MNIST digits in the toy dataset.
+
+The first column in Figure~\ref{fig:cifar10-nn} shows reference images from this toy dataset; the images in subsequent column visualize the corresponding nearest neighbours in the embedding space of the pretrained models.
+When pretraining using a power-law prior, the MNIST digit is encoded by the model, and the nearest neighbours all have the same digit class (Figure~\ref{fig:cifar10-nn-powerlaw}).
+However, when pretraining with a uniform prior, MNIST digit information is discarded by the model, and therefore the nearest neighbours have different digit classes (Figure~\ref{fig:cifar10-nn-uniform}).
+In particular, since the MNIST digit ``feature'' does not admit a uniform clustering of the data, it is discarded when pretraining with the conventional volume maximization penalty.
+% By contrast, the CIFAR10 class ``feature'' does admit a uniform clustering of the data, and so the nearest neighbours obtained with the uniform prior tend to have the same object class.
+This toy experiment provides insight into how semantic features in class-imbalanced datasets can be suppressed by the encoder and how alternative (non-uniform) priors can be used to recover such features.
+
+\begin{figure}[t]
+    \centering
+    \begin{subfigure}{0.0771\textwidth}
+        \includegraphics[width=\textwidth]{assets/cifar10-ref.pdf}
+        \caption{Ref.\\\ }
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{assets/cifar10-powerlaw.pdf}
+        \caption{Nearest Neighbours when pretraining with power-law prior\\
+        {\bf (Matching MNIST digit distribution)}}
+        \label{fig:cifar10-nn-powerlaw}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{assets/cifar10-uniform.pdf}
+        \caption{Nearest Neighbours when pretraining with uniform prior\\
+        {\bf(Not matching MNIST digit distribution)}}
+        \label{fig:cifar10-nn-uniform}
+    \end{subfigure}
+    \caption{Each row visualizes the nearest neighbours of the references images (first column), in the embedding space of an PMSN model
+    pretrained on grayscaled images with an MNIST digit in the top left corner. 
+    The distribution of MNIST digits in the dataset is constructed to follow a long-tailed power-law distribution.
+    b) When pretraining using a power-law prior, the MNIST digit is encoded by the model, and the nearest neighbours all have the same digit class.
+    c) When pretraining with a uniform prior, the MNIST digit information is discarded by the model, and therefore the nearest neighbours have different digit classes.}
+    \label{fig:cifar10-nn}
+\end{figure}
+
+\subsection{Natural class-imbalanced setting}
+
+In this section, we examine the downstream task performance obtained by pretraining PMSN in more realistic settings.
+We examine pretraining with both the IN1K, which is relatively class-balanced, and with the iNaturalist18 dataset~\citep{van2018inaturalist}, which is relatively class-imbalanced.
+The iNat18 dataset contains approximately 430K images from over 8142 different species of plants and animals; since some species are more abundant and easier to photograph than others, the class distribution of images in this dataset naturally follows a long-tailed distribution. %; see Figure~\ref{fig:}.
+% In contrast, the ImageNet-1K (IN1k) dataset is relatively balanced and contains approximately 1M curated images from 1000 different categories. %~\citep{todo}; see Figure~\ref{fig:} for a depiction of the IN-1K class distribution.
+After pretraining with either iNat18 or IN1k, we examine downstream task performance on the same set of tasks used in Section~\ref{sec:class_stratified}.
+Additional details about the experimental setup can be found in Appendix~\ref{apndx:priors}.
+
+\paragraph{Results with true class distribution.}
+Table~\ref{tb:inat_class_prior} compares iNat18 pretraining with PMSN using a uniform distribution or the \emph{true} class distribution of iNat18.
+In particular, if we have $D$ images in the dataset and $D_k$ images in the $k^{\text{th}}$ class category, then we define the class-prior, $\vp_{\text{class}}$, such that $[\vp_{\text{class}}]_k = \nicefrac{D_k}{D}$.
+Of course this information is not usually assumed to be known in self-supervised pretraining; we consider it here to illustrate the effect of the uniform prior on representation learning.
+As shown in Table~\ref{tb:inat_class_prior}, simply replacing the uniform prior with the long-tailed class-prior improves performance on \emph{all} downstream tasks: object classification with CIFAR100 (+0.9\%), iNat18  (+3.0\%), Places205  (+1.4\%), object counting with Clevr/Count  (+2.1\%), and depth prediction with Clevr/Dist (+2.3\%) and KITTI (+2.7\%).
+
+These results clearly support the intuition that moving away from the uniformity prior when pretraining with class-imbalanced data can improve the quality of the representations that are learned.
+However, note that we have used the true class distribution in these experiments.
+While this distribution may be estimated using weak supervision sources often available for internet-scale data (e.g., image captions or hashtags), we would prefer general methods that do not require precise a priori knowledge of the class distribution.
+
+\begin{table}[h]
+    \centering
+    \footnotesize
+    \caption{\textbf{True Class Prior:} Comparing the uniform prior with the class prior computed from the true class distribution leads to significant gains on downstream tasks.}
+    \label{tb:inat_class_prior}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        Prior & iNat18 & CIFAR100 & Place205 & Clevr/Count & Clevr/Dist & KITTI\\
+        \toprule\toprule
+        \multicolumn{7}{c}{\scriptsize\bf Pretrained on iNaturalist18 (ViT-S/16)}\\[1mm]
+        uniform & 29.1 & 59.4 & \ 36.9 & 69.4 & 56.8 & 68.2 \\
+        class-prior &  \bf 32.1 & \bf 60.3 & \bf 38.3 &  \bf 71.5 & \bf 59.1 & \bf 70.9 \\
+        $\Delta$ & \color{blue} +3.0 & \color{blue} +0.9 & \color{blue} +1.4 & \color{blue} +2.1 & \color{blue} +2.3 & \color{blue} +2.7\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\paragraph{Results with general power-law distributions.}
+Table~\ref{tb:inat_powerlaw_priors} evaluates models pretrained using PMSN on the ImageNet-1K and iNat18 datasets when we do not use precise knowledge of the class distribution.
+In particular, we explore a power-law prior, $\vp_{\text{\sc PL}(\tau)}$, such that $[\vp_{\text{\sc PL}(\tau)}]_k \propto \nicefrac{1}{k}^\tau$ with power-law exponent $\tau = 0.25$.
+As expected, use of a power-law prior improves downstream task performance when pretraining on the class-imbalanced iNat18 dataset (top half of Table~\ref{tb:inat_powerlaw_priors}), but degrades performance when pretraining on the class-balanced ImageNet-1K dataset (bottom half of Table~\ref{tb:inat_powerlaw_priors}).
+These results indicate that it is preferable to match the prior distribution in self-supervised algorithms to the distribution of semantic concepts in the pretraining dataset.
+In the case of ImageNet pretraining, the uniform prior more closely matches the distribution of classes in the dataset, and thus we expect it to achieve strong downstream task performance in that setting.
+
+While these results support the observation that one can still improve SSL pretraining on class-imbalanced datasets without having a priori knowledge of the class distribution,  comparing to Table~\ref{tb:inat_class_prior} shows that it would be preferable to use the true class distribution when such information is available.
+In short, we consider the results of this section as a demonstration of the effect of non-uniform feature priors and do not claim to have completely solved the issue of class-imbalanced pretraining.
+
+\begin{table}[t]
+    \centering
+    \footnotesize
+    \caption{\textbf{Power-Law Prior}: PMSN with a power-law prior achieves better downstream performance than uniform prior, when the pretraining dataset has a long-tailed classes distribution. Power-law prior hurts performance for class-balance pretraining dataset. Feature Prior should therefore matches the class-distribution.}
+    \label{tb:inat_powerlaw_priors}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        Prior & iNat18 & CIFAR100 & Place205 & Clevr/Count & Clevr/Dist & KITTI\\
+        \toprule\toprule
+        \multicolumn{7}{c}{\scriptsize\bf Pretrained on iNaturalist18 (ViT-S/16)}\\[1mm]
+        uniform & 29.1 & 59.4 & \ 36.9 & 69.4 & 56.8 & 68.2 \\
+        power-law & 30.1 & 60.1 & 37.7 & 71.1 & 58.9 & 68.2 \\
+        % power-law$(0.5)$ &  28.4 & \bf 60.4 & \quentin{running} & 71.3 & 57.6 & 68.3 \\
+        $\Delta$ & \color{blue} +1.0 & \color{blue} +0.7 & \color{blue}+0.8 & \color{blue}+1.7 & \color{blue}+2.1 & +0.0 \\
+        \midrule
+        \multicolumn{7}{c}{\scriptsize\bf Pretrained on ImageNet (ViT-B/16)}\\[1mm]
+        uniform & 41.9 & 81.7 & 54.0 & 74.3 & 57.8 & 73.3 \\
+        power-law & 22.0 & 63.8 & 38.3 & 71.4 & 65.8 & 66.6 \\
+        $\Delta$ & \color{red}-19.9 & \color{red}-17.8 & \color{red}-15.7 & \color{red}-2.9 & \color{blue}+8.0 & \color{red}-6.7\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\paragraph{Visualizing learned prototype vectors.}
+In Figure \ref{fig:visu_rcdm_inat}, we use RCDM to visualize the prototypes of a PMSN model pretrained with either power-law or uniform priors on the iNat18 dataset.
+The features that emerge when pretraining with a power-law prior are more associated with high level concepts such as specific image classes.
+For example, one can recognize specific types of birds and plants in Figure~\ref{fig:visu_rcdm_inat_powerlaw}, which is not the case with the samples generated using the uniform prior prototypes in Figure~\ref{fig:visu_rcdm_inat_uniforme}.
+These qualitative results further highlight the effect of the overlooked uniform prior in self-supervised learning with class-imbalanced data.
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{assets/MSN2_prior_powerlaw.pdf}
+        \caption{
+        Pretraining on iNat18 with power-law prior\\
+        {\bf (Prior matching iNat18 class distribution)}
+        }
+        \label{fig:visu_rcdm_inat_powerlaw}
+    \end{subfigure}
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{assets/MSN2_prior_uniform.pdf}
+        \caption{
+        Pretraining on iNat18 with uniform prior.\\
+        {\bf (Prior not aligned with iNat18 class distribution)}
+        }
+        \label{fig:visu_rcdm_inat_uniforme}
+    \end{subfigure}
+    \caption{Visualization of prototypes learned by an PMSN model pretrained with either uniform or powerlaw priors on the iNat18 dataset. We use RCDM~\citep{bordes2022high} to enable visualization of the prototypes. Each row corresponds to samples generated by conditioning on a prototype with various random seeds. Features that remain constant across the row depicts information contained in the prototypes, whereas features that vary depict information that is not contained.
+    a) Features that emerge when pretraining with a powerlaw prior on the iNat18 dataset tend to be associated with high level concepts such as specific image classes. 
+    b) Features that emerge by pretraining with a uniform prior are largely associated with low-level concepts such as texture.}
+    \label{fig:visu_rcdm_inat}
+\end{figure}
+
+\section{Conclusion}
+In this work, we show that many common self-supervised learning frameworks have a prior to capture features that enable uniform clustering of the data, and as such, require class-balanced datasets to learn class-discriminative features.
+By reformulating self-supervised criteria to prefer power-law distributed features, one can improve quality of the learned representations on real-world class-imbalanced datasets.
+
+%\newpage
+
+\vfill
+\pagebreak
+\section*{Reproducibility statement}
+
+To facilitate reproducibility, we provide details on our pretraining and evaluation protocol in Appendices~\ref{apndx:classstratified_sampling} and~\ref{apndx:priors}.
+When pretraining using existing methods, we leverage publicly available implementations along with the default hyperparameters; see Appendix~\ref{apndx:classstratified_sampling} for details.
+For evaluation, we use the publicly available VISSL codebase~\citep{goyal2021vissl}; specific evaluation configurations are provided in Appendix~\ref{apndx:classstratified_sampling_eval}. 
+The training details for the PMSN experiments are provided in Appendix~\ref{sec:priors}.
+And finally, the proofs for all propositions in Section~\ref{sec:theory} are produced in Appendix~\ref{apndx:proofs}.
+
+\bibliography{refs.bib}
+\bibliographystyle{ICLRtemplate/iclr2023_conference}
+\vfill
+\pagebreak
+\appendix
+% \input{proofs}
+
+\section{Broader related work}
+\label{apndx:relatedwork}
+
+
+Joint-embedding architectures are an active line of research in self-supervised representation  learning~\citep{wu2018unsupervised,he2019moco,chen2020exploring,grill2020bootstrap,chen2020mocov2,caron2021emerging,bardes2021vicreg,zhou2021ibotyes}.
+These approaches rely on invariance based pretraining where a neural network encoder is trained to output similar embeddings for two or more views of the same image. To avoid pathological solution, joint-embedding approaches use explicit regularization~\citep{chen2020simple, caron2021emerging, bardes2021vicreg, assran2021semi} or architectural constraints~\citep{grill2020bootstrap,chen2020exploring}.
+
+Explicit regularization usually maximizes the volume of space occupied by the representations. Regularization can be implemented using various strategies such as contrasting negative samples~\citep{bromley1993signature,he2019moco,chen2020simple}, variance-covariance regularization~\citep{bardes2021vicreg, zbontar2021barlow}, or by maximizing the entropy of the representations~\citep{asano2019self,caron2020unsupervised,caron2021emerging,assran2021semi,assran2022masked}.
+Alternative collapse-prevention approaches based on architectural constraints leverage architectural design to avoid collapse such as stopping the gradient flow in one of the Siamese Network branches~\citep{chen2020simple}, using a momentum encoder to compute the network targets~\citep{grill2020bootstrap}, or using an asymmetric prediction head~\citep{grill2020bootstrap, chen2020simple, baevski2022data2vec}.
+Recent theoretical work~\citep{tian2021understanding} explores why certain joint-embedding methods with architectural constraint avoid representation collapse without explicit use of a volume maximization penalty; the implicit collapse prevention mechanisms here are not mutually exclusive.
+Recent empirical work~\citep{bordes2022guillotine} studies the invariance properties of these pretrained representations.
+The work of~\citet{mitrovic2020representation} has drawn connections between invariance and causality when the data-augmentations used during pretraining manipulate specific factors of variation in the data-generating distribution.
+Other works have studied the computational efficiency of joint-embedding methods, and demonstrated how small amounts of supervision can be used to accelerate convergence~\citep{assran2020supervision}.
+
+While joint-embedding architectures are usually leveraged to learn a global image representations, some works explore these use of these architecture for learning local and dense representations~\citep{chen2022intra,gidaris2020learning}.
+More recently,~\citet{lecun2022path} proposes an architecture based on joint-embedding approaches to learn generic world model, capturing both dense local features as well as global image features.
+
+Orthogonal to the contributions of invariance-based pretraining, another line of work attempts to learn representations by artificially masking parts of the input and training a network to reconstruct the hidden content~\citep{vincent2010stacked}.
+Auto-regressive models, and denoising auto-encoders, in particular,  predict clean visual inputs from noisy views~\citep{chen2020generative,vincent2010stacked,he2021masked,bao2021beit,baevski2022data2vec}. A mask-noise is usually used to perturb the images and those approaches predict the masked inputs either at the pixel level~\citep{dosovitskiy2020image,he2021masked,xie2019unsupervised} or at a token-level, using a pixel (often patch-level) tokenizer~\citep{bao2021beit,wei2021masked}.
+While these works demonstrate impressive scalability, they usually learn features at a low-level of semantic abstraction compared to joint-embedding approaches~\citep{assran2022masked}.
+
+More recently, a set of approaches attempt to combine both joint-embedding and reconstruction based approaches~\cite{zhou2021ibotyes,el2021large}, wherein they combine an invariance pretraining loss with a patch-level reconstruction loss.
+
+\section{Relation to the InfoMax principle}
+
+A longstanding conviction in unsupervised representation learning is that the resulting representations should be both maximally informative about the inputs, while also satisfying certain simplicity constraints~\citep{linsker1988self, goodfellow2016deep}.
+The former objective is often referred to as the information-maximization principle (InfoMax), while the latter is sometimes referred to as the parsimony principle~\citep{ma2022principles}, which is crucial to the problem formulation.
+Indeed,~\citet{bridle1991unsupervised}, one of the first works to empirically explore unsupervised representation learning via information-maximization, found that, in the absence of additional constraints, the resulting InfoMax representations may not be very useful.
+The more recent analysis of~\citet{tschannen2019mutual} also argues that simplicity constraints are essential to the success of modern representation learning methods built on the InfoMax principle.
+Historically, simplicity constraints were enforced by encouraging the learned representations to be sparse, low-dimensional, or disentangled, i.e., the individual dimensions of the representation vector should be statistically independent.
+
+Modern state-of-the-art approaches for unsupervised representation learning still frequently employ an information-maximization formulation~\citep{hjelm2018learning, bachman2019learning, krause2010discriminative, hu2017learning, oord2018representation}, but with the simplicity constraints manifested in self-supervised loss terms.
+One example is the widespread view-invariance penalty~\citep{misra2020self}, often coupled with with independence~\citep{zbontar2021barlow, bardes2021vicreg} or low-dimensionality constraints, e.g., by projecting representations on the unit hypersphere~\citep{chen2020simple,he2019moco,grill2020bootstrap}.
+
+To better understand these methods, recall that the mutual information, $I(\cdot, \cdot)$, between a latent vector $Z$ and data $X$ can be written as
+\[
+    I(Z,X) = H[Z] - H[Z|X],
+\]
+where $H[Z]$ is the marginal entropy of $Z$, and $H[Z|X]$ is the expected entropy of the posterior distribution.
+In learning a representation of the data, $Z$, that maximizes the mutual information $I(Z,X)$, we thereby seek to maximize the marginal entropy of $Z$, i.e., search for uniformly distributed feature embeddings.
+
+However, as we show in this work, perhaps the features that we wish our representations to capture are not necessarily those with the highest marginal entropy.
+It is often the case that the semantic concepts we wish to capture actually follow a long-tailed distribution in the wild~.
+Such desirable features would be penalized under existing information-maximization frameworks.
+Thus, in the absence of finer grained notions of information, perhaps it is necessary to reconsider the longstanding conviction of seeking representations that maximize information content.
+
+
+\section{Theoretical guarantees}
+\label{apndx:proofs}
+
+\subsection{Proof of proposition~\ref{prop:kmeans}}
+\label{proof:kmeans1}
+
+We will demonstrate that 
+\begin{align}
+    \min_{\mu_1,\dots,\mu_k}\sum_{n=1}^{N}\min_{c=1,\dots,K} \lVert\vx_n-\mu_c \rVert^2_2 =\min_{\mP\in \{0,1\}^{N \times K}:\mP\mathbf{1}_{K}=\mathbf{1}_{N}}\sum_{k=1}^{K}\sum_{n,n^\prime=1}^{N}  \frac{\mP_{n,k}\mP_{n^\prime,k}}{\mathbf{1}_{N}^T\mP_{.,k}}\lVert\vx_{n}-\vx_{n'} \rVert^2_2,
+\end{align}
+where the left-hand side minimizes over the values of the $K$ centroids and the inner minimization identifies the cluster membership of sample $x_n$.
+To do so, one should first notice that almost surely, for any input $\vx_n$, the $\min_{c=1,\dots,K} \lVert\vx_n-\mu_c \rVert^2_2$ is attained for a single centroid. In fact, for any continuous distribution on the data (and/or centroids) the probability to sample them so that a sample $\vx$ lies exactly equidistant from two (or more) centroids is $0$ since this is a space of dimension $D-1$, which has measure $0$.
+Hence, we first obtain
+\begin{align*}
+    \min_{\mu_1,\dots,\mu_k}\sum_{n=1}^{N}\min_{c=1,\dots,K} \lVert\vx_n-\mu_c \rVert^2_2 =\min_{\mu_1,\dots,\mu_k}\sum_{n=1}^{N}\min_{\vp \in \{0,1\}^{K}:\vp^T\mathbf{1}_K=1}\sum_{k=1}^{K} \vp_k\lVert\vx_n-\mu_k \rVert^2_2,
+\end{align*}
+and because each sub-problem is independent, we can pull them out of the sum to obtain
+\begin{align*}
+    \min_{\mu_1,\dots,\mu_k}\sum_{n=1}^{N}\min_{c=1,\dots,K} \lVert\vx_n-\mu_c \rVert^2_2 =\min_{\mu_1,\dots,\mu_k}\min_{\mP\in \{0,1\}^{N \times K}:\mP\mathbf{1}_{K}}\sum_{n=1}^{N}\sum_{k=1}^{K} \mP_{n,k}\lVert\vx_n-\mu_k \rVert^2_2,
+\end{align*}
+now we can switch the minimization order to obtain
+\begin{align*}
+    \min_{\mP\in \{0,1\}^{N \times K}:\mP\mathbf{1}_{K}}\min_{\mu_1,\dots,\mu_k}\sum_{n=1}^{N}\sum_{k=1}^{K} \mP_{n,k}\lVert\vx_n-\mu_k \rVert^2_2=\min_{\mP\in \{0,1\}^{N \times K}:\mP\mathbf{1}_{K}}\sum_{n=1}^{N}\sum_{k=1}^{K} \mP_{n,k}\lVert\vx_n-\mu^*_k \rVert^2_2,
+\end{align*}
+with $\mu^*_k$ the mean of the samples within cluster $k$, i.e. $\frac{1}{(\mP^T\mathbf{1}_N)_k}\sum_{n=1}^{N}\mP_{n,k}\vx_n$.
+The only thing left to show is that the sum of distances to the cluster means is equivalent to the pairwise distances between all the points within each cluster with an appropriate normalization, which is a standard result; see, e.g.,~\citet{zha2001spectral}.
+    
+    
+    
+\subsection{Proof of proposition~\ref{prop:vicreg}}
+\label{proof:kmeans2}
+
+
+\paragraph{Notation.}
+Before establishing the theoretical connections between common joint-embedding methods for self-supervised learning and the K-means method, we first define some notation to facilitate the discussion.
+Given a ``stand-alone'' dataset, $\mX'\in\mathbb{R}^{N^\prime\times 3HW}$, we construct the pretraining data $\mX \in \R^{N\times 3HW}$ by repeatedly perturbing the elements of the stand-alone dataset.
+Specifically,
+\[
+    \mX \triangleq [\text{View}_1(\mX')^T,\dots,\text{View}_V(\mX')^T]^T,
+\]
+where $\text{View}_i(.)$ is a sample-wise image transformation, e.g., random crop, color jitter, patch masking.
+We also define the ground-truth similarity matrix, $\mG \in \{0,1\}^{N \times 3HW}$, given by
+\[
+    \mG_{i,j}=
+    \begin{cases}
+        (\vx_i \sim \vx_j), \;\; i \neq j\\
+        0, \;\;\;\;\;\;\;\;\;\;\;\;\;\;\; i=j
+    \end{cases},
+\]
+where the $\sim$ operator returns $1$ if its two arguments are positively related (i.e., correspond to different views of the same sample).
+We also define the matrix of {\em embeddings} obtained from a model $f_{\theta}(\cdot)$ as
+\begin{align}
+    \mZ\triangleq[\vz_1,\dots,\vz_N]^T\in\mathbb{R}^{N \times D}\;\;\text{ with }\;\vz_n\triangleq f_{\theta}(\vx_n).\label{eq:embedding}
+\end{align}
+Now we are ready to present our first equivalence relations for the VICReg and SimCLR methods.
+The VICReg loss~\citep{bardes2021vicreg}, which is a function of $\mX$ and $\mG$, can be defined as
+\begin{align*}
+\mathcal{L}\hspace{-0.05cm}=&\alpha\hspace{-0.05cm} \sum_{k=1}^{K}\max\hspace{-0.05cm}\left(\hspace{-0.05cm}0,1\hspace{-0.05cm}-\hspace{-0.05cm}\sqrt{\Cov(\mZ)_{k,k}}\right)\hspace{-0.08cm}+\hspace{-0.05cm} \beta  \sum_{k=1}^{K}\sum_{\substack{\ell=1\\\ell \not = k}}^{K} \Cov(\mZ)^2_{k,\ell} +\hspace{-0.05cm}\frac{\gamma}{N} \sum_{i=1}^{N}\sum_{j=1}^{N}(\mG)_{i,j}\|\vz_{i}-\vz_{j}\|_2^2,
+\end{align*}
+but this desired result relies on the simplification employed in~\eqref{eq:VICR2}.
+To prove our statement, we first remind the reader of a common result that we will heavily rely on: the decomposition of the covariance matrix into within- and between-cluster covariance matrices. Let us assume for simplicity that $\mZ$ is already centered. We can now decompose the covariance into
+\begin{align*}
+    \Cov(\mZ)=&\frac{1}{N}\mZ^T\mH\mZ=\frac{1}{N}\left(\mZ^T\mG\mZ+\mZ^T(\mI-\mG)\mZ\right),
+\end{align*}
+where two terms are now the {\em between cluster} and {\em within cluster} covariances, with $\mH$ the centering matrix defined by $\mI-\mathbf{1}_{N}\mathbf{1}_{N}^T/N$.
+Let's first consider the LHS of the VICReg loss to simplify it into
+\begin{align*}
+     \left\|\frac{1}{N}\mZ^T\mZ-\mI\right\|_F^2=& \left\|\frac{1}{N}\mZ^T\mG\mZ+\frac{1}{N}\mZ^T(\mI-\mG)\mZ-\mI\right\|_F^2\\
+    =& \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+ \left\|\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right\|_F^2\\
+    &\hspace{4.5cm}+\frac{2}{N} Tr\left(\mZ^T(\mI-\mG)\mZ(\frac{1}{N}\mZ^T\mG\mZ-\mI)\right)\\
+    =& \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+ \left\|\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right\|_F^2-\frac{2}{N} Tr\left(\mZ^T(\mI-\mG)\mZ\right)\\
+    &\hspace{5.5cm}+\frac{2}{N^2} Tr\left(\mZ^T(\mI-\mG)\mZ\mZ^T\mG\mZ\right)\\
+    &\hspace{-1.1cm}= \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+\sum_i \lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)\left[\lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)-2\right]\\
+    &+\frac{2}{N^2} Tr\left(\mZ^T(\mI-\mG)\mZ\mZ^T\mG\mZ\right),
+\end{align*}
+where $\lambda_i(\mM)$ returns the $i^{\rm th}$ eigenvalue of its matrix argument $\mM$; the last equality is obtained by noticing that $\| \mM \|_F^2 = \sum_i\lambda_i(\mM)^2$ and that for a symmetric positive semidefinite matrix, $Tr(\mM)=\sum_i\lambda_i(\mM)$; we thus obtain the following upper and lower bounds
+\begin{align*}
+     \left\|\frac{1}{N}\mZ^T\mZ-\mI\right\|_F^2\leq& \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+\sum_i \lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)\\
+     &\times \left[\lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)-2+\lambda_i \left(\frac{1}{N}\mZ^T\mG\mZ\right)\right]\\
+     \left\|\frac{1}{N}\mZ^T\mZ-\mI\right\|_F^2\geq& \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+\sum_i \lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)\\
+     &\times \left[\lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)-2+\lambda_{K+1-i} \left(\frac{1}{N}\mZ^T\mG\mZ\right)\right]\\
+     \left\|\frac{1}{N}\mZ^T\mZ-\mI\right\|_F^2\geq& \left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2+\sum_i \left[\lambda_i \left(\frac{1}{N}\mZ^T(\mI-\mG)\mZ\right)-1\right]^2-K,
+\end{align*}
+from which is becomes clear that to minimize the variance+covariance terms, one must either maximize the intra-cluster variance, or the inter-cluster variance, or both. However, the intra-cluster variance is exactly the invariance term since it can be expressed as
+\begin{align*}
+    \sum_{j=1}^{N}(\mG)_{i,j}\|\vz_{i}-\vz_{j}\|_2^2=2 Tr(\mZ^T(\mI-\mG)\mZ),
+\end{align*}
+and thus the only possible solution to minimize the invariance term while minimizing the variance+covariance is to minimize $\left\|\frac{1}{N}\mZ^T\mG\mZ-\mI\right\|_F^2$ and thus we recover that VICReg's loss corresponds to the K-means loss plus a regularizer $\|\mu\mu^T-\mI \|_F^2$ as in
+\begin{align*}
+    \frac{\gamma}{N}\sum_{k=1}^{K}\sum_{\vx \in \sX_k}\|\vx-\mu_k\|_2^2+\alpha\|\mM^T\mM-\mI \|_F^2,
+\end{align*}
+with $\mM\triangleq [\mu_1,\dots,\mu_K]$, and the number of centroids $K$ is given by $\min(\dim(\vz),rank(\mG+\mI))$ and the centroids are given by $\mu_k=\frac{1}{\langle \mP_{.,k},\mathbf{1}\rangle}\sum_{n=1}^{N}\mP_{n,k}\vx_n$ with $\mG=\mP^T\mD\mP$, and finally $\sX_k=\{\vx_n \in \sX:\mP_{n,k}>0\}$
+
+
+\subsection{Proof of proposition~\ref{prop:msn}}
+\label{proof:kmeans3}
+
+The proof is relatively straightforward and will follow the same principle as the proof showing how GMM recovers K-means. The only difference is that we will take the zero-noise limit of the MSN loss (\eqref{eq:msn}) instead of GMM loss (\eqref{eq:GMM_uni}), and we will see that we recover a constrained version of K-means with extra constraints on the cluster distribution.
+The MSN loss is defined for positive pairs $\vx_n,\vx_n^+$ and estimates the corresponding cluster posteriors $\vp_n,\vp_n^+$ via 
+$\text{softmax}(\mM^T\vx_n/\sigma)$ and $\text{softmax}(\mM^T\vx^+_n/\sigma^+)$ respectively with $\mM\triangleq [\mu_1,\dots,\mu_K]$ as we employed in VICReg, and the two temperature parameters are commonly $\sigma^+ \gg \sigma>0$; this asymmetry is know as sharpening. Without loss of generality we consider the $\sigma$MSN loss, i.e., the MSN loss re-scaled by $\sigma$, this does not alter the training dynamics as the learning rate can be adapted accordingly, but will simplify our derivations below; we thus also replace $\lambda$ with $\lambda/\sigma$. In this setting, we see that $\text{softmax}(\mM^T\vx^+_n/\sigma^+)_k=\delta(k-k(n))$ where we hereafter denote $k(n)=\argmin_{c}\|\mu_c-\vx_n^+\|_2$ as the cluster assignment of the positive view of $\vx_n$. With those notations, we can finally derive
+% leading to the MSN loss being
+% \begin{align*}
+% MSN=\sum_{n=1}^{N}\|\vx_n-\mu_{k(n)} \|_2^2/\sigma+\text{LogSumExp}(-\|\vx_n-\mu_1 \|_2^2/\sigma,\dots,-\|\vx_n-\mu_K \|_2^2/\sigma)- \lambda H({\overline{\vp}}),
+% \end{align*}
+% and thus by exploiting the log-sum-exp inequalities we obtain
+% \begin{align*}
+% MSN &\leq \sum_{n=1}^{N}\underbrace{\|\vx_n-\mu_{k(n)} \|_2^2/\sigma-\min(\|\vx_n-\mu_1 \|_2^2/\sigma,\dots,\|\vx_n-\mu_K \|_2^2/\sigma)}_{=0 \iff \argmin_c \|\vx_n-\mu_c\|_2=\argmin_c\|\vx_n^+-\mu_c\|_2}- \lambda H({\overline{\vp}})+\log(K)\\
+% &\leq \sum_{n=1}^{N}\|\vx_n-\mu_{k(n)} \|_2^2/\sigma- \lambda H({\overline{\vp}})+\log(K)\\
+% \end{align*}
+\begin{align*}
+\lim_{\sigma \mapsto 0 } \sigma MSN =&\lim_{\sigma \mapsto 0 }\left[\frac{\sigma}{N} \sum^N_{n=1} H(\vp_{n}^+, \vp_n) + \lambda D_{\text{KL}}({\overline{\vp}\ \lVert\ \vp_\text{prior}})\right]\\
+&\hspace{-2cm}=\lim_{\sigma \mapsto 0 }\left[-\frac{\sigma}{N}\sum_{n=1}^{N}\sum_{k=1}^{K}\delta(k-k(n))\log\left(\text{softmax}(\mW^T\vx_n/\sigma)_k\right)\right]+\lambda \sum_{k=1}^{K} \frac{N_k}{N}\log\left(\frac{N_k/N}{(\vp_{\rm prior})_k}\right)
+\end{align*}
+where we could push the limit inside $D_{\text{KL}}$ since we assume that no cluster is empty and thus the KL function is continuous as $\sigma\mapsto 0$, and that $\lim_{\sigma \mapsto 0}\overline{\vp}=(\frac{N_1}{N},\dots,\frac{N_K}{N})$. The value of $N_k$ is the number of samples that are assigned to cluster $k$. This assumption, which was only used for simplicity, can be removed easily by noticing that $\lim_{u\mapsto 0} u\log(u)=0$. Now considering the left term of the loss we obtain a direct simplification of the log-softmax as follows
+\begin{gather*}
+    \lim_{\sigma \mapsto 0 }\left[-\frac{\sigma}{N}\sum_{n=1}^{N}\sum_{k=1}^{K}\delta(k-k(n))\log\left(\text{softmax}(\mW^T\vx_n/\sigma)_k\right)\right]\\=\frac{1}{N}\sum_{n=1}^{N}\underbrace{\|\vx_n-\mu_{k(n)} \|_2^2-\min_{k=1,\dots,K}\|\vx_n-\mu_{k} \|_2^2}_{=0 \iff \argmin_c \|\vx_n-\mu_c\|_2=\argmin_c\|\vx_n^+-\mu_c\|_2},
+\end{gather*}
+which is minimized whenever all the samples $\vx_n$ that have their positive views $\vx_n^+$ associated to the same centroid belong to the same cluster; thus the overall MSN loss can be written as
+\begin{align*}
+    \sum_{k=1}^{N}\sum_{\vx \in \sX_k}\|\vx-\mu_k\|_2^2+\lambda \sum_{k=1}^{K} \frac{N_k}{N}\log\left(\frac{N_k/N}{(\vp_{\rm prior})_k}\right),
+\end{align*}
+where $\sX_k = \{\vx \in \sX : \argmin_{c=1,\dots,K}\|\vx^+-\mu_c\|_2=k \}$.
+
+% Then, the since the product law for limits states that the limit of a product of functions equals the product of the limit of each function we have that 
+% \begin{align*}
+% \lim_{\sigma \mapsto 0 } MSN =&-\frac{1}{N}\sum_{n=1}^{N}\sum_{k=1}^{K}\left(\lim_{\sigma \mapsto 0 }\text{softmax}(\mW^T\vx^+_n/\sigma)_k\right)\left(\lim_{\sigma \mapsto 0 }\log\left(\text{softmax}(\mW^T\vx_n/\sigma)_k\right)\right)
+% &\hspace{3cm}+\sum_n\|\vx_n-\mu_{n}^+\|_2^2+\lambda \sum_{k=1}^{K} \frac{N_k}{N}\log\left(\frac{N_k/N}{(\vp_{\rm prior})_k}\right),
+% \end{align*}
+% since $\lim_{\sigma \mapsto 0 }\text{softmax}(\mW^T\vx^+_n/\sigma)_k=\delta(k=\argmax_{c}(\mW^T\vx)_c)$ i.e. it is a one-hot vector with a $1$ at the index of the centroid the closest to $\vx$, and since 
+% \begin{align*}
+% \log\left(\text{softmax}(\mW^T\vx_n/\sigma)_k\right)&=\log \left(\frac{e^{\mu_k^T\vx_n/\sigma}}{\sum_{c=1}^{C} e^{\mu_c^T\vx_n/\sigma}}\right)\\
+% &=\mu_k^T\vx_n/\sigma-LogSumExp(\mu_1^T\vx_n/\sigma,\dots,\mu_K^T\vx_n/\sigma)
+% \end{align*}
+% \begin{align*}
+% \lim_{\sigma \mapsto 0 } MSN 
+% =&\sum_{k=1}^{K}\sum_{\vx \in \sX_k}\|\vx-\mu_k\|_2^2+\lambda \sum_{k=1}^{K} \frac{N_k}{N}\log\left(\frac{N_k/N}{(\vp_{\rm prior})_k}\right),
+% \end{align*}
+% where $\mu_{n}^+$ is the centroid closest to $\vx_n^+$ and with $\sX_k\triangleq \{\vx \in \sX : \arg \min \|\vx-\mu_c \|=k \}$. The first step in the equality comes from the fact that $softmax(\mW\vx)_k=softmax(-\|\mu_k-\vx_n \|_2^2)$ since the features and centroids are normalized.
+\subsection{Proof of proposition~\ref{prop:swav}}
+\label{proof:swav}
+
+The proof for SwAV mainly relies on the same development as done for MSN. That is, we saw that with enough sharpening, the cross-entropy between $\vp_{n}^+$ and $\vp_n$ falls back to the K-means like term with an extra margin that is minimized only when the two views are in the same cluster. The difference arises in that SwAV explicitly adds linear constraints on the cluster-membership matrix whereas MSN was employing a KL-divergence between the average posterior and the prior. The connection between the linear constraint and the SwAV Sinkhorn-Knopp procedure has been made precisely in~\citet{wang2010learning}, where it was shown that the latter solved a relaxed optimization problem for which the cluster-membership is no longer constrained to be $0$ or $1$.
+
+
+\section{Pretraining and evaluation details for section~\ref{sec:class_stratified}}
+\label{apndx:classstratified_sampling}
+
+\subsection{Pretraining protocol}
+
+\paragraph{SimCLR.} We use the VISSL~\citep{goyal2021vissl} code base to pretrain a ResNet-50 with SimCLR~\citep{chen2020simple}, with a batch size of $4096$ for $300$ epochs.
+Our pretraining follow the standard hyperparameters defined in~\citet{chen2020simple}.
+The learning rate follows the default cosine schedule with a $10$ epoch warmup. We use a temperature of $0.1$ for the contrastive loss and LARS \citep{you2017large} as an optimizer. We modify the sampler to force $K$ different classes inside each mini-batch where $K$ is set to $8$ for the  class-imbalanced sampling experiments and $960$ for the class-balanced sampling experiments.
+
+\paragraph{VICReg.}
+We pretrain a ResNet-50 with VICReg~\citep{bardes2021vicreg} using the LARS optimizer with a batch size of $1024$ for $300$ epochs using the official code base, which is publicly available: \url{https://github.com/facebookresearch/vicreg}.
+Our pretraining follow the standard hyperparameters defined in~\citet{bardes2021vicreg}.
+The learning rate follows the default cosine schedule with a $10$ epoch warmup.
+We set the dimensions of the expander MLP to the default $8192-8192-8192$.
+Weight decay is set to $10^{-6}$, the variance and invariance coefficients are set to $25.0$, and the covariance coefficient is set to $1.0$.
+We modify the sampler to force $K$ different classes inside each mini-batch where $K$ is set to $2$ for the  class-imbalanced sampling experiments and $960$ for the class-balanced sampling experiments.
+ 
+\paragraph{MSN.}
+We pretrain a ViT-B/16 with MSN~\citep{assran2022masked} using the AdamW optimizer with a batch size of $1024$ for $300$ epochs and $1024$ prototypes using the official code base, which is publicly available: \url{https://github.com/facebookresearch/msn}.
+Our pretraining follow the standard hyperparameters defined in~\citet{assran2022masked}.
+The learning rate follows the default cosine schedule with a $15$ epoch warmup.
+Weight decay is linearly increased from $0.04$ to $0.4$.
+Gradient clipping is set to $3.0$, the entropy coefficient is set to $1.0$, the temperature is set to $0.1$, the sharpening exponent is set to $0.25$, and the masking ratio is set to $0.5$.
+The number of random-mask views in each iteration is set to $1$, and the number of focal-mask views in each iteration is set to $10$.
+We modify the sampler to force $K$ different classes inside each mini-batch where $K$ is set to $2$ for the  class-imbalanced sampling experiments and $960$ for the class-balanced sampling experiments.
+
+\paragraph{MAE.}
+We pretrain a ViT-L/16 with MAE~\citep{he2021masked} using the AdamW optimizer with a batch size of $1024$ for $800$ epochs using the official code base, which is publicly available: \url{https://github.com/facebookresearch/mae}.
+Our pretraining follow the standard hyperparameters defined in~\citet{he2021masked}.
+The learning rate follows the default cosine schedule with a $40$ epoch warmup.
+Weight decay is set to $0.05$, and the masking ratio is set to $0.75$.
+We modify the sampler to force $K$ different classes inside each mini-batch where $K$ is set to $2$ for the  class-imbalanced sampling experiments and $960$ for the class-balanced sampling experiments.
+
+\paragraph{data2vec.} 
+We pretrain a ViT-B/16 with data2vec~\citep{he2021masked} using the AdamW optimizer with a batch size of $2048$ for $800$ epochs using the official code base, which is publicly available: \url{http://github.com/facebookresearch/data2vec_vision/tree/main/beit}.
+Our pretraining follow the standard hyperparameters defined in~\citet{baevski2022data2vec}.
+Specifically, the learning rate follows the default cosine schedule with a $10$ epoch warmup.
+Path drop is set to $0.25$, gradient clipping is set to $3.0$, weight decay is set to $0.05$, and the target layers are set to $[6,7,8,9,10,11]$.
+We modify the sampler to force $K$ different classes inside each mini-batch where $K$ is set to $2$ for the  class-imbalanced sampling experiments and $960$ for the class-balanced sampling experiments.
+
+
+
+\subsection{Evaluation protocol}
+\label{apndx:classstratified_sampling_eval}
+
+For linear evaluation, we use the default linear evaluation configurations of VISSL \citep{goyal2021vissl} to evaluate our models on the following datasets: ImageNet~\citep{russakovsky2015imagenet}, iNaturalist18~\citep{van2018inaturalist}, CIFAR100~\citep{krizhevsky2009learning}, Clevr/Count~\citep{johnson2017clevr}, Clevr/Dist~\citep{johnson2017clevr}, KITTI/Dist~\citep{geiger2013vision} and Places205~\citep{zhou2014learning}.
+
+For pretrained models based on Vision Transformers~\citep{dosovitskiy2020image}, we report the best linear classifier number among the following representations:
+\begin{itemize}
+\item the concatenation of the last $4$ layers of the class token, \citep{caron2021emerging}
+\item the representation of the last layer of the class token.
+\end{itemize}
+
+For pretrained models based on ResNet50 architectures \citep{he2016deep}, we follow the evaluation protocol of SEER \citep{goyal2022vision} and report the best linear classifier number among the following representations:
+\begin{itemize}
+\item the final representation layer (of dimension $2048$ for a ResNet50),
+\item an adaptive average pooling of the last feature map,  concatenated to get $8192$ dimensions.
+\end{itemize}
+
+We also follow the default VISSL \citep{goyal2021vissl} configuration and attach $2$ linear heads per chosen representation, one composed of a single linear layer, and one with an added batch normalization~\citep{https://doi.org/10.48550/arxiv.1502.03167} before the linear layer.
+
+
+\section{Pretraining and evaluation details for section~\ref{sec:priors}}
+\label{apndx:priors}
+
+\subsection{Pretraining protocol}
+
+\subsubsection{Toy setting}
+We pretrain a ViT-Tiny/4 with MSN~\citep{assran2022masked} using the AdamW optimizer with a batch size of $1024$ for $300$ epochs and $10$ prototypes using the official code base, which is publicly available: \url{https://github.com/facebookresearch/msn}.
+The learning rate follows the default cosine schedule with a $15$ epoch warmup.
+Weight decay is linearly increased from $0.04$ to $0.4$.
+Gradient clipping is set to $0.0$, the entropy coefficient is set to $100.0$, the temperature is set to $0.1$, the sharpening exponent is set to $0.25$, and the masking ratio is set to $0.05$.
+The number of random-mask views in each iteration is set to $1$, and the number of focal-mask views in each iteration is set to $0$.
+To accommodate the lower-resolution images, we modify the scale of random-resized-crop data augmentation to $(0.5, 1.0)$ and train without Gaussian-Blur.
+
+\subsubsection{Natural class-imbalanced setting}
+We pretrain a ViT-S/16 with MSN~\citep{assran2022masked} using the AdamW optimizer with a batch size of $4096$ for $300$ epochs and $8142$ prototypes using the official code base, which is publicly available: \url{https://github.com/facebookresearch/msn}.
+The learning rate follows the default cosine schedule with a $15$ epoch warmup.
+Weight decay is linearly increased from $0.04$ to $0.4$.
+Gradient clipping is set to $3.0$, the entropy coefficient is set to $5.0$, the temperature is set to $0.1$, the sharpening exponent is set to $0.25$, and the masking ratio is set to $0.15$.
+The number of random-mask views in each iteration is set to $1$, and the number of focal-mask views in each iteration is set to $10$.
+
+\subsection{Evaluation protocol}
+
+We use the exact same evaluation protocol as \ref{apndx:classstratified_sampling_eval}.
+
+\section{Alternatives to feature priors for section~\ref{sec:priors}: data sampling}
+
+As an alternative to changing the feature prior, perhaps one can devise more intelligence sampling strategies to align the class distribution in the sampled mini-batches with the implicit uniform prior in self-supervised algorithms.
+Here, we investigate the impact on the mini-batch sampling schemes when pretraining on iNat18. 
+We compare (uniform) random sampling to unthresholded inverse square-root frequency sampling \citep{https://doi.org/10.48550/arxiv.1310.4546}, which is commonly applied in the context of (weakly) supervised learning on internet-scale class-imbalanced data.
+Specifically, the prescription of inverse square-root frequency sampling is to sample a class with probability inversely proportional to the square root of the frequency of the class, and then sample images uniformly within the class.
+For example, if we have $D$ images in the dataset and $D_k$ images in the $k^{\text{th}}$ class category, then the probability of sampling class $k$ is equal to $\nicefrac{\sqrt{D_k}}{D}$, as opposed to the traditional $\nicefrac{D_k}{D}$ probability under uniform sampling.
+The effect of this sampling strategy is to mitigate class-imbalances by oversampling underrepresented classes in the dataset.
+While such an effect is desirable, one limitation to this strategy is that it induces an implicit reduction in the dataset size; for example, we may see the same images from the tail of the distribution very frequently and, given finite training time, may never see some of the images in the head.
+Another limitation of this strategy is that requires knowing the class label (or a weak class label) for every image in the training set.
+
+Despite these limitations, we explore inverse frequency sampling in Table~\ref{tb:inatsampling} and observe that it does not improve upon uniform random sampling.
+We hypothesize the inverse frequency sampling tends to aggressively over-sample classes with very few examples, reducing the effective number of images seen per epoch and thus degrading the quality of the learned representations.
+This result suggests that changing the feature prior is a more viable solution for pretraining with class-imbalanced data.
+
+\begin{table}[h]
+    \centering
+    \footnotesize
+    \caption{\textbf{Impact of Sampling Scheme}: Changing the mini-batch distribution by using an inverse square root sampling strategy on iNat18 does not improve downstream performance of the learned representations.}
+    \label{tb:inatsampling}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        Sampling & iNat18 & CIFAR100 & Place205 & Clevr/Count & Clevr/Dist & KITTI\\
+        \toprule\toprule
+        \multicolumn{7}{c}{\scriptsize\bf Pretrained on iNaturalist18 (ViT-S/16)}\\[1mm]
+        Uniform & \bf 29.1 & \bf 59.4 & \bf 36.9 & \bf 69.4 & 56.8 & \bf 68.2 \\
+        Inverse Square Root Freq &   23.4 & 58.4 & 35.1 & 68.3 & \bf 59.8 & 66.6\\
+        \bottomrule
+
+    \end{tabular}
+\end{table}
+
+\section{Marginal sampling probabilities}
+\label{app:marginalprob}
+The {class-imbalanced} strategy in Section~\ref{sec:class_stratified} maintains the same marginal probability of sampling individual data points as compared to the {class-balanced} sampling strategy; i.e., the probability of sampling a particular data point in each iteration is unchanged.
+To see this, suppose we have a mini-batch of size $B = n \times 960$ for some integer $n > 0$.
+Under class-balanced sampling, we will thus sample $960$ classes in each iteration, and then $n$ images per class.
+Under class-imbalanced sampling, we will first sample $2$ classes in each iteration, and then $n \times 480$ images per class so that the overall batch size is $B$.
+Now consider the probability of sampling a data point $x$ that comes form a class $C$ in our dataset containing $N \geq 480 \cdot n$ samples.
+Under class-balanced sampling, the probability of sampling the data point $x$ can be factored as
+\[
+    p_{\text{balanced}}(x) = p(x|C)p(C) = \frac{{N-1 \choose n-1}}{{N \choose  n}} \frac{{999 \choose 959}}{{1000 \choose 960}} = \frac{n}{N} \frac{960}{1000}.
+\]
+Under class-imbalanced sampling, the probability of sampling $x$ can be factored as
+\[
+    p_{\text{imbalanced}}(x) = p(x|C)p(C) =  \frac{{N-1 \choose 480 \cdot n-1}}{{N \choose 480 \cdot n}} \frac{{999 \choose 1}}{{1000 \choose 2}} = \frac{480\cdot n}{N} \frac{2}{1000},
+\]
+from which it is clear that $p_{\text{balanced}}(x)$ is equal to $p_{\text{imbalanced}}(x)$.
+
+\section{Visualizing prototypes with rcdm}
+\label{apndx:rcdm}
+
+We use the RCDM framework \citep{bordes2022high} to visualize the representations and prototypes learned with MSN. RCDM trains a conditional generative diffusion model, which maps a noise vector to pixel space using a neural network representation as conditioning. Many works \citep{dale2, imagen} have demonstrated the potential of conditional diffusion model for image generation, however they are also very useful, as highlighted by \citep{bordes2022high} to get a better understanding of what is learned by neural networks.
+
+During training, RCDM takes as input a noisy image $\hat{x}_{t}$ (corrupted with an $\epsilon_t$ noise vector such as $\hat{x}_{t} = \vx + \epsilon_t$) and the representation vector $\vy$ computed by MSN of the image $\vx$. Then, RCDM is train, with a denoising score matching loss \citep{vincent2011connection, ddpm_2020}, to reconstruct the image $\vx$ that was used to compute the representation vector $\vy$. More formally, we define a RCDM neural network $g_{\eta}(\hat{x}_{t}, \vy)$ that learns to predict the noise component $\epsilon_t$ of $\hat{x}_{t}$, ie. by minimizing $\|g_{\eta}(\hat{x}_{t}, \vy) - \epsilon_t\|_2^2$. As demonstrated by \citep{bordes2022high}, RCDM extract as many information as possible from the representation vector $\vy$ in order to reconstruct faithfully the image.
+
+% Specifically, conditional diffusion model samples from a distribution by reversing a gradual noising process. Sampling starts with noise $\vx_T$ and a conditioning vector $\vy$ and produces gradually less-noisy samples $\vx_{T-1}, \vx_{T-2}$ until generating a sample $\vx_0$. In, RCDM, the diffusion process is parameterized by a neural network $g_{\eta}(\vx_{t}, \vy)$ which learns to generate a less noisy sample $\vx_{t-1}$ from $\vx_t$ by predicting the noise component $\epsilon$ of $\vx_t$, ie. by minimizing $\|g_{\eta}(\vx_{t}, \vy) - \epsilon\|_2^2$
+
+The conditioning vector $\vy$ is computed from $\vx$ using a pretrained and frozen MSN model.
+MSN generates as output the probability distribution $\vp$ that an image $\vx$ belongs to a given cluster, $\vp =\text{softmax}(\mW^t p_\gamma(f_\theta(\vx))$ where $\mW$ is the matrix concatenating all the prototypes (or cluster centroids), $p_\gamma$ the projection head and $f_\theta$ the encoder. To visualize the prototype contained in $\mW$, we first train a conditional generative diffusion model that take the last linear layer input as conditioning, i.e $\vy=p_\gamma(f_\theta(\vx))$.
+After training, we replace the image embedding with a learned prototype and generate the corresponding output in pixel space by setting $\vy=\mW_i$, where $i$ is randomly selected.
+
+
+To summarize, we gather for every images in the training set their embedding (with dimension size of 256)\footnote{the one that is use to perform the clustering with respect to the prototypes} of a trained MSN model. Then, we use these embedding as conditioning for RCDM which is train to reconstruct the corresponding image associated to a given embedding. When training is complete, we replace the projector's embedding by the prototype learned with MSN (which also have a dimension of 256). By doing so we can visualize which information is associated to each prototype (or cluster) learned with MSN. For every RCDM training, we used the same defaults settings as the ones on \url{https://github.com/facebookresearch/RCDM}. We train each network for 200000 iterations.
+
+
+% In Figure \ref{fig:visu_rcdm_imagenet_condimage}, we show additional samples with RCDM where instead of using prototypes for conditioning, we show how the samples look like when using $y = \mW^t p_\gamma(f_\theta(x))$ directly. When training MSN with balance data, the generated samples belong to the sample class as the image used for conditioning which is not the case when using MSN trained with unbalanced data. This conclusion was also reached in the Figure \ref{fig:visu_rcdm_sampling} when visualizing prototype directly.
+% \begin{figure}[h]
+%     \begin{subfigure}{\textwidth}
+%     \centering
+%     \includegraphics[width=\textwidth]{assets/RCDM_MSNv2_condimages_balanced.pdf}
+%     \caption{MSN trained on balanced data.}
+%     \end{subfigure}
+%     \begin{subfigure}{\textwidth}
+%     \centering
+%     \includegraphics[width=\textwidth]{assets/RCDM_MSNv2_condimages.pdf}
+%     \caption{MSN trained on unbalanced data.}
+%     \label{fig:visu_rcdm_imagenet_condimage}
+%     \end{subfigure}
+%     \caption{Visualization of samples generated by RCDM when conditioning on the representation given by MSN on the images in the first column. Subsequent columns correspond to different seed for the generative model. When using as conditioning, representations from an MSN trained with balance data, we can see that the generated samples belong to the same class as the image used for conditioning. However when using MSN trained with unbalanced data, the samples don't belong to the same class anymore but share more low level features.}
+% \end{figure}
+
+\section{Full set of results for section~\ref{sec:class_stratified}}
+\label{apndx:classstratified_results}
+
+In this section, we report the full experimental results for Section~\ref{sec:class_stratified}.
+Tables~\ref{tb:simclr},~\ref{tb:msn},\ref{tb:vicreg},~\ref{tb:data2vec} and ~\ref{tb:mae},  and~ show the results of SimCLR, MSN, VICReg, data2vec and MAE on the CIFAR100, CIFAR100 $1\%$, Place205, Clevr/Count, Clevr/Dist and KITTI downstream tasks. Additionaly, we reports performance on ImageNet linear and ImageNet low-shot $1\%$ in Tables~\ref{tb:indistribution} and~\ref{tb:indistribution_lowshot}. Figure~\ref{fig:visu_class_stratified} shows a summary of the main results.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\textwidth]{assets/balanced_vs_imbalanced.pdf}
+    \caption{Visual representations of the results of Table \ref{tb:class_stratified_sampling}. Methods relying on volume maximization regularizers all exhibit similar performance alteration across diverse transfer tasks.}
+    \label{fig:visu_class_stratified}
+\end{figure}
+
+\begin{table}[h]
+    \centering
+    \footnotesize
+    \caption{\textbf{SimCLR}: Evaluation of the mini-batch sampling distribution on various downstream task. Sampling imbalanced mini-batches lead to a significant drop in image classification tasks.}
+    \label{tb:simclr}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        & CIFAR100 & CIFAR100 $1\%$ & Place205 & Clevr/Count & Clevr/Dist & KITTI\\
+        \toprule\toprule
+        960 cls per batch & 69.9 & 31.4 & 52.1 & 77.4 & 65.5 & 70.5\\
+        8 cls per batch & 63.4 & 21.25 & 47.1 & 73.8 & 66.5 & 71.7\\
+        $\Delta$ & \textcolor{red}{-6.4} & \textcolor{red}{-10.2} & \textcolor{red}{-5.2} & \textcolor{red}{-4.3} & +0.9 & +1.2\\
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{MSN}: Evaluation of the mini-batch sampling distribution on various downstream task. Sampling imbalanced mini-batches lead to a significant drop in image classification tasks.}
+    \label{tb:msn}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        & CIFAR100 & CIFAR100 $1\%$ & Place205 & Clevr/Count & Clevr/Dist & KITTI \\
+        \toprule\toprule
+        960 cls per batch & 84.3 & 46.2 & 81.0 & 56.7 & 63.7 & 73.2 \\
+        2 cls per batch & 71.4 & 26.4 & 76.4 & 50.3 & 65.6 & 71.5 \\
+        $\Delta$ & \textcolor{red}{-12.9} & \textcolor{red}{-13.2} & \textcolor{red}{-4.6} & \textcolor{red}{-6.4} & +1.9 & -1.6 \\
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{VICReg}: Evaluation of the mini-batch sampling distribution on various downstream task. Sampling imbalanced mini-batches lead to a significant drop in image classification tasks.}
+    \label{tb:vicreg}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        & CIFAR100 & CIFAR100 $1\%$ & Place205 & Clevr/Count & Clevr/Dist & KITTI \\
+        \toprule\toprule
+        960 cls per batch & 69.7 & 28.9 & 51.0 & 79.8 & 69.0 & 73.3\\
+        2 cls per batch & 60.8 & 16.9 & 44.9 & 76.8 & 69.84 & 72.1 \\
+        $\Delta$ & \textcolor{red}{-8.9} & \textcolor{red}{-12.0} & \textcolor{red}{-6.0} & \textcolor{red}{-3.0} & +0.7 & -1.1 \\
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{data2vec}: Evaluation of the mini-batch sampling distribution on various downstream task. Sampling imbalanced mini-batches lead to a similar performances across tasks.}
+    \label{tb:data2vec}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        & CIFAR100 & CIFAR100 $1\%$ & Place205 & Clevr/Count & Clevr/Dist & KITTI \\
+        \toprule\toprule
+        960 cls per batch & 50.3 & 13.7 & 37.0 & 76.8 & 49.7 & 65.3\\
+        2 cls per batch & 48.6 & 13.1 & 37.0 & 74.7 & 48.2 & 65.1 \\
+        $\Delta$ & -1.7 &  -0.5 & 0 & \textcolor{red}{-2.1} & +1.5 & -0.2 \\
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{MAE}: Evaluation of the mini-batch sampling distribution on various downstream task. Sampling imbalanced mini-batches lead to a similar performance across tasks.}
+    \label{tb:mae}
+    \begin{tabular}{r|cccc|cc}
+        \toprule
+        & CIFAR100 & CIFAR100 $1\%$ & Place205 & Clevr/Count & Clevr/Dist & KITTI \\
+        \toprule\toprule
+        960 cls per batch & 75.0 & 28.3 & 50.4 & 90.4 & 72.4 & 70.0 \\
+        2 cls per batch & 75.4 & 30.8 & 50.3 & 89.6 & 71.7 & 70.0 \\
+        $\Delta$ & +0.4 & +2.5 & -0.1 & -0.8 & -0.7 & +0.0
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{In-distribution:} Evaluation of the mini-batch sampling distribution on in-distribution ImageNet linear evaluation using $100\%$ of the training set.}
+    \label{tb:indistribution}
+    \begin{tabular}{r|ccccc}
+        \toprule
+        & SimCLR & MSN & VICReg & data2vec & MAE \\
+        \toprule\toprule
+        class balanced sampling & 66.9 & 77.1 & 69.1 & 41.5 & 65.9 \\
+        class imbalanced sampling & 55.8 & 59.4 & 51.4 & 40.6 & 65.8 \\
+        $\Delta$ & \textcolor{red}{-11.1} & \textcolor{red}{-17.7} & \textcolor{red}{-17.7} & -0.8 & -0.1
+    \end{tabular}
+    \vspace{1.5em}
+    \centering
+    \footnotesize
+    \caption{\textbf{In-distribution low-shot:} Evaluation of the mini-batch sampling distribution on in-distribution ImageNet linear evaluation using only $1\%$ of the training set.}
+    \label{tb:indistribution_lowshot}
+    \begin{tabular}{r|cccc}
+        \toprule
+        & MSN & VICReg & data2vec & MAE \\
+        \toprule\toprule
+        class balanced sampling & 66.2 & 48.6 & 27.4 & 35.1 \\
+        class imbalanced sampling & 28.0 & 18.1 & 31.4 & 34.8 \\
+        $\Delta$ & \textcolor{red}{-38.2} & \textcolor{red}{-30.5} & +4.0 & -0.3
+    \end{tabular}
+\end{table}
+
+\end{document}

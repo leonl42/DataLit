@@ -1,0 +1,56 @@
+\section{Introduction}
+
+\begin{figure}[hbt]
+    \centering
+    \tiny
+    \includesvg[width=0.95\textwidth]{imgs/deepVwide.svg}
+    \caption{A comparison of a deep Transformer based classifier (left, with $L$ layers and $H$ heads for each layer) vs an equivalent wide one (right, with a single layer and $L \times H$ heads). Layer norms and residual connections have been omitted from the diagram for clarity, for details on the full Transformer architecture see \cite{tfm}.}
+    \label{fig:wide}
+\end{figure}
+
+Since \citet{tfm}, Transformer-based architectures have become widespread due to their advantages over previous architectures such as recurrent neural networks (RNNs) and sometimes even convolutional neural networks (CNNs).
+Many new X-formers have also been proposed that improve on the original Transformer by overcoming its limitation on sequence length by providing a more scalable attention mechanism \citep{performer, linformer, longformer}.
+However, little research has been done on the relevance of the size of the attention computation in each layer, the number of attention layers, and how these parameters relate to the resulting Transformer's characteristics.
+
+The primary source of parameters in a Transformer network is the Feed-forward Network (FFN) in each encoder or decoder layer, and the linear layers which convert from the sequence feature dimension (often equal to the initial embedding dimension) to the attention feature dimension, and back again after attention is applied.
+Each attention head typically has an equal number of attention features.
+Consider an input sequence $\bm{X} \in \mathbb{R}^{S \times E}$, where $S$ is the sequence length and $E$ is the embedding dimension.
+Here, a multi-head attention with $H$ heads is used and each head operates on the learned projection with a dimension of $A$. After the attention mechanism there is a FFN with a single hidden dimension of size $M$. These layers are then stacked $L$ times as illustrated on the left of \Cref{fig:wide}.
+Often in a typical Transformer $E=AH$. The total number of parameters in a Transformer encoder is given by:
+
+\begin{align*}
+    \text{Encoder Parameters} & = L(3EAH + AHE + EM + ME) & \\
+                              & = 2LE(2AH + M)
+\end{align*}
+
+In this paper, we investigate the effects of changing $L$ and $H$ while keeping their product, the total number of heads, the same.
+We start with typical values for $L$ and $H$ and then move down to a single layer.
+A diagram illustrating our design space and the differences between our widest and deepest models is given in \Cref{fig:wide}.
+We refer to the ratio of layers to heads as the \textbf{\emph{model aspect ratio}}.
+This naturally leads to an intriguing question: \textit{What is the best model aspect ratio for the growing number of X-former models?}
+We consider impacts of model aspect ratios on accuracy, run-time performance, model size, and interpretability.
+
+Based on the question above, we investigate the influence of various model aspect ratios on 9 X-former models, each with their own attention mechanism, in addition to the original Transformer.
+Prior work on Transformer architectures has mainly focused on designing more efficient attention styles \citep{linformer,performer} or using Network Architecture Search (NAS) to discover an optimal combination of operators \citep{so2019evolved}.
+By changing the \emph{model aspect ratio}, we consider a more coarse-grained design space. This design space is not commonly explored in the NAS algorithms for Transformers, and we evaluate some interesting model architectures such as a single layer model with many parallel heads.
+
+For each model aspect ratio we run our experiments with each X-former across a number of text classification tasks with various input sequence lengths ranging from 500 to 4000.
+We empirically observe that \emph{wider and shallower models can typically equal or sometimes beat the accuracy of deeper models}.
+This observation challenges the common design paradigm of trying to build deeper Neural Networks.
+We show several other major advantages of a shallower and wider model.
+First, it is more latency friendly on commodity hardware.
+Second, \emph{wider models are smaller} in terms of the number of parameters.
+And, third, outputs of \emph{wider models are more interpretable}.
+
+To summarise, we make the following contributions in this paper:
+
+\begin{itemize}
+    \item We demonstrate that wider and shallower models can typically equal or sometimes beat the accuracy of deeper models when there is no pretraining of weights or embeddings. Across all 4 tasks, average accuracy for the vanilla Transformer increases by 0.4\% between normal deep models and our single layer wide models.
+
+    \item We show that our results are consistent across a variety of different attention mechanisms and input sequence lengths, and thus there is a general design equivalence in increasing the depth of a Transformer model vs increasing the width. Averaged across all non-vanilla attention types and tasks, accuracy increases by 0.3\% from deepest to widest.
+
+    \item We show that widening the models by fixing the attention computation size results in less overall parameters and faster inference. We show that wider models are on average $1.4 \times$ smaller and have $3.1 \times$ faster inference latency on a CPU and $1.9 \times$ on a GPU, compared to deep models.
+
+    \item We demonstrate how single layer networks can have more interpretable predictions by inspecting the attention weights of each head in a single layer.
+\end{itemize}
+

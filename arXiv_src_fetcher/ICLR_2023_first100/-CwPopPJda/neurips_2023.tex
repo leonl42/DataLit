@@ -1,0 +1,541 @@
+\documentclass{article}
+\PassOptionsToPackage{numbers, sort}{natbib}
+
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2023
+
+% ready for submission
+% \usepackage[]{neurips_2023}
+
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+    % \usepackage[preprint]{neurips_2023}
+
+
+% % to compile a camera-ready version, add the [final] option, e.g.:
+    \usepackage[final]{neurips_2023}
+
+
+% % to avoid loading the natbib package, add option nonatbib:
+%     \usepackage[nonatbib]{neurips_2023}
+
+
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{paralist, tabularx} %
+\usepackage{tabularx,booktabs}
+
+\usepackage{amssymb}% http://ctan.org/pkg/amssymb
+\usepackage{pifont}% http://ctan.org/pkg/pifont
+
+\usepackage{bbm}
+
+
+\input{math_commands.tex}
+
+% \usepackage{paralist, tabularx} %
+% \usepackage{tabularx,booktabs}
+
+\usepackage{amssymb}% http://ctan.org/pkg/amssymb
+\usepackage{pifont}% http://ctan.org/pkg/pifont
+
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+
+\usepackage{colortbl}
+\definecolor{DnCBG}{rgb}{0.9, 0.9, 1.}  % blue 
+\newcommand{\oursb}{\textbf{\textit{Hummingbird}}} 
+% \newcommand{\oursb}{\raisebox{-0.3\height}{\includegraphics[scale=0.01]{figures/hummingbird_big.pdf}} \textbf{\textit{Hummingbird}} } 
+\newcommand{\oursupb}{\oursb\hspace{-0.0em}\textbf{\textit{++}}} 
+\newcommand{\ours}{\textit{Hummingbird} } 
+\newcommand{\oursup}{\textit{Hummingbird}\textit{++} } 
+
+\newcommand\evalnn{\textbf{in-context}}
+\newcommand\evalft{\textcolor{red}{E2E FT}}
+\newcommand\evalfrozen{\textcolor{orange}{Frozen}}
+
+\newcommand\nneval{NN}
+
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+\usepackage{todonotes} % for comments
+
+\newcommand{\eg}{e.g.\ }
+\newcommand{\x}{$\times$}
+
+% \usepackage{emoji}
+
+\title{Towards In-context Scene Understanding \raisebox{-0.3\height}{\includegraphics[scale=0.027]{figures/hummingbird_big.pdf}}}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+%   David S.~Hippocampus\thanks{Use footnote for providing further information
+%     about author (webpage, alternative address)---\emph{not} for acknowledging
+%     funding agencies.} \\
+%   Department of Computer Science\\
+%   Cranberry-Lemon University\\
+%   Pittsburgh, PA 15213 \\
+%   \texttt{hippo@cs.cranberry-lemon.edu} \\
+\hspace{-1.2em}Ivana Bala\v{z}evi\'c$^*$ \hspace{0.2em} David Steiner$^*$ \hspace{0.2em} Nikhil Parthasarathy\textsuperscript{\textdagger} \hspace{0.2em} Relja Arandjelovi\'c \hspace{0.2em} Olivier J. H\'enaff \\
+Google DeepMind\\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+\def\thefootnote{*}\footnotetext{Equal contribution. \textsuperscript{\textdagger}Current affiliation: NYU CNS, work done while interning at Google DeepMind.}
+\def\thefootnote{}\footnotetext{Correspondence to \{balazevic, davidsteiner, henaff\}@google.com.}
+
+
+\begin{abstract}
+\vspace{-1em}
+In-context learning---the ability to configure a model's behavior with different prompts---has revolutionized the field of natural language processing, alleviating the need for task-specific models and paving the way for generalist models capable of assisting with any query. Computer vision, in contrast, has largely stayed in the former regime: specialized decoders and finetuning protocols are generally required to perform dense tasks such as semantic segmentation and depth estimation. In this work we explore a simple mechanism for in-context learning of such scene understanding tasks: nearest neighbor retrieval from a prompt of annotated features. We propose a new pretraining protocol---leveraging attention within and across images---which yields representations particularly useful in this regime. The resulting \ours model, suitably prompted, performs various scene understanding tasks \textit{without modification} while approaching the performance of specialists that have been finetuned for each task. Moreover, \ours can be configured to perform new tasks much more efficiently than finetuned models, raising the possibility of scene understanding in the interactive assistant regime.
+
+
+
+\end{abstract}
+
+\vspace{-0.5em}
+\section{Introduction}
+\vspace{-0.3em}
+
+In natural language processing (NLP), the pretrain-finetune paradigm has long been the dominant way of acquiring domain-specific knowledge and adapting a model's behavior to a particular task (\eg question answering, natural language inference, summarization). More recently and predominantly due to the increase in model and dataset sizes, large language models have exhibited impressive, task-agnostic emergent capabilities \cite{brown2020language,hoffmann2022training,touvron2023llama}, where a single model, given an appropriate prompt, can perform a wide range of downstream tasks without any change in its parameters.
+
+While large-scale supervised and self-supervised pretraining in vision has yielded powerful encoders which capture useful semantics \cite{krizhevsky2012imagenet, he2016deep, henaff2019data, he2019momentum, caron2021emerging, kolesnikov2020big, dosovitskiy2020image}, applying these representations to solve downstream tasks has typically required bespoke decoders and end-to-end finetuning. The most readily applicable representations are trained for image-text alignment, enabling zero-shot classification \cite{radford2021learning} and image-based dialogue \cite{alayrac2022flamingo, chen2022pali, yuan2021florence,yu2022coca}, however these models are inherently limited by the coarseness of natural language outputs. Attempts have been made at casting fine-grained tasks (e.g.\ detection) as language modeling \cite{chen2021pix2seq}, but dense scene understanding tasks requiring millions of outputs do not lend themselves to this format. Indeed, deficiencies in fine-grained spatial understanding have been well documented in visual
+language models \cite{liu2022visual,thrush2022winoground,xie2019visual,hendricks2021probing}. 
+
+In this work, we investigate the components required for in-context learning of scene understanding tasks, which we characterize along three axes: generality, data efficiency, and fast adaptation. To this end, we expand the well-known non-parametric nearest neighbor (NN) retrieval method \cite{belongie2002shape, boiman2008defense, wu2018unsupervised, caron2021emerging} to support a variety of dense scene understanding tasks. This retrieval-based decoding mechanism has the advantage of requiring no task-specific parameters or finetuning, thus enabling effortless adaption of standard encoders (e.g.\ ResNet  \cite{he2016deep} or ViT \cite{dosovitskiy2020image}) to any dense task of interest, as well as faster research iteration by allowing for simpler and more efficient model selection during pretraining. 
+
+We further show that the NN scene understanding capabilities of canonically pretrained vision transformers (such as MAE \cite{he2021masked} and DINO \cite{caron2021emerging}) vary greatly, despite similar finetuned performance. We find two pretraining components to yield reliable gains: 
+(1) a simple modification to the standard self-supervised pretraining protocol, termed \textit{contextual pretraining}, which performs \textit{attention across images} by updating the spatial representation of each image with features retrieved from a memory bank, and (2) a spatial \textit{attention pooling} mechanism (as opposed to the more standard mean pooling or the \texttt{[CLS]} token), which computes \textit{attention within an image} to summarize the (contextualized) spatial grid of features into a single image-level representation to be fed into the self-supervised objective. We showcase the benefits of this approach in a standard contrastive framework, demonstrating large gains in NN scene understanding over prior pretraining methods. 
+
+Finally we find that our model, named \ours due to its fast adaptation properties: \textbf{(1)} yields general-purpose representations which perform well in non-parametric semantic segmentation and monocular depth estimation using NN retrieval, \textbf{(2)} approaches the performance of fully finetuned models on some tasks, and \textbf{(3)} is more data-efficient and faster to adapt to new tasks when equipped with NN retrieval, compared to other pretraining methods and decoding mechanisms.
+By adapting quickly and efficiently to new tasks specified on the fly, \ours raises the possibility of vision systems providing general-purpose assistants with in-context scene understanding.
+
+
+\section{Related Work}
+\vspace{-0.1em}
+
+\textbf{Retrieval-based perception. }
+Non-parametric evaluation has a long history with roots in the exemplar theory of human cognition \cite{ashby2005human,homa1981limitations,nosofsky1986attention} and case-based theories of artificial intelligence \cite{aamodt1994case,schank1999dynamic}. In computer vision, non-parametric methods combined with simple features such as SIFT \cite{lowe2004distinctive} and HOG \cite{dalal2005histograms} saw early success in image classification \cite{boiman2008defense}, shape matching \cite{belongie2002shape,berg2005shape,shechtman2007matching}, scene recognition \cite{torralba200880,xiao2010sun}, and image parsing \cite{liu2009nonparametric}. Exemplar-SVMs \cite{malisiewicz2011ensemble} showcased the versatility of non-parametric methods by retrieving arbitrary meta-data (such as segmentations, geometry, even 3D models) from training examples. We leverage these insights with modern architectures and training paradigms coupled with dense retrieval.
+
+\textbf{Retrieval-based training. }
+To improve retrieval-based performance at test time, retrieval-based classifiers \cite{touvron2021grafit, wu2018improving} shape their representations for this task, enabling fine-grained classification from coarse supervision. While not explicitly training for it, DINO \cite{caron2021emerging} witnessed NN classification abilities emerge from self-supervised training of vision transformers, enabling global retrieval tasks such as landmark recognition and copy detection. In \cite{Vondrick_2018_ECCV}, tracking abilities emerge after pretraining on a colorization task via retrieval from reference frames of a video. Retrieval has also been proposed as a means of enriching the positive pairs used in self-supervised contrastive learning \cite{dwibedi2021little}. These works differ from ours in that they encode and retrieve global representations of entire images, in contrast to the local inferences required by dense scene understanding tasks. 
+
+\textbf{Fast adaptation. }
+A number of methods have tackled the problem of adapting to newly specified tasks, most often from the perspective of meta-learning. For example, matching networks \cite{vinyals2017matching} and MAML \cite{finn2017model} learn to solve new classification and reinforcement learning tasks specified on the fly. Architectural innovations, such as image prompting \cite{jia2022visual,bahng2022exploring,zhang2023VisualPromptRetrieval} and adapter layers \cite{frankle2020training,rebuffi2017learning} have also facilitated transfer to new image recognition tasks. While fast adaptation to dense scene understanding tasks has been less studied, image inpainting \cite{bar2022visual,wang2022images} and VTM \cite{kim2023universal} have made progress in this direction, particularly in the low-data regime. These approaches differ from ours in that they achieve fast adaptation by training on related dense tasks and (in the case of VTM) adapt to downstream tasks with task-specific weight updates and learned similarity functions. In contrast, we maintain the simplicity of pure retrieval-based approaches by adapting to new downstream tasks without modifying any model parameters, and the generality of self-supervised approaches by learning representations from generic pretraining data with no dense annotations. 
+
+\textbf{Self-supervised learning. } Methodologically, our representation learning method is most similar to self-supervised learning (SSL) techniques. Similarly to NLP, image-based SSL has witnessed great success in recent years, notably with the advent of contrastive methods \cite{dosovitskiy2014discriminative,chen2020simple,caron2020unsupervised,henaff2021efficient,caron2021emerging}, self-distillation \cite{caron2018deep,grill2020bootstrap,chen2021exploring}, and masked auto-encoding \cite{he2021masked}. Due to their conceptual simplicity, we base our method on standard contrastive baselines such as SimCLR \cite{chen2020simple} and MoCo \cite{he2019momentum}. 
+Image-based SSL techniques have since been tailored to learning representations which transfer well to scene understanding tasks \cite{van2021unsupervised,henaff2021efficient,xie2021detco,caron2022location}, and although they have been shown to support zero-shot object discovery \cite{henaff2022object,simeoni2021localizing}, 
+they generally still require task-specific decoders and end-to-end finetuning. 
+% to perform scene understanding tasks.
+
+\begin{figure}[t]
+  \begin{center}
+    \includegraphics[width=1.0\textwidth]{figures/figure_demo_bis.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{In-context scene understanding with nearest neighbor retrieval.} On the left, we provide the system with a ``prompt'' of annotated images. On the right, we ask the system to describe new query images. The network computes dense features for each location and uses them to query features computed from the prompt. The labels associated with the nearest prompt features are then aggregated to make predictions about the query. Note that the system makes no assumptions about the nature of the labels, and as such can be used to solve a variety of different scene understanding tasks in-context. The nearest neighbors and predictions in this example are computed with our \ours model.}
+\label{fig:demo}
+\end{figure}
+
+
+\section{Method}
+The following sections describe the retrieval-based scene understanding decoding protocol (Section \ref{sec:scene}), followed by the contextual pretraining method (Section \ref{sec:contpret}) and the self-supervised (Section \ref{sec:ssl}) and supervised learning objectives (Section \ref{sec:sup}). We use subscripts $\vx_i$ to differentiate between representations and superscripts $\vx^j$ to denote spatial locations within a representation. 
+
+\subsection{Retrieval-based scene understanding} \label{sec:scene}
+
+A general-purpose image representation should perform well across a variety of scene understanding tasks out-of-the-box, i.e.\ without modifying its parameters.
+To test whether a representation satisfies this condition, we extend the standard image-level nearest neighbor (NN) retrieval \cite{belongie2002shape,boiman2008defense} decoding mechanism to dense, patch-level retrieval (with patch size set to $16 \times 16$ across all models in this work). Given a prompt composed of training images from the downstream task and their corresponding labels  $\{ (\vx_i, \vy_i), i=1,...,N, \vx_i \!\in\! \mathbb{R}^{H' \times W' \times C}\}$, our aim is to enable a pretrained image encoder $f_\theta$ to make predictions about a new image $\vx$ from the test set. In tasks considered in this work, labels $\vy_i$ are spatial maps of either class labels $\vy_i \!\in\! \mathbb{C}^{H' \times W'}$ (\eg for semantic segmentation, where $\mathbb{C}$ is the space of all classes) or scalars $\vy_i \!\in\! \mathbb{R}^{H' \times W'}$ (\eg for monocular depth estimation).
+
+We encode each prompt image into a spatially flattened map $\vk_i \!=\! f_\theta(\vx_i) \!\in\! \mathbb{R}^{H \cdot W \times D}$, where a feature $\vk_i^j \!\in\! \mathbb{R}^D$ at a spatial location $j$ is aligned with the local label $\vl_i^j$ created by averaging the pixel labels $\vy_i^j$ of a patch. We then sample a subset of features and local labels for each image, which form the keys and values of the memory bank $\mathcal{M} \!=\! \{ (\vk_i^j, \vl_i^j), i\!=\!1,...,N, j \!\sim\! \mathcal{S} \}$ (see Appendix \ref{sec:app-mem} for details on the sampling distribution $\mathcal{S}$). In the following, we do not distinguish between entries from different images, and use a single integer $j$ to index into the memory bank: $\mathcal{M} \!=\! \{ (\vk^j, \vl^j), j\!=\!1,...,|\mathcal{M}|\}$. 
+
+Given a test image $\vx$, we form a representation $\vq \!=\! f_\theta(\vx)$ and use each spatial feature $\vq^i$ as a query to cross-attend over the memory bank with temperature $\beta$. The cross-attention weights are then used to combine the corresponding labels and form a local prediction $\bm{\hat{l}}^{i}$:
+\begin{equation}
+s^{i, j} = \frac{1}{\beta} \frac{\langle \vq^i, \vk^j \rangle}{ \lVert \vq^i \rVert \lVert \vk^j \rVert}, \qquad
+\va^i = \underset{j}{\textrm{softmax}}(\vs^i), \qquad
+\bm{\hat{l}}^{i} = \sum_{j} a^{i,j} \ \vl^j.
+\label{eq:nn-xattn}
+\end{equation}
+
+Equation \ref{eq:nn-xattn} defines the cross-attention operation as $\bm{\hat{l}}^{i} \!=\! \text{CA}(\vq^i, \vk^j, \vl^j)$. The final prediction $\bm{\hat{y}}$ is simply the concatenation of local predictions $\bm{\hat{l}}^{i}$ upsampled to the original image size via bilinear interpolation. As a result, nearest neighbor retrieval allows a simple image encoder to perform scene understanding tasks \textit{without any decoders} or \textit{parameter adaptation} (finetuning or otherwise) to the downstream dataset. The mechanism is also entirely agnostic to the format of the labels, enabling it to perform tasks as diverse as semantic segmentation and depth estimation.  
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=.85\textwidth]{figures/hummingbird_model_components.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{\oursb \hspace{0.1em} model components.}}
+\label{fig:model_components}
+\end{figure}
+
+\subsection{Contextual pretraining} \label{sec:contpret}
+
+Memory retrieval allows an image encoder to perform various tasks by combining labels of nearby examples. To ensure that a model will perform well in this regime, we propose to train it in a similar manner, by enforcing its representation to be expressed as a combination of representations of nearby examples. Over the course of training, we populate a memory bank $\mathcal{M}_p = \{ (\vk_i, \vv_i), i=1,...,|\mathcal{M}_p| \}$ with spatially averaged keys and values computed from training images $\vx_i$ from previous batches: 
+\begin{equation}
+\label{eq:mem}
+\vh_i = f_\theta(\vx_i) \in \mathbb{R}^{H \cdot W \times D}, \qquad 
+\vk_i = \frac{1}{H \cdot W}\sum_{j=1}^{H \cdot W} \vh_i^j \in \mathbb{R}^D, \qquad 
+\vv_i = \phi_\theta(\vk_i) \in \mathbb{R}^D,
+\end{equation}
+where we use an MLP as the value head $\phi_\theta$ (see Appendix \ref{sec:app-con-rep} for implementation details).
+We then form a representation $\vq \!=\! f_\theta(\vx)$ of a new training image $\vx$ and use each spatial feature $\vq^i$ to attend over the memory bank and compute an update $\bm{\hat{v}}^{i} \!=\! \text{CA}(\vq^i, \vk_j, \vv_j)$.
+Each feature is ``contextualized'' as 
+$ \bm{c}^{i} \!=\! \psi_\theta((1-\lambda) \frac{\vq^i}{ \lVert \vq^i \rVert } + \lambda \frac{\bm{\hat{v}}^{i}}{ \lVert \bm{\hat{v}}^{i} \rVert } )$
+, where $\psi_\theta$ is a linear layer and $\lambda$ a weighting parameter. The contextualized image representation $\bm{c} \!=\! g_\theta( \bm{q}, \ \mathcal{M}_p )$ is simply the concatenation of local features $ \bm{c}^{i}$. 
+
+Note that the pretraining memory bank $\mathcal{M}_p$ is discarded at test time and differs from the test time memory bank $\mathcal{M}$ described in Section \ref{sec:scene}, allowing for straightforward comparison of our representations $f_\theta(\vx)$ to those trained without the memory bank. 
+
+\subsection{Self-supervised objective} \label{sec:ssl}
+
+\noindent While contextual pretraining updates representations by attending across images, we hypothesize that learning to attend within images will also enable fine-grained predictions required by dense tasks. To that end, we train representations to locate the most distinctive part of an image using a combination of attention pooling and contrastive learning. Following \cite{chen2020simple,grill2020bootstrap}, we construct different views of unlabeled images $\vx$ through random data augmentation $\vx_1 \sim \mathcal{A}_1(\vx), \vx_2 \sim \mathcal{A}_2(\vx)$, see Appendix \ref{sec:app-ssl-data}.
+Each view is encoded as $\vh_i \!=\! f_\theta(\vx_i)$ and further contextualized with the mechanism described above as $\bm{c}_i \!=\! g_\theta( \vh_i, \ \mathcal{M}_p ) \!\in\! \mathbb{R}^{H \cdot W \times D}$ (see Figure \ref{fig:model_components}). Following \cite{parthasarathy2022self}, we compute attention pooled representations $\bm{\hat{c}}_i \!\in\! \mathbb{R}^D$ using masks $\vm_i$ derived from a lightweight attention module $a_\theta$, which we augment with an additional value head $\omega_\theta$. Pooled features are then used to compute projections $\vz^\theta_{i}$:
+\begin{equation}
+\vm_{i} = \underset{j}{\textrm{softmax}}(a_\theta(\vc_{i})), \qquad 
+\bm{\hat{c}}_i = \sum_{j=1}^{H \cdot W} m^j_l \ \omega_\theta(\bm{c}_i^j), \qquad 
+\vz^\theta_{i} = p_\theta ( \bm{\hat{c}}_i ).
+\label{eq:attn-pool}
+\end{equation}
+Finally, following \cite{grill2020bootstrap, chen2021empirical, tian2021divide}, each view forms predictions $q_\theta( \vz^\theta_{i})$ about the other view's targets $\vz^\xi_{j}$, which are computed with the same architecture and a different set of weights $\xi$ which vary more slowly (see Appendix \ref{sec:app-ssl-optimization}). The online weights $\theta$ are optimized using a standard contrastive loss: 
+\begin{equation}
+\mathcal{L}_\textrm{SSL}^{ij}(\theta; \xi) = - \log \frac{\exp( q_\theta( \vz^\theta_{i}) \ {\cdot} \ \vz^\xi_{j}) }{\exp( q_\theta( \vz^\theta_{i}) \ {\cdot} \ \vz^\xi_{j} ) + \sum_k \exp( q_\theta( \vz^\theta_{i}) \ {\cdot} \ \vz^\xi_{k} )}.
+\label{eq:ssl-loss}
+\end{equation}
+
+\input{tables/tab_nn}
+
+\vspace{-1em}
+\subsection{Retrieval-based supervised objective} \label{sec:sup}
+
+Given the availability of large labeled datasets, and noting that correctly designed supervision does not necessarily hurt generalization \cite{sariyildiz2023improving}, we explore the use of label-supervision for learning representations that perform well in dense NN retrieval. While supervision is typically added with a linear classifier atop average pooled features \cite{krizhevsky2012imagenet, simonyan2014very, he2016deep}, we instead use it to constrain contextual pretraining and further align our training methodology with NN retrieval \cite{wu2018improving,touvron2021grafit}. Specifically, we expand the memory bank $\mathcal{M}_p$ to include the labels: $\mathcal{M}_p' = \{ (\vk_i, \vv_i, \vy_i), i=1,...,|\mathcal{M}_p'| \}$ and query it with attention pooled features $\bm{\hat{c}}_i \!\in\! \mathbb{R}^D$ (see Equation \ref{eq:attn-pool}) to form predictions $\bm{\hat{y}}_{i} \!=\! \text{CA}(\bm{\hat{c}}_{i}, \vk_j, \vy_j)$.
+We then use the standard softmax cross entropy loss 
+$\mathcal{L}_\textrm{CE}^{i}(\bm{\hat{y}}_{i}, \vy_{i})$, which added to the self-supervised objective of Equation \ref{eq:ssl-loss}, forms the total loss $\mathcal{L}^{ij} = \mathcal{L}_\textrm{SSL}^{ij} + \alpha (\mathcal{L}_\textrm{CE}^{i} + \mathcal{L}_\textrm{CE}^{j})$, with supervised weight $\alpha$.
+Note that the memory bank $\mathcal{M}_p'$ is only used during training and the added supervision relates to a global image classification task, not the downstream pixel-level tasks.
+
+\vspace{-0.5em}
+\section{Experiments}
+
+We demonstrate the generality of \ours representations through retrieval-based scene understanding on several downstream tasks (Section \ref{sec:eval_nn}): semantic segmentation on PASCAL VOC \cite{everingham2015pascal} and ADE20K \cite{zhou2019semantic} with mean IoU (mIOU) as metric, and monocular depth estimation on NYUv2 \cite{silberman2012indoor} with root-mean-square error (RMSE) as metric. We further show that, in the low-data regime (Section \ref{sec:eval_dataeff}) and when looking at adaptation speed (Section \ref{sec:eval_fastadapt}), \ours with NN retrieval outperforms other pretraining techniques and decoding mechanisms, including end-to-end finetuning. Section \ref{sec:eval_finetune} compares the performance of fully finetuned \ours with prior work.
+
+\subsection{Retrieval-based scene understanding} \label{sec:eval_nn}
+
+\input{tables/tab_low_data_up_to_64}
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=1.0\textwidth]{figures/figure_data_eff.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{Data efficiency of \ours\hspace{-0.25em}.} The model is evaluated with retrieval-based evaluation (``NN retrieval''), linear probing (``Linear + frozen''), or full finetuning (``Linear + E2E FT'').}
+\label{fig:dataeff}
+\end{figure}
+
+
+We consider the performance of learned representations in the retrieval-based scene understanding setup described in Section \ref{sec:scene} across architecture (ViT-B and ViT-L) and dataset (ImageNet-1k and -22k \cite{imagenetILSVRC15}) scales, trained with supervision (\textit{Hummingbird++}) or without (\textit{Hummingbird}). Figure \ref{fig:demo} shows an example prediction made by \ours with a ViT-B encoder on PASCAL VOC. 
+
+The top part of Table \ref{tab:1_nn} shows an apples-to-apples comparison of \ours with existing methods for pretraining ViT-B encoders, where it outperforms all baselines by a large margin. We also note that \ours scales well with increasing the dataset size from ImageNet-1k to ImageNet-22k, which does not hold for all other methods (e.g.\ MAE, consistent with \cite{oquab2023dinov2}). Further, training with supervision is generally beneficial, particularly for semantic segmentation. For an ablation on the impact of retrieval-based supervision on performance, see Appendix \ref{sec:app-supervision}.
+
+The bottom part of Table \ref{tab:1_nn} contains the best performing methods across architectures, showing a performance increase for \ours with encoder size. 
+Note that results achieved by \ours retrieval on PASCAL VOC and ADE20K, without any finetuning, approach the performance of methods fully finetuned on each of those tasks with specialized decoders (see Table \ref{tab:finetuning}).
+
+
+\subsection{Data-efficient retrieval-based scene understanding} \label{sec:eval_dataeff}
+
+\input{tables/tab_fast_adapt}
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=\textwidth]{figures/fast_adapt.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{Adaptation time of \ours\hspace{-0.25em}.} The model is evaluated with retrieval-based evaluation (``NN retrieval''), linear probing (``Linear + frozen''), or full finetuning (``Linear + E2E FT'').}
+\label{fig:fastadapt}
+\end{figure}
+
+
+In addition to adapting to downstream tasks with minimal (or ideally no) alterations to the model, a second ingredient for in-context learning is adaptation given only a limited number of examples.
+
+We therefore evaluate the performance of \ours retrieval in the low-data regime, and compare it with other decoding techniques: linear probing and end-to-end finetuning
+(Figure \ref{fig:dataeff}). For PASCAL VOC, NN retrieval outperforms the end-to-end finetuning for up to \(1/8\) of the data ($\sim$1300 images). For ADE20K the effect is less pronounced, however NN retrieval still exceeds end-to-end finetuning when given up to \(1/32\) of the data ($\sim$600 images). \ours retrieval outperforms linear decoding on top of the frozen encoder in all cases. These results show that given an appropriately designed encoder, NN retrieval provides a data-efficient alternative to end-to-end finetuning, and is strictly more expressive than linear decoding.
+
+Second, we verify the generality of these findings by comparing \ours retrieval to several other representation learning algorithms which transfer to the low-data regime with finetuning (Table \ref{tab:data_eff_up_to_64}, see Appendix \ref{sec:app-data-efficiency} for higher-data regime and additional analysis). For PASCAL VOC, \ours with the NN retrieval decoder outperforms the end-to-end finetuned version of all other techniques for both 1/128 (83 images) and 1/64 (165 images) of the data, which holds for both the purely self-supervised \ours and its supervised variant. For ADE20K, \ours is competitive with DINO \cite{caron2021emerging} for 1/128 of the data (158 images) and outperformed by LOCA for 1/64 of the data (316 images), whereas \oursup outperforms all other models, demonstrating the benefit of retrieval-based supervision during pretraining.
+In summary, in the few-shot regime (e.g.\ $\leq$100 images) relevant for in-context learning, \ours retrieval provides a compelling and robust alternative to end-to-end finetuning.
+
+
+
+
+\subsection{Fast adaptation to downstream tasks} \label{sec:eval_fastadapt}
+
+
+While \ours retrieval displays useful data-efficiency properties relative to fully finetuned methods, finetuning yields better performance when given access to the entire dataset. Yet even in this large-data regime, assistant systems must be quickly adaptable to new tasks. We thus evaluate the amount of computation required to reach good performance with the different decoding schemes from Section \ref{sec:eval_dataeff}. 
+All decoders are given the full training set and varying compute budgets. We titrate the amount of computation given to NN retrieval by partially populating the memory bank with fractions of the dataset. Figure \ref{fig:fastadapt} shows that 5 minutes (1 epoch through the downstream training set) are sufficient to build a performant NN decoder (70\% mIoU on PASCAL VOC, 28\% on ADE20K). In contrast, given the same amount of time, end-to-end finetuning still exhibits performance near chance, despite benefitting from hyperparameter tuning of learning rates, weight decay, and warm-up length. While a linear classifier converges more quickly than finetuning, it saturates with a significantly lower performance than NN retrieval (50\% mIoU on PASCAL VOC, 20\% on ADE20K). 
+
+We also quantify these benefits in terms of relative convergence: on PASCAL VOC, NN retrieval reaches the performance of full finetuning after 3 minutes rather than 3 hours, and the performance of a linear classifier in 2 seconds rather than 3 minutes. For ADE20K, the speedups are smaller, but significant: 7 minutes rather than 30 minutes (relative to full finetuning), and 1 minute rather than 30 minutes (relative to the linear classifier). By making substantial gains in this near-real-time use case, we believe NN retrieval lays the groundwork for scene understanding in an interactive setting.
+
+Table \ref{tab:4_fast_adapt} compares \ours retrieval to other models (equipped with linear or end-to-end finetuned decoders) in the fast-adaptation regime (i.e.\ when given a single pass over the full downstream dataset): \ours retrieval outperforms all other pretraining techniques and decoding mechanisms on both PASCAL VOC and ADE20K.
+
+\subsection{Fully finetuned scene understanding} \label{sec:eval_finetune}
+
+Although the primary focus of this work is on fast and effortless adaption to downstream tasks, for completeness, we include a comparison of fully finetuned \ours with fully finetuned state-of-the-art models on the semantic segmentation task. We follow the finetuning protocol of MAE \cite{he2021masked} and use UperNet \cite{xiao2018unified} as a decoder. Table \ref{tab:finetuning} shows that both \ours and \oursup are competitive with state-of-the-art when finetuned. Further analysis shows retrieval-based performance to be correlated with the finetuning performance (see Appendix \ref{sec:app-correlation}), paving the way for using retrieval-based evaluation as a model selection tool during training.
+
+\input{tables/tab_ft_detailed}
+
+\input{tables/tab_ablation}
+
+% \vspace{-0.4em}
+\section{Analysis}
+% \vspace{-0.4em}
+
+\textbf{Ablating the pretraining components. } We perform an ablation of pretraining components required for adaptation to downstream tasks through NN retrieval in Table \ref{tab:ablation}. We find attention pooling to yield superior performance compared to mean pooling or a \texttt{[CLS]} token. Both contextual pretraining and attention pooling separately lead to large performance improvements over a baseline MoCLR \cite{tian2021divide} model and best results are achieved when combining the two. Note that although spatial attention pooling was initially introduced in the context of video understanding \cite{parthasarathy2022self}, this work is the first to show its utility for downstream task adaptation in the NN retrieval setup. We further find that modifying it (``QK att'') with a value head (``QKV att.'') improves its performance across all tasks. 
+
+
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[width=.65\textwidth]{figures/inference_time_vs_mem_length.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{Effect of memory bank length on nearest neighbor lookup at inference time.} Inference time is for a single image. Lookups were done on a single Nvidia A100 GPU.}
+\label{fig:memlengthruntime}
+\end{figure}
+
+\begin{figure}[h]
+  \begin{center}
+    \includegraphics[width=\textwidth]{figures/mem_length.pdf}
+  \end{center}
+\vspace{-0.5em}
+\caption{\textbf{Effect of the pretraining (\textit{left}) and evaluation (\textit{right}) memory length on performance.} All models were pretrained with ViT-B on ImageNet-22k. \textit{Left}: Since the retrieval-based supervised objective is only defined for memory banks of non-zero length, for the purpose of this ablation we replace it with a simple linear classifier when $|\mathcal{M}_p|\!=\!0$. \textit{Right}:  For downsample=False, we store representations of all patches into the memory bank. If downsample=True, we sample $|\mathcal{M}|/ N$ patches per image ($N$ is the length of the downstream training set), allowing for greater diversity.
+}
+\label{fig:memlengthall}
+\end{figure}
+
+\textbf{Effect of evaluation memory length $|\mathcal{M}|$. } 
+When transferring to downstream tasks with many training images (\eg PASCAL VOC and ADE20K contain $\sim10$k and $\sim20$k   images respectively, each image providing 100s of tokens), we see benefits of using large memory banks (\eg $|\mathcal{M}|$ of the order of 1--10 million tokens, see Figure \ref{fig:memlengthall}, right). Since this makes the cross-attention operation computationally intractable, we leverage powerful libraries for approximate NN search \cite{johnson2019billion, guo2020accelerating} to limit cross-attention (Equation \ref{eq:nn-xattn}) to a small set of nearest neighbors for each query (\eg $k = 30$, see Appendix \ref{sec:app-ann} for details, where we find increasing $k$ not to have significant impact on performance).
+
+Figure \ref{fig:memlengthruntime} shows the relationship between evaluation memory length and the cost of the nearest neighbor lookup at inference time. For small-to-medium sized memory banks (0 to 1 million keys), the lookup cost is minimal (\(\leq\) 30 ms), meaning the system is still fast enough to be used for real-time applications, such as segmenting videos at 30 frames per second. When scaling to very large memory banks of 10 million keys or more, the scaling tends to be linear.
+However, the absolute performance is likely still suitable for most applications: with a memory bank size of 10 million, the overhead from NN lookup is only 0.2 seconds for dense tasks.
+
+
+\textbf{Effect of pretraining memory length $|\mathcal{M}_p|$. } In contrast to retrieval-based evaluation, we find contextual pretraining to be remarkably memory-efficient: small memory banks (\eg $|\mathcal{M}_p|$ = 40k, see Figure \ref{fig:memlengthall}, left for PASCAL VOC and Appendix \ref{sec:app-memorylength} for ADE20K) are sufficient to yield robust gains in retrieval-based scene understanding, adding a relatively small computational overhead to training the representation (e.g.\ +22\% for $|\mathcal{M}_p|$ = 40k). The module is agnostic to how the representation is trained and it benefits both self-supervised and supervised pretraining. Note that contextual pretraining is only present at training time and does not affect inference speed, and that pretraining and evaluation memory length are fully decoupled, allowing us to set them independently.
+
+
+
+
+\section{Conclusion}
+
+Inspired by impressive examples of in-context learning in language models, we investigate components necessary for in-context learning of dense scene understanding tasks in computer vision. To this end, we propose a simple non-parametric nearest neighbor retrieval mechanism---which is agnostic to the downstream task and requires no finetuning or specialized decoders---to serve as a general-purpose decoder which we use to evaluate models on semantic segmentation and monocular depth estimation tasks. We further propose \textit{Hummingbird}, a pretraining method which benefits from attention across images (through contextual pretraining) and within an image (through spatial attention pooling) to produce image representations that can be easily configured to perform downstream tasks in a fast and data-efficient manner. By combining \ours as the encoder with NN retrieval as the decoder, we take an important step towards in-context learning for dense vision tasks.
+
+\section{Broader Impact and Limitations}
+
+\textbf{Broader impact. } In laying the groundwork for scene understanding methods to be used in the interactive regime, our work could potentially benefit general-purpose assistants that are seeing rapid adoption. While these may enable a host of beneficial applications, they suffer from the biases and potential harms associated with visual language models and large language models more generally.
+
+\textbf{Limitations. } Despite offering large relative improvements compared to finetuning and linear classification in the low-data regime, the absolute performance of \ours when given less than 100 examples in the prompt is still far from perfect. To truly match the in-context learning abilities displayed in NLP, we would ideally need good performance from a handful of examples. 
+
+Further, given that retrieval-based scene understanding is task-agnostic, we leave expanding \ours nearest neighbor evaluation to other tasks (e.g.\ object detection) to future work. Certain tasks, such as image rotation or image flipping, are not currently amenable to our framework as we assume a spatial correspondence between features and their labels. Explicitly post-processing to smooth outputs across patches was also not explored in this paper. Although the set of nearest neighbors and their weights vary smoothly as a function of the query image representation, it should be noted that this smoothness is dependent on the input prompt, since the memory bank needs to be sufficiently diverse and dense to allow a linear combination of neighbors to be expressive enough to cover all possible labels. 
+
+Finally, while we have showcased the benefits of attention within and across images in a contrastive framework, we defer adding them to more recent approaches using advanced data curation \cite{oquab2023dinov2} and self-distillation \cite{caron2021emerging, zhou2021ibot} to future work.
+
+\section*{Acknowledgements}
+We thank Daniel Zoran, Andrew Zisserman, Evan Shelhamer and Jo\~{a}o Carreira for their thoughtful feedback, Skanda Koppula and Mathilde Caron for their assistance in reproducing baselines, and A\"{a}ron van den Oord and Oliver Vikbladh for fruitful discussions at the inception of the project. 
+
+% \newpage 
+
+%\bibliographystyle{splncs04}
+\bibliographystyle{ieee}
+% \bibliography{egbib.bib}
+% \bibliography{egbib}
+\bibliography{neurips_2023}
+
+\clearpage
+
+\appendix
+
+\section{Implementation details: retrieval based scene understanding}
+
+\subsection{How to store memories?}
+\label{sec:app-mem}
+The memory bank only needs to be calculated once per dataset and can then be re-used for each of the images in the evaluation set. To populate the memory bank, each image in the dataset's training set (i.e. the ``prompt'') is encoded using the frozen backbone of the pretrained network to evaluate. We encode each of the training set images into a spatial map $\vk_i \!=\! f_\theta(\vx_i) \!\in\! \mathbb{R}^{H \cdot W \times D}$, where a feature $\vk_i^j \!\in\! \mathbb{R}^D$ at a given spatial location $j$ is aligned with the local label $\vl_i^j$ created by averaging the pixel labels $\vy_i^j$ in that patch. These features $\vk_i$ are then $L_2$-normalized.
+
+When the memory bank length is not large enough to accommodate all features for all images, it is necessary to subsample and only store a subset of the features of each image. For a concrete example using  ADE20K, training set images have a resolution of \(512 \times 512\) which when encoded by a ViT-B/16 results in a \(32 \times 32\) grid of features (i.e. 1,024 features per image). To store every feature from each of ADE20K's \(20{\small,}120\) training images would require a memory bank length of \(20{\small,}120 \times 32 \times 32 = 20{\small,}695{\small,}040\). When using data augmentation to increase the number of training images, the required length is even higher.
+
+Our subsampling strategy for semantic segmentation works as follows. We define the number of features to take per image as \(n_{\text{features\_per\_image}} = \frac{|\mathcal{M}|}{|\mathcal{D}| * \text{num\_augmentation\_epochs}}\) where \(|\mathcal{D}|\) refers to the number of images in the training dataset. We thus sample the same number of features for each training image. Rather than sampling this number of features per image from the grid uniformly, we attempt to sample the most salient features using a simple strategy: upweighting patches containing class labels that appear less frequently in the image. Following the notation of Section \ref{sec:scene}, let \(\vl^j\) refer to the label attached to the patch indexed by \(j\) in the image and let \(\mathbbm{1}_{c \in \vl^j} = 1\) if a given class \(c \in \vl^j\) and \(0\) otherwise. Then for each class \(c\) we define \(\kappa_{c} = \sum_{j} \mathbbm{1}_{c \in \vl^j}\) (i.e.\ a count of how many patches the class \(c\) appeared in). We define a ``class score'' for each patch indexed by \(j\) as \(\text{class\_score}^{j} = \sum_{c \in \mathcal{C}} \kappa_{c} \cdot \mathbbm{1}_{c \in \vl^j}\). Finally, we take the \(n_{\text{features\_per\_image}}\) from the spatial map \(\vk_i\) with the lowest final scores using
+\begin{equation}
+\text{final\_score}^{j} = (\text{class\_score}^{j} \cdot x) + (10^6 \cdot \mathbbm{1}_{\vl^j = \emptyset})
+\end{equation} where \(x \sim \mathcal{U}_{[0, 1]}\). The first term introduces some stochasticity into the sampling process and the second term deprioritizes locations that have no class label. The chosen features serve as the memory bank keys and their associated labels are the memory bank values.
+
+The subsampling strategy used for depth estimation is simpler since there are no classes involved. We opted not to use data augmentation for this task making \(n_{\text{features\_per\_image}} = \frac{|\mathcal{M}|}{|\mathcal{D}|}\). We first randomly order each patch in the image, then place all patches that contain no valid pixel labels after any patch with valid pixel labels, and then take the first \(n_{\text{features\_per\_image}}\) from the list.
+
+There are many possible alternative strategies for sampling the most salient patches within an image in the event that the memory bank length cannot fit every feature from every image. We leave exploration of these possibly better sampling strategies for future work because in general we found this technique to perform well and wanted to show that nearest neighbor evaluation does not require complicated, hand-crafted strategies but rather works well out of the box with a simple heuristic calculated per image. For a complete listing of the hyperparameters involved in building and retrieving from the memory bank, see Appendix \ref{sec:app-ann}.
+
+\subsection{How to recall memories?}
+\label{sec:app-ann}
+After the memory bank has been populated as described in Appendix \ref{sec:app-mem}, we sequentially make predictions for each image in the evaluation set. Evaluation was done on a single Nvidia A100 GPU per downstream task and takes approximately 15 minutes for PASCAL VOC, 25 minutes for ADE20K, and 30 minutes for NYUv2. Each image $\vx$ is encoded as a grid of features $\vq \!=\! f_\theta(\vx)$ and each of the features from this grid will serve as the query that we will look up the nearest neighbors for. We use the open-source ScaNN library \cite{guo2020accelerating} to perform the approximate nearest neighbor search efficiently. ScaNN natively provides the functionality to return both the top-k nearest neighbors for a given query as well as scores for the similarity that can be used as the attention logits. These scores are then divided by a temperature scaling value before having a softmax applied to them to obtain the final attention values (see Equation \ref{eq:nn-xattn}).
+
+Throughout the paper, we use ScaNN in asymmetric hashing (AH) mode as opposed to brute-force mode. We find that there is little to no negative impact on the evaluation from using approximate nearest neighbor search as opposed to a brute-force exact search, despite the approximate search being several orders of magnitude faster. We use cosine similarity ($L_2$-normalized dot product) as a distance measure throughout this work. We also attempted some experiments using squared Euclidean distance and found it to have no benefits to performance for any of the models evaluated.
+
+\input{tables/appendix_eval_hyperparams}
+
+Table \ref{tab:appendix_eval_hyperparams} summarizes the hyperparameters used for NN evaluation throughout this work. For every section except for Section \ref{sec:eval_dataeff}, we use a flat set of hyperparameters detailed in the ``Everywhere else'' column of Table \ref{tab:appendix_eval_hyperparams}. Because Section \ref{sec:eval_dataeff} is concerned with small subsets of the data (i.e. training on the order of hundreds of images), hyperparameter sweeps are extremely cheap to run and it is computationally fast to find nearest neighbors even with minimal approximations, hence we used a slightly different setup in this regime. In general, we found nearest neighbor retrieval to be surprisingly robust to the choice of hyperparameters, with temperature and reordering\_num\_neighbors being the most relevant to performance. The same set of hyperparameters were used for the semantic segmentation tasks (PASCAL VOC and ADE20K) as for the monocular depth estimation task (NYUv2), with the exception of the number of augmentation epochs (we did not use augmentations for depth estimation). For a complete description of the meaning of the ScaNN hyperparameters, please see \url{https://github.com/google-research/google-research/blob/master/scann/docs/algorithms.md}.
+
+Table \ref{tab:appendix_eval_augmentations} details the parameters used for augmenting the training dataset for semantic segmentation tasks. Note that the augmentations used to augment the training set when evaluating downstream tasks differ from the augmentations used for creating different views of the same image during contrastive pretraining described in Appendix \ref{sec:app-ssl-data}. When augmentations are enabled, the image is first scaled between the minimum and maximum scale factor, from which a random crop is selected. Then photometric augmentations are applied independently with the probabilities and maximum intensities provided.
+
+\input{tables/appendix_eval_augmentations}
+
+\section{Implementation details: contextual pretraining}
+\label{sec:app-con-rep}
+
+The contextual pretraining module takes as input a batch of image representations (i.e. queries) $\vq \!=\! \vh = f_\theta(\vx) \!\in\! \mathbb{R}^{B \times H \cdot W \times D}$ from the ViT encoder $f_\theta$, where $B\!=\!4096$ is the batch size, $H\!=\!W\!=\!14$ are the height and width of the spatial feature map and $D\!=\!768$ for ViT-B and $D\!=\!1024$ for ViT-L is the feature dimension. Keys and values for the contextualization cross-attention operation are entries of the memory bank $\mathcal{M}_p = \{ (\vk_i, \vv_i), i\!=\!1,...,|\mathcal{M}_p| \}$, where keys $\vk_i$ are taken from previous batches by spatially averaging $\vh$ (see Equation \ref{eq:mem}) and values $\vv_i$ are obtained by applying a two-layer MLP $\phi_\theta$ to the keys, where we use batch norm after the first layer and the hidden dimension is set to 4096. Each feature $\vq^i$ of the image representation is then updated as $ \bm{c}^{i} \!=\! \psi_\theta((1-\lambda) \frac{\vq^i}{ \lVert \vq^i \rVert } + \lambda \frac{\bm{\hat{v}}^{i}}{ \lVert \bm{\hat{v}}^{i} \rVert } )$, where $\psi_\theta$ is a linear layer and $\lVert \vx \rVert$ is the $L_2$ norm. Preliminary analysis showed $\lambda\!=\!0.2$ to work well across datasets, so we use it for all our experiments, with higher values $\lambda \!\ge\! 0.5$ degrading performance.
+
+We populate the memory bank with all batch entries of ImageNet-1k / -22k at each step, using the representations from the target network. The memory bank is spread across 128 Cloud TPU v3 workers with 1200 entries on each TPU for ImageNet-1k (256 TPUs with 600 entries for ImageNet-22k), resulting in total memory length of $153{\small,}600$.
+
+\section{Implementation details: self-supervised pretraining}
+
+\subsection{Data augmentation}
+\label{sec:app-ssl-data}
+
+ Each image is randomly augmented twice, resulting in two views $\vx_1$ and $\vx_2$. The augmentations are constructed as compositions of the following operations, each applied with a given probability:
+\begin{enumerate}
+\item random cropping: a random patch of the image is selected, whose area is uniformly sampled in $[0.08 \cdot \mathcal{A}, \mathcal{A}]$, where $\mathcal{A}$ is the area of the original image, and whose aspect ratio is logarithmically sampled in $[3/4, 4/3]$. The patch is then resized to $224 \times 224$ pixels using bicubic interpolation;
+\item horizontal flipping;
+\item color jittering: the brightness, contrast, saturation and hue are shifted by a uniformly distributed offset;
+\item color dropping: the RGB image is replaced by its grey-scale values;
+\item gaussian blurring with a $23\times 23$ square kernel and a standard deviation uniformly sampled from $[0.1, 2.0]$;
+\item solarization: a point-wise color transformation $x \mapsto x \cdot \mathbbm{1}_{x < 0.5} + (1 - x) \cdot \mathbbm{1}_{x \ge 0.5}$ with pixels $x$ in $[0, 1]$.
+\end{enumerate}
+\noindent The augmented images $\vx_1$ and $\vx_2$ result from augmentations sampled from distributions $\mathcal{T}_1$ and~$\mathcal{T}_2$ respectively. These distributions apply the primitives described above with different probabilities and different magnitudes. Table \ref{tab:appendix_pretrain_augmentations} specifies these parameters for the BYOL framework \cite{grill2020bootstrap}, which we adopt without modification. 
+
+\input{tables/appendix_pretrain_augmentations}
+
+
+\subsection{Optimization}
+\label{sec:app-ssl-optimization}
+
+We pretrain the model for 300 epochs on ImageNet-1k or 100 epochs on ImageNet-22k using AdamW \cite{loshchilov2019decoupled} with a batch size of 4096, split across 128 Cloud TPU v3 workers for ImageNet-1k and 256 Cloud TPU v3 workers for ImageNet-22k. Training a ViT-B / ViT-L for 300 epochs on ImageNet-1k takes roughly 21 hours / 53 hours, while 100 epochs on ImageNet-22k takes approximately 60 hours / 128 hours. We update the online parameters $\theta$ with a cosine learning rate schedule with a base learning rate of 0.001, weight decay of 0.1 and gradient clipping with a maximum norm of 1. We update the target parameters $\xi$ as an exponential moving average of the online parameters with a decay rate of 0.99. 
+ 
+Following \cite{chen2020simple} the projections and predictions in Equation \ref{eq:ssl-loss} are normalized and rescaled such that their norm is equal to $1 / \sqrt{\tau}$ where the contrastive loss temperature $\tau$ is equal to 0.1. When using additional supervision we set the supervised loss weight $\alpha$ to 0.25 for the supervised ViT-B trained on ImageNet-22k and $\alpha\!=\!0.05$ for all other experiments.
+
+\section{Supplementary analysis}
+
+\subsection{Data efficiency}
+\label{sec:app-data-efficiency}
+
+In Table \ref{tab:data_eff_up_to_64} we compared \ours with several leading representation learning techniques in the low-data regime. Here we provide the complete analysis from \(1/128\) to 100\% of the data, as well as results for our ViT-L model trained on ImageNet-22k to show the scaling properties of \textit{Hummingbird}. Note that there is a difference between the experiments run here and those found in Section \ref{sec:eval_finetune} of the main paper; that section uses an UperNet \cite{xiao2018unified} decoder and this section uses a linear decoder for all of the finetuned rows in each table.
+
+For PASCAL VOC (Table \ref{tab:appendix_pascal_data_eff}), \ours performs very well not only in the low-data regime but in the full-data regime, with the apples-to-apples comparison (ViT-B self-supervised on ImageNet-1k) competitive with all other techniques even as the dataset fraction increases. This table also demonstrates the clear benefit of supervision as well as model-size and dataset size scaling---with only nearest neighbors (no finetuning), \oursup trained on ImageNet-22k with a ViT-L backbone beats all of the other finetuned variants for every dataset fraction. \oursup using a ViT-B and ImageNet-1k predictably lies in-between the other two models for every dataset fraction.
+
+For ADE20K (Table \ref{tab:appendix_ade20k_data_eff}), the same general trends from above hold. Backbone and dataset scaling are once again beneficial as \oursup with ViT-L and ImageNet-22k training outperforms the other \ours models, however this time the absolute performance relative to the finetuned competition in the high-data regime is less favorable since the end-to-end finetuned versions of other techniques start to outperform the nearest neighbors only ViT-L \oursup at \(1/16\) of the data.
+
+\input{tables/appendix_data_efficiency}
+
+\subsection{Correlation of NN retrieval and finetuning performance}
+\label{sec:app-correlation}
+
+In this section, we study the relation between NN retrieval performance and end-to-end finetuning. To that end, we collect 14 \ours models trained with different architectures (ViT-B vs ViT-L), datasets (ImageNet-1k vs ImageNet-22k), learning objectives (self-supervised or with additional supervision), and training lengths. Figure \ref{fig:correlation} plots the performance of these models when equipped with NN retrieval decoders (x-axis) and fully-finetuned UperNet decoders (y-axis). For both PASCAL VOC and ADE20K semantic segmentation, performance using one decoding scheme is highly predictive of the other (Pearson's $\rho = 0.80$ for PASCAL VOC, $\rho = 0.89$ for ADE20K). As such, even in cases where NN retrieval underperforms end-to-end finetuning, it can still be used as a powerful diagnostic tool. As illustrated in Section \ref{sec:eval_fastadapt}, evaluating with NN retrieval is much simpler and faster than with end-to-end finetuning, even when using a linear decoder. End-to-end finetuning often requires sweeping over optimization hyperparameters and averaging across multiple seeds, making it unsuitable for online evaluation, whereas NN retrieval is 10\x \ less variable across runs and doesn't require any hyperparameter sweeps. As such NN retrieval can be used as an online evaluation that is highly predictive of performance obtained with more expensive finetuning protocols.
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=\textwidth]{figures/figure_correlation.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{Relation between NN retrieval and end-to-end finetuning performance.} We collect 14 models trained with different architectures, datasets, and learning objectives.}
+\label{fig:correlation}
+\end{figure}
+
+\subsection{Effect of pretraining and evaluation memory length for ADE20K} \label{sec:app-memorylength}
+
+We include the equivalent of Figure \ref{fig:memlengthall} on the ADE20K dataset in Figure \ref{fig:memlengthallade20k}. Similar to what we observe for PASCAL VOC, we benefit from large memory banks at evaluation. Since the ADE20K training set is roughly 2\x \ larger than that of PASCAL VOC, we also observe that sampling which features to store in the memory bank is more important than it is for PASCAL VOC (see Appendix \ref{sec:app-mem} on the details of the sampling procedure). Similarly, at training time, ADE20K benefits from larger pretraining memory banks than PASCAL VOC, with performance plateauing for memory banks larger than $200{\small,}000$. Thus, we set the pretraining memory bank length to $153{\small,}600$ in all our experiments (see Appendix \ref{sec:app-con-rep} for details on contextual pretraining).
+
+\begin{figure}[ht]
+  \begin{center}
+    \includegraphics[width=\textwidth]{figures/mem_length_ade20k.pdf}
+  \end{center}
+\vspace{-1em}
+\caption{\textbf{Effect of the pretraining (\textit{left}) and evaluation (\textit{right}) memory length on performance of ADE20K.} All models were pretrained with ViT-B on ImageNet-22k. \textit{Left}: Since the retrieval-based supervised objective is only defined for memory banks of non-zero length, for the purpose of this ablation we replace it with a simple linear classifier when $|\mathcal{M}_p|\!=\!0$. \textit{Right}:  For downsample=False, we store representations of all patches into the memory bank. If downsample=True, we sample $|\mathcal{M}|/ N$ patches per image ($N$ is the length of the downstream training set), allowing for greater memory bank diversity and thus superior performance than when downsample=False.
+  \vspace{-0.5em}}
+\label{fig:memlengthallade20k}
+\end{figure}
+
+\subsection{Impact of encoder size on finetuned performance}
+\label{sec:app-vitl-finetuning}
+
+We investigate the impact of encoder size in the finetuning regime in Table \ref{tab:appendix_vitl_finetuning}. We find that scaling the encoder from ViT-B to ViT-L is beneficial for both \ours and \oursup\hspace{-0.2em}, where the self-supervised \ours benefits slightly more from model scaling than its supervised counterpart. Note that this scaling study highlights the need for jointly scaling data and model size, as the best performing model overall is the one with ViT-L as an encoder trained on ImageNet-22k.
+
+\input{tables/appendix_vitl_finetuning}
+
+
+\subsection{Importance of retrieval-based supervision for in-context scene understanding}
+\label{sec:app-supervision}
+
+We study the importance of retrieval-based supervised objective (see Section \ref{sec:sup}) on in-context scene understanding performance. We compare a model trained purely with the retrieval-based supervised objective (``Sup'') with \ours (purely self-supervised, i.e. ``SSL'') and \oursup (both self-supervised and retrieval-based supervised, i.e. ``SSL + Sup''). Results shown in Table \ref{tab:appendix_ssl_vs_sup} indicate the necessity of the self-supervised objective for creating representations that are general and transfer well to downstream tasks.
+
+\input{tables/appendix_ssl_vs_sup}
+
+
+\null
+\vfill
+
+
+% References follow the acknowledgments in the camera-ready paper. Use unnumbered first-level heading for
+% the references. Any choice of citation style is acceptable as long as you are
+% consistent. It is permissible to reduce the font size to \verb+small+ (9 point)
+% when listing the references.
+% Note that the Reference section does not count towards the page limit.
+% \medskip
+
+
+% {
+% \small
+
+
+% [1] Alexander, J.A.\ \& Mozer, M.C.\ (1995) Template-based algorithms for
+% connectionist rule extraction. In G.\ Tesauro, D.S.\ Touretzky and T.K.\ Leen
+% (eds.), {\it Advances in Neural Information Processing Systems 7},
+% pp.\ 609--616. Cambridge, MA: MIT Press.
+
+
+% [2] Bower, J.M.\ \& Beeman, D.\ (1995) {\it The Book of GENESIS: Exploring
+%   Realistic Neural Models with the GEneral NEural SImulation System.}  New York:
+% TELOS/Springer--Verlag.
+
+
+% [3] Hasselmo, M.E., Schnell, E.\ \& Barkai, E.\ (1995) Dynamics of learning and
+% recall at excitatory recurrent synapses and cholinergic modulation in rat
+% hippocampal region CA3. {\it Journal of Neuroscience} {\bf 15}(7):5249-5262.
+% }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}

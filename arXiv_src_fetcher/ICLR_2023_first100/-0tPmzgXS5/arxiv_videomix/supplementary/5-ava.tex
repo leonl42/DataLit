@@ -1,0 +1,14 @@
+\section{AVA Action Detection}
+\label{appendix:ava}
+
+Our action detector is based on the Faster R-CNN~\cite{ren2015faster} architecture, which is modified as in~\cite{feichtenhofer2019slowfast} to adapt to the video action detection task. 
+We use PySlowFast\footnote{https://github.com/facebookresearch/SlowFast} and Detectron2\footnote{https://github.com/facebookresearch/detectron2} codebases.
+The spatial stride of the final convolutional block is reduced from 2 to 1
+to increase the feature map size.
+We extend 2D RoIAlign layer~\cite{he2017mask} to 3D RoIAlign layer, which extracts RoI features spatially and then aggregate via global average pooling. 
+We use the human bounding box proposals provided by~\cite{feichtenhofer2019slowfast} computed by an off-the-shelf human detector fine-tuned on AVA persons, which is a Faster RCNN with a ResNeXt-101-FPN~\cite{xie2017resnext} backbone.
+The person region proposals are detected by human detector with a confidence threshold of $0.8$.
+
+We train detectors for 20 epochs using the SGD optimizer with initial learning rate 0.1 decayed by factor 0.1 at 10 and 15 epoch. 
+The spatial size of the input video is $224\times224$, and $64$ consecutive frames are extracted for training.
+For inference, the spatial dimension of the shorter side is resized to $256$ pixels while maintaining the aspect ratio. 

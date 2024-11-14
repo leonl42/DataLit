@@ -1,0 +1,59 @@
+\section{VideoMix Algorithm}
+\label{appendix:algorithm}
+
+\algnewcommand\Input{\item[\textbf{Input:}]}%
+\algnewcommand\Output{\item[\textbf{Output:}]}%
+\begin{algorithm*}[!t]
+\small
+  \caption{Pseudo-code of VideoMix}
+  \begin{algorithmic}[1]
+    \For {each iteration}
+    \State input, target = get\_minibatch(dataset) 
+    \Comment{input: $(\text{N}\times C \times T \times W\times H)$} %
+    \Statex $ $ \Comment{target: $(\text{N}\times \#\text{Classes})~~~~~~~~~$} 
+        \If{mode $==$ training}
+            \State input$_\text{shuff}$, target$_\text{shuff}$ = shuffle\_minibatch(input, target) 
+            \State $\lambda$ = $\text{Unif}(0,1)$
+            \If{VideoMix\_mode $==$ Spatial} 
+                \State $w_c$, $w_h$ = $\text{Unif}(0,W)$, $\text{Unif}(0,H)$
+                \State $w_1$, $w_2$ = $\text{clip}(w_c-W\frac{\sqrt{\lambda}}{2})$, $\text{clip}(w_c+W\frac{\sqrt{\lambda}}{2})$
+                \State $h_1$, $h_2$ = $\text{clip}(h_c-H\frac{\sqrt{\lambda}}{2})$, $\text{clip}(h_c+H\frac{\sqrt{\lambda}}{2})$
+                \State $t_1$, $t_2$ = $0$, $T$
+            \ElsIf {VideoMix\_mode $==$ Temporal}
+                \State $t_c$ = $\text{Unif}(0,T)$
+                \State $w_1$, $w_2$ = $0$, $W$
+                \State $h_1$, $h_2$ = $0$, $H$
+                \State $t_1$, $t_2$ = $\text{clip}(t_c-T\frac{{\lambda}}{2})$, $\text{clip}(t_c+T\frac{{\lambda}}{2})$
+            \ElsIf {VideoMix\_mode $==$ Spatio-Temporal}
+                \State $w_c$, $w_h$, $t_c$ = $\text{Unif}(0,W)$, $\text{Unif}(0,H)$, $\text{Unif}(0,T)$
+                \State $w_1$, $w_2$ = $\text{clip}(w_c-W\frac{\sqrt[3]{\lambda}}{2})$, $\text{clip}(w_c+W\frac{\sqrt[3]{\lambda}}{2})$
+                \State $h_1$, $h_2$ = $\text{clip}(h_c-H\frac{\sqrt[3]{\lambda}}{2})$, $\text{clip}(h_c+H\frac{\sqrt[3]{\lambda}}{2})$
+                \State $t_1$, $t_2$ = $\text{clip}(t_c-T\frac{\sqrt[3]{\lambda}}{2})$, $\text{clip}(t_c+T\frac{\sqrt[3]{\lambda}}{2})$                
+            \EndIf
+            
+            \State input[:, :, $t_1$:$t_2$, $w_1$:$w_2$, $h_1$:$h_2$] = input$_\text{shuff}$[:, :, $t_1$:$t_2$, $w_1$:$w_2$, $h_1$:$h_2$]
+            \State $\lambda$ = $\frac{(t2-t1)\times(w2-w1)\times(h2-h1)}{(T\times W\times H)}$ \Comment{Adjust lambda to the exact fraction ratio.}
+            \State target = $\lambda$ * target + (1 - $\lambda$) * target$_\text{shuff}$%
+        \EndIf
+        \State output = model\_forward(input)
+        \State loss = compute\_loss(output, target)
+        \State update\_model(model, loss)
+    \EndFor
+  \end{algorithmic}
+  \label{alg:videomix_algorithm}
+\end{algorithm*}
+
+We describe code-level algorithm of VideoMix variants in Algorithm~\ref{alg:videomix_algorithm}.
+The input video of a minibatch is $(N\times C \times T \times W \times H)$-size tensor, where $N$, $C$, $T$, $W$, and $H$ denote the size of a minibatch, the channel size, the the width, and the height of a frame.
+VideoMix first shuffles the order of the minibatch along the first dimension of the tensor. 
+Next $\lambda$ is sampled from the uniform distribution.
+Then the cuboid coordinate $\mathbf{C}=(t_1,t_2,w_1,w_2,h_1,h_2)$ are sampled corresponding to the type of VideoMix. 
+Note that `clip' function truncates the coordinates to fit in the frame space (e.g., $\text{clip}(w)$=$\text{min}(\text{max}(w,W),0)$). 
+
+\textbf{Spatial VideoMix} ({line 7-10}) is the same as we described in the main paper. 
+For \textbf{Temporal VideoMix} (line 12-15), we only samples $t_1$ and $t_2$.
+For \textbf{Spatio-temporal Videomix} (line 17-20), $t_1$, $t_2$, $w_1$, $w_2$, $h_1$, and $h_2$ are simultaneously sampled. 
+After sample a cuboid $\mathbf{C}$, we combine two videos by cutting and inserting the cuboid region, and $\lambda$ is adjust by computing the exact fraction ratio of the cuboid. 
+The target label is also blended by interpolation manner. 
+Note that VideoMix is simple and easy to implement with few lines, but it is very effective on various video tasks.
+

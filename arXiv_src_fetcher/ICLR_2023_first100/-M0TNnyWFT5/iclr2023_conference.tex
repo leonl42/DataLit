@@ -1,0 +1,705 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2023_conference,times}
+\usepackage{graphicx}
+\usepackage{varwidth}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{multirow}
+\usepackage[T1]{fontenc}
+\usepackage{bbm}
+\usepackage{wrapfig,lipsum}
+\usepackage{threeparttable}
+\usepackage{scalerel}
+\usepackage{pifont}% http://ctan.org/pkg/pifont
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\newcommand{\pluseq}{\mathrel{+}=}
+\newcommand{\specialcell}[2][c]{%
+  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
+
+
+\title{Task-Aware Information Routing from \\ Common Representation Space in \\ Lifelong Learning}
+
+
+\iclrfinalcopy
+
+\author{Prashant Bhat\textsuperscript{\rm 1}, Bahram Zonooz\textsuperscript{\rm 1,2}$^*$ \& Elahe Arani\textsuperscript{\rm 1,2}\thanks{Shared last author} \\
+ \textsuperscript{\rm 1}Advanced Research Lab, NavInfo Europe, Netherlands\\
+\textsuperscript{\rm 2}Dep. of Mathematics and Computer Science, Eindhoven University of Technology, Netherlands\\
+\texttt{prashant.bhat@navinfo.eu, \{bahram.zonooz, e.arani\}@gmail.com} \\
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+%\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+%--------------------------------
+\begin{abstract}
+Intelligent systems deployed in the real world suffer from catastrophic forgetting when exposed to a sequence of tasks. Humans, on the other hand, acquire, consolidate, and transfer knowledge between tasks that rarely interfere with the consolidated knowledge.  Accompanied by self-regulated neurogenesis, continual learning in the brain is governed by a rich set of neurophysiological processes that harbor different types of knowledge, which are then integrated by conscious processing. Thus, inspired by the Global Workspace Theory of conscious information access in the brain, we propose TAMiL, a continual learning method that entails task-attention modules to capture task-specific information from the common representation space. We employ simple, undercomplete autoencoders to create a communication bottleneck between the common representation space and the global workspace, allowing only the task-relevant information to the global workspace, thus greatly reducing task interference. Experimental results show that our method outperforms state-of-the-art rehearsal-based and dynamic sparse approaches and bridges the gap between fixed capacity and parameter isolation approaches while being scalable. We also show that our method effectively mitigates catastrophic forgetting while being well-calibrated with reduced task-recency bias\footnote{Code is available at: \url{https://github.com/NeurAI-Lab/TAMiL}}.
+% 191 words 
+\end{abstract}
+
+%--------------------------------
+\section{Introduction}
+Deep neural networks (DNNs) deployed in the real world are normally required to learn multiple tasks sequentially and are exposed to non-stationary data distributions. Throughout their lifespan, such systems must acquire new skills without compromising previously learned knowledge. However, continual learning (CL) over multiple tasks violates the i.i.d. (independent and identically distributed) assumption on the underlying data, leading to overfitting on the current task and catastrophic forgetting of previous tasks. The menace of catastrophic forgetting occurs due to the stability-plasticity dilemma: the extent to which the system must be stable to retain consolidated knowledge and be plastic to assimilate new information \citep{mermillod2013stability}. As a consequence of catastrophic forgetting, performance on previous tasks often drops significantly; in the worst case, previously learned information is completely overwritten by the new one \citep{parisi2019continual}. 
+
+Humans, however, excel at CL by incrementally acquiring, consolidating, and transferring knowledge across tasks \citep{bremner2012multisensory}. Although there is gracious forgetting in humans, learning new information rarely causes catastrophic forgetting of consolidated knowledge \citep{french1999catastrophic}. CL in the brain is governed by a rich set of neurophysiological processes that harbor different types of knowledge, and conscious processing integrates them coherently \citep{goyal2020inductive}. Self-regulated neurogenesis in the brain increases the knowledge bases in which information related to a task is stored without catastrophic forgetting \citep{kudithipudi2022biological}. The global workspace theory (GWT) \citep{baars1994global, baars2005global, baars2021global} posits that one of such knowledge bases is a common representation space of fixed capacity from which information is selected, maintained, and shared with the rest of the brain. When addressing the current task, the attention mechanism creates a communication bottleneck between the common representation space and the global workspace and admits only relevant information in the global workspace \citep{goyal2020inductive}. Such a system enables efficient CL in humans with systematic generalization across tasks \citep{bengio2017consciousness}. 
+
+Several approaches have been proposed in the literature that mimic one or more neurophysiological processes in the brain to address catastrophic forgetting in DNN. Experience rehearsal \citep{ratcliff1990connectionist} is one of the most prominent approaches that mimics the association of past and present experiences in the brain. However, the performance of rehearsal-based approaches is poor under low buffer regimes, as it is commensurate with the buffer size \citep{bhat2022consistency}. On the other hand, parameter isolation methods \citep{rusu2016progressive} present an extreme case of neurogenesis in which a new subnetwork is initialized for each task, thus greatly reducing task interference. Nevertheless, these approaches exhibit poor reusability of parameters and are not scalable due to the addition of a large number of parameters per task. Therefore, the right combination of the aforementioned mechanisms governed by GWT could unlock effective CL in DNNs while simultaneously encouraging reusability and mitigating catastrophic forgetting.  
+
+Therefore, we propose \textit{Task-specific Attention Modules in Lifelong learning (TAMiL)}, a novel CL approach that encompasses both experience rehearsal and self-regulated scalable neurogenesis. Specifically, TAMiL learns by using current task samples and a memory buffer that represents data from all previously seen tasks. Additionally, each task entails a task-specific attention module (TAM) to capture task-relevant information in CL, similar to self-regulated neurogenesis in the brain. Reminiscent of the conscious information access proposed in GWT, each TAM acts as a bottleneck when transmitting information from the common representation space to the global workspace, thus reducing task interference.  Unlike self-attention in Vision Transformers, we propose using a simple, undercomplete autoencoder as a TAM, thereby rendering the TAMiL scalable even under longer task sequences. 
+Our contributions are as follows: 
+\begin{itemize}
+    \item We propose TAMiL, a novel CL approach that entails both experience rehearsal and self-regulated scalable neurogenesis to further mitigate catastrophic forgetting in CL. 
+    \item Inspired by GWT of conscious information access in the brain, we propose TAMs to capture task-specific information from the common representation space, thus greatly reducing task interference in Class- and Task-Incremental Learning scenarios.
+    \item We also show a significant effect of task attention on other rehearsal-based approaches  (e.g. ER, FDR, DER++). The generalizability of the effectiveness of TAMs across algorithms reinforces the applicability of GWT in computational models in CL. 
+    \item  We also show that TAMiL is scalable and well-calibrated with reduced task-recency bias. 
+\end{itemize}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=.95\linewidth]{images/main.pdf}
+  % \caption{TAMiL encompasses both experience rehearsal and self-regulated scalable neurogenesis. First, the current task data $\mathcal{D}_t$ is mapped to common representation space using $f_\theta$. The corresponding TAM then captures the task specific information contained in $\mathcal{D}_t$ and applies transformation coefficients to select features important for the current task thereby preventing task interference. We use a matching criterion as an ignition event to trigger a particular TAM for both buffered and test samples.}
+  \caption{The proposed method, TAMiL, incorporates both experience rehearsal and self-regulated scalable neurogenesis. Firstly, the current task data, $\mathcal{D}_t$, is mapped to a common representation space using $f_\theta$. The corresponding Task-Specific Attention Module (TAM) then captures task-specific information contained in $\mathcal{D}_t$ and applies transformation coefficients to select features important for the current task, thereby preventing interference between tasks. A matching criterion is used as an ignition event to trigger a particular TAM for both buffered and test samples.}
+  \label{fig:main}
+\end{figure*}
+
+
+%--------------------------------
+\section{Related works}
+
+\textbf{Rehearsal-based Approaches:} Continual learning over a sequence of tasks has been a long-standing challenge, since learning a new task causes large weight changes in the DNNs, resulting in overfitting on the current task and catastrophic forgetting of older tasks \citep{parisi2019continual}. Similar to experience rehearsal in the brain, early works attempted to address catastrophic forgetting through Experience-Replay (ER; \cite{ratcliff1990connectionist, robins1995catastrophic}) by explicitly storing and replaying previous task samples alongside current task samples. Function Distance Regularization (FDR; \cite{benjamin2018measuring}), Dark Experience Replay (DER++; \cite{buzzega2020dark}) and CLS-ER \citep{arani2022learning} leverage soft targets in addition to ground truth labels to enforce consistency regularization across previous and current model predictions. In addition to rehearsal, DRI \citep{wang2022continual} utilizes a generative model to augment rehearsal under low buffer regimes.  On the other hand,  Co$^{2}$L \citep{cha2021co2l}, TARC \citep{pmlr-v199-bhat22a} and ER-ACE \citep{caccia2021new} modify the learning objective to prevent representation drift when encountered with new classes. Given sufficient memory, replay-based approaches mimic the association of past and present experiences in humans and are fairly successful in challenging CL scenarios. However, in scenarios where buffer size is limited, they suffer from overfitting \citep{bhat2022consistency}, exacerbated representation drift \citep{caccia2021reducing} and prior information loss \citep{zhang2020self} resulting in aggravated forgetting of previous tasks.
+
+\textbf{Evolving Architectures:}
+In addition to experience rehearsal, CL in the brain is mediated by self-regulated neurogenesis that scale up the number of new memories that can be encoded and stored without catastrophic forgetting \citep{kudithipudi2022biological}. Similarly in DNNs, Progressive Neural Networks (PNNs; \cite{rusu2016progressive}) instantiate a new subnetwork for each task with lateral connections to previously learned frozen models. Several works have been proposed to address the issue of scalability in PNNs: CCLL \citep{NEURIPS2020_b3b43aee} employed a fixed capacity model and reused the features captured on the first task by performing spatial and channel-wise calibration for all subsequent tasks. DEN \citep{yoon2018lifelong} proposed a dynamically expandable network using selective retraining, network expansion with group sparsity regularization, and neuron duplication. Similarly, CPG \citep{hung2019compacting} proposed an iterative approach with pruning of previous task weights followed by gradual network expansion while reusing critical weights from previous tasks.  MNTDP \citep{veniat2020efficient} employed a modular learning approach to transfer knowledge between related tasks while sublinearly scaling with the number of tasks. Although these approaches grow drastically slower than PNNs, they require task identity at inference time.  
+On the other hand, \citet{mendez2020lifelong} explicitly captured compositional structures in lifelong learning thereby enabling their reusability across tasks. However, this requires joint training of subset of tasks to learn initial generalizable compositional structures. Requiring task-identity at inference and joint training of subset of tasks at initialization are an impediment for deploying these CL systems in the real world.
+
+By contrast, several other methods (e.g. NISPA \citep{gurbuz2022nispa}, CLNP \citep{golkar2019continual}, PackNet \citep{mallya2018packnet}, PAE \citep{hung2019increasingly}) proposed dynamic sparse networks based on neuronal model sparsification with fixed model capacity. Similar to the brain, these models simultaneously learn both connection strengths and a sparse architecture for each task, thereby isolating the task-specific parameters. However, these methods suffer from capacity saturation in longer task sequences, thus rendering them inapplicable to real-world scenarios.  
+
+We propose TAMiL, a CL method that, while drawing inspiration from GWT, successfully combines rehearsal and parameter isolation with little memory overhead (Table \ref{tab:parameter}), superior performance (Table \ref{tab:main}) without capacity saturation, and without requiring task identity at inference time. To the best of our knowledge, our work is the first to study the GWT-inspired CL approach to effectively mitigate catastrophic forgetting. 
+
+%--------------------------------
+\section{Proposed Method}
+% \subsection{Preliminary}
+
+We consider a CL setting in which multiple sequential tasks $t \in \{1, 2, .., T\}$ are learned by the model $\Phi_\theta$ one at a time. Each task is specified by a task-specific distribution $\mathcal{D}_t$ with $\{(x_i, y_i)\}_{i=1}^{N}$ pairs. In this training paradigm, any two task-specific distributions are disjoint. The model $\Phi_\theta$ consists of a backbone network $f_\theta$ and a classifier $g_\theta$ that represents classes belonging to all tasks. The learning objective in such an CL setting is to restrict the empirical risk of all tasks seen so far: 
+\begin{equation}
+    \mathcal{L}_{t} = \sum_{t=1}^{T_{c}} \displaystyle \mathop{\mathbb{E}}_{(x_{i}, y_{i}) \sim \mathcal{D}_{t}} \left[ \mathcal{L}_{ce} (\sigma (\Phi_{\theta}(x_{i})), y_{i}) \right],
+\label{eqn_ce}
+\end{equation}
+where $\mathcal{L}_{ce}$ is a cross-entropy loss, $t$ is the current task, and $\sigma$ is the softmax function. Critically, sequential learning causes significant weight changes in $\Phi_\theta$ in subsequent tasks, resulting in catastrophic forgetting of previous tasks and overfitting on the current task if $\Phi_\theta$ is trained on each task only once in its lifetime without revisiting them. To mitigate catastrophic forgetting in CL, we employ experience rehearsal along with consistency regularization through episodic replay. Central to our method are the Task-specific Attention Modules (TAMs) that attend to important features of the input.   We define two representation spaces, namely common representation space and global workspace that are spanned by mapping functions $\mathcal{M}_f: \mathbb{R}^{B, H, W, C} \rightarrow \mathbb{R}^{D}$ and $\mathcal{M}_{\scaleto{TAM}{3pt}}: \mathbb{R}^{D} \rightarrow \mathbb{R}^{D}$ where $D$ denotes the dimension of the output Euclidean space. $\mathcal{M}_f$ is a set of possible functions that the encoder $f_\theta$ can learn, while $\mathcal{M}_{\scaleto{TAM}{3pt}}$ denotes a set of functions represented by TAMs. We use simple undercomplete autoencoders as task-specific attention modules that can act as feature selectors. We describe each of these components shown in Figure \ref{fig:main} in the following sections.
+
+
+
+\subsection{Episodic replay}
+To preserve knowledge of previous tasks, we seek to approximate previous data distributions $\mathcal{D}_{t \in \{t: 1 \leq i<T_{c}\}}$ through a memory buffer $\mathcal{D}_m$ with reservoir sampling \citep{vitter1985random}. Each sample in $\mathcal{D}_t$ has the same probability of being represented in the buffer and replacements are performed randomly.  At each iteration, we randomly sample from $\mathcal{D}_m$ and replay them along with $\mathcal{D}_t$. Therefore, the objective function in Eq. \ref{eqn_ce} can be conveniently modified as follows:
+\begin{equation}
+    \mathcal{L}_{er} = \mathcal{L}_{T_{c}} + \alpha \displaystyle \mathop{\mathbb{E}}_{(x_{j}, y_{j}) \sim \mathcal{D}_{m}} \left[ \mathcal{L}_{ce} (\sigma (\Phi_{\theta}(x_{j})), y_{j}) \right],
+\label{eqn_er}
+\end{equation}
+where $\alpha$ is a balancing parameter. Experience rehearsal improves stability that is commensurate with the ability of $\mathcal{D}_m$ to approximate past distributions. In scenarios where buffer size is limited, the CL model learns sample-specific features rather than capturing class- or task-wise representative features, resulting in poor performance under low buffer regimes. As soft targets carry more information per training sample than hard targets, we therefore employ consistency regularization \cite{bhat2022consistency} (Action \& Learning in Figure \ref{fig:main}) to better preserve the information from previous tasks. We straightforwardly define consistency regularization using mean squared error as follows:
+\begin{equation}
+\label{eqn_cr}
+    \mathcal{L}_{cr} \triangleq \displaystyle \mathop{\mathbb{E}}_{(x_j, y_j, z_j) \sim D_{m}} \lVert {z_j} - \Phi_{\theta}(x_{j}) \rVert^2_2
+\end{equation}
+where ${z_j}$ represents the pre-softmax responses of an Exponential Moving Average (EMA) of the CL model. Alternatively, ${z_j}$ from previous iterations can also be stored in the buffer. 
+
+
+\subsection{Task-specific Attention Modules In Lifelong learning (TAMiL)}
+\label{tamil} 
+
+Reminiscent of the conscious information access proposed in GWT, we propose task-specific attention modules (TAMs)  (Task attention \& Filtering in Figure \ref{fig:main}) to capture task-relevant information in CL\footnote{TAMs have similar structure as autoencoders but do not reconstruct the input}.  Following \citet{stephenson2020geometry}, we believe that the common representation space spanned by $\mathcal{M}_f$ captures the relevant generic information for all tasks, while the TAMs capture task-specific information. The choice of these attention modules should be such that there is enough flexibility for them to capture task-relevant information, and they are diverse enough to differentiate between tasks during inference while still rendering the CL model scalable in longer task sequences. To this end, we propose using simple undercomplete autoencoders as TAMs. Each of these TAMs consists of two parts $\tau^{i}_\theta = \{\tau^{ie}_\theta, \tau^{is}_\theta\}$, where $\tau^{ie}_\theta$ acts as a feature extractor and $\tau^{is}_\theta$ as a feature selector. The feature extractor learns a low-dimensional subspace using a linear layer followed by ReLU activation. On the other hand, the feature selector learns task-specific attention using another linear layer followed by sigmoid activation. The bottleneck in the proposed TAMs achieves twin objectives: (i) it inhibits TAMs from reconstructing their own input, while (ii) it reduces the number of parameters required to learn task-relevant information. Similar to neurogenesis in the brain, TAMs encode and store task-specific attention while still being scalable to a large number of tasks. 
+
+To effectively leverage the functional space of TAMs, we seek to maximize pairwise discrepancy loss between output representations of the TAMs trained so far:
+\begin{equation}
+\label{eqn_lp}
+    \mathcal{L}_{pd} \triangleq
+    \sum_{t=1}^{T_{c}-1}
+    \displaystyle \mathop{\mathbb{E}}_{ x \sim D_{t}} \lVert \sigma(\tau^{T_c}_{\theta}(r)) - stopgrad(\sigma(\tau^t_{\theta}(r))) \rVert_{p=1}
+\end{equation}
+where $r = f_\theta(x)$ is the representation in the common representation space. As a stricter pairwise discrepancy could result in capacity saturation and reduce flexibility to learn new tasks, we employ the softmax function $\sigma(.)$ while enforcing the diversity between TAMs. We also update the gradients of only the current TAM $\tau^{t}_{\theta}$ to avoid overwriting the previous task attention using \textit{stopgrad(.)}. Without Eq. \ref{eqn_lp}, multiple TAMs can be very similar, reducing their effectiveness as task-specific attention. 
+
+
+\subsection{Putting it all together}
+TAMiL consists of a CL model $\Phi_\theta = \{ f_\theta, \tau_{\theta}, g_\theta\}$ where $f_\theta$ represents a feature extractor (e.g. ResNet-18), $\tau_{\theta} = \{\tau^{k}_{\theta} \mid k \leq t\}$ is a set of TAMs up to the current task $t$, and the classifier $g_\theta$ represents classes belonging to all tasks. Analogous to the common representation space proposed in GWT, we employ $f_\theta$ as a common representation space to capture sensory information $\mathcal{D}_t$ from all tasks sequentially. For each task, a new TAM is initialized that acts as a feature selector by attending to features important for the given task. The intuition behind placing TAMs higher up in the layer hierarchy is as follows: the early layers of DNNs capture generic information, while the later layers memorize due to the diminishing dimension and radius of the manifold \citep{stephenson2020geometry, baldock2021deep}.  Therefore, redundancy in the later layers is desirable to reduce catastrophic forgetting while maximizing reusability.  
+
+The goal of TAMs is to act as a task-specific bottleneck through which only task-relevant information is sent through the global workspace spanned by $\mathcal{M}_{\scaleto{TAM}{3pt}}$. Specifically, during CL training, the corresponding TAM learns to weigh the incoming features according to the task identifier using the current task data $\mathcal{D}_t$. The output of the corresponding TAM termed transformation coefficients are then applied to the features of the common representation space using element-wise multiplication. Furthermore, we enforce the pairwise discrepancy loss in Eq. \ref{eqn_lp} to ensure the diversity among TAMs. On the downside, since each TAM is associated with a specific task, inferring a wrong TAM for the test samples can result in sub-par performance on the test set.
+
+\begin{figure}[!t]
+\begin{algorithm}[H]
+\caption{Proposed Method}
+\label{alg:method}
+\begin{algorithmic}[1]
+    \Statex \textbf{input:} Data streams $\mathcal{D}_{t}$, Model $\Phi_\theta = \{ f_\theta, \tau_{\theta}, g_\theta\}$, Balancing factors $\alpha$, $\beta$ and $\lambda$
+    \Statex ~~~~~~~~~~~~Memory buffer $\mathcal{D}_m \leftarrow \{\}$, TAMs $\tau_{\theta} \leftarrow \{\}$
+    
+    \ForAll {tasks $t \in \{1, 2,..,T\}$} 
+        \State $\tau_{\theta} = \tau_{\theta} \; \cup \; \{ \tau^{t}_{\theta}\}$
+        \For{minibatch $\{x_i, y_i\}_{i=1}^B \in \mathcal{D}_{t}$}
+        \State $\hat{y}_{i} = g_\theta( \tau^{t}_{\theta}(f_\theta(x_i)) \otimes f_\theta(x_i))$
+        \State Compute $\mathcal{L}_{er} = \frac{1}{B}  \sum_{B} \mathcal{L}_{ce} (\hat{y}_{i},  y_{i})$ \Comment{\small (Equation \ref{eqn_er})}
+        \State Compute $\mathcal{L}_{pd}$ \Comment{\small (Equation \ref{eqn_lp})}
+
+        
+        \If{$\mathcal{D}_{m} \neq \emptyset$ }
+            \For{ minibatch $\{x_{j}, y_{j}, z_{j}\}_{j=1}^B \in \mathcal{D}_{m}$}
+                    % \State $x_{j}^{'} = augment(x_{j}^{'})$ 
+                    \State $r_{m} = f_\theta(x_{j})$
+                    \State $k = \underset{k \in {1,..,t}}{\mathrm{argmin}}\:\:  \lVert \tau^{k}_{\theta}(r_m) - r_m \rVert^2_{2}$ \Comment{\small (Equation \ref{eqn_criterion})}
+                    \State $\hat{y}_{j} = g_\theta( \tau^{k}_{\theta}(r_{m}) \otimes r_{m})$
+                    \State Compute $\mathcal{L}_{er} \; \pluseq \frac{\alpha}{B} \displaystyle \sum_{B}^{} \mathcal{L}_{ce} (\hat{y}_{j},  y_{j})$  \Comment{\small (Equation. \ref{eqn_er})}
+                    \State Compute $\mathcal{L}_{cr}$ \Comment{\small (Equation \ref{eqn_cr})}
+                \EndFor
+                
+            \EndIf
+            \State Compute $\mathcal{L} \triangleq \mathcal{L}_{er} + \beta \;\mathcal{L}_{cr} - \lambda \;\mathcal{L}_{pd}$ \Comment{\small (Equation. \ref{eqn_final})}
+            \State Compute the gradients $\displaystyle \frac{\delta \mathcal{L}}{\delta \theta}$ and update the model $\Phi_{\theta}$
+            \State Update the memory buffer $\mathcal{D}_m$
+            \Comment{\small (Algorithm \ref{alg:reservoir})}
+        \EndFor
+    \EndFor
+    \State \Return{model $\Phi_\theta$ }
+    \end{algorithmic}
+    \end{algorithm}
+\end{figure}
+
+
+In the brain, information is not always processed consciously unless there is sufficient activation in the prefrontal region, resulting in an ignition event \citep{juliani2022link}. Analogously, we emulate the ignition event with a matching criterion using buffered samples from $\mathcal{D}_m$. During training, for each buffered sample, we infer the identity of the task by computing the mean squared error between the feature $r_m$ of the common representation space and the output of each of the TAMs seen so far. We select the TAM with the lowest matching criterion as follows:
+\begin{equation}
+\label{eqn_criterion}
+ \underset{k \in {1,..,t}}{\mathrm{argmin}}\:\:  \lVert \tau^{k}_{\theta}(r_m) - r_m \rVert^2_{2}  
+\end{equation}
+where $r_m = f_\theta(x_j)$, $x_j\in\mathcal{D}_m$. Once the right TAM is selected, we apply cross-entropy loss (Eq. \ref{eqn_er}) and consistency regularization (Eq. \ref{eqn_cr}) on the buffered samples. As the CL model is now trained to select the appropriate TAM, we also use the same criterion during the inference stage. We selected the matching criterion as an ignition event because of its simplicity and lack of additional trainable parameters. However, complex alternatives, such as learning a policy using reinforcement learning, a gating mechanism using Gumbel-softmax, and prototype matching, can also be explored. 
+% in place of the matching criterion. 
+
+In addition to $\mathcal{L}_{pd}$ (Eq. \ref{eqn_lp}), we do not use any other objective on the TAMs to constrain their learning. The final learning objective for the entire CL model is as follows:
+\begin{equation}
+\label{eqn_final}
+    \mathcal{L} \triangleq \mathcal{L}_{er} + \beta \;\mathcal{L}_{cr} - \lambda \;\mathcal{L}_{pd} 
+\end{equation}
+Our proposed approach is illustrated in Figure \ref{fig:main} and is detailed in Algorithm \ref{alg:method}.
+
+%--------------------------------
+\section{Experimental setup}
+We build on top of the Mammoth \citep{buzzega2020dark} CL repository in PyTorch. We consider two CL scenarios, namely, Class-Incremental Learning (Class-IL) and Task-Incremental Learning (Task-IL). In a Class-IL setting, the CL model encounters mutually exclusive sets of classes in each task and must learn to distinguish all classes encountered thus far by inferring the task identity. On the contrary, the task identity is always provided during both training and inference in the Task-IL scenario. More information on the details of the implementation can be found in Appendix \ref{implementation_details}. In the empirical results, we compare with several state-of-the-art rehearsal-based methods and report average accuracy after learning all the tasks. As our method employs consistency regularization, we also compare it with the popular regularization-based method LwF \citep{li2017learning}. 
+% We also compare with PNNs which exhibit an extreme case of neurogenesis. 
+In addition, we provide a lower bound SGD, without any help to mitigate catastrophic forgetting, and an upper bound Joint, where training is done using entire dataset. In the \textit{Oracle} version, for any test sample $x \in \mathcal{D}_t$, we use the task identity at the inference time to select the right TAM.
+
+
+% --------------------------------------------------
+\section{Results}
+Table \ref{tab:main} presents the evaluation of different CL models on multiple sequential datasets. We can make several observations: (i) Across all datasets, TAMiL outperforms all the rehearsal-based baselines considered in this work. As is the case in GWT, TAMs capture task-specific features and reduce interference, thereby enabling efficient CL with systematic generalization across tasks. For example, in the case of Seq-TinyImageNet with buffer size 500, the absolute improvement over the closest baseline is $\sim10\%$ in both CL scenarios. (ii) The performance improvement in Class-IL is even more pronounced when we know the identity of the task (Oracle version). Notwithstanding their size, this is a testament to the ability of TAMs to admit only relevant information from the common representation space to the global workspace when warranted by a task-specific input. (iii) Given the bottleneck nature of TAMs, the additional parameters introduced in each task are negligible in size compared to the parameter growth in PNNs. However, TAMiL bridges the performance gap between rehearsal-based and parameter-isolation methods without actually incurring a large computational overhead.  Given sufficient buffer size, our method outperforms PNNs (e.g. in the case of Seq-CIFAR100 with buffer size 500, our method outperforms the PNNs). 
+
+\resizebox{\textwidth}{!}{
+\begin{threeparttable}[t]
+\centering
+\caption{Comparison of CL models across various CL scenarios. We provide the average Top-1 ($\%$) accuracy  of all tasks after CL training. Forgetting analysis can be found in Appendix \ref{forgetting}.} 
+\label{tab:main}
+\begin{tabular}{ll|cc|cc|cc}
+\toprule
+\multirow{2}{*}{\specialcell{Buffer \\ size}} & \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{Seq-CIFAR10}  & \multicolumn{2}{c|}{Seq-CIFAR100} & \multicolumn{2}{c}{Seq-TinyImageNet}  \\  \cmidrule{3-8}
+ &  & Class-IL & Task-IL  & Class-IL & Task-IL & Class-IL & Task-IL \\ \midrule
+ 
+\multirow{2}{*}{-}  
+  & SGD  & 19.62\scriptsize{$\pm$0.05} & 61.02\scriptsize{$\pm$3.33} & 17.49\scriptsize{$\pm$0.28} & 40.46\scriptsize{$\pm$0.99} & 07.92\scriptsize{$\pm$0.26} & 18.31\scriptsize{$\pm$0.68} \\
+  & Joint  & 92.20\scriptsize{$\pm$0.15} & 98.31\scriptsize{$\pm$0.12} &  70.56\scriptsize{$\pm$0.28} & 86.19\scriptsize{$\pm$0.43} & 59.99\scriptsize{$\pm$0.19}& 82.04\scriptsize{$\pm$0.10} \\ \midrule
+
+\multirow{2}{*}{-}  
+  & LwF  & 19.61\scriptsize{$\pm$0.05} & 63.29\scriptsize{$\pm$2.35} & 18.47\scriptsize{$\pm$0.14} & 26.45\scriptsize{$\pm$0.22} & 8.46\scriptsize{$\pm$0.22} & 15.85\scriptsize{$\pm$0.58} \\
+  & PNNs  & - & 95.13\scriptsize{$\pm$0.72} & - & 74.01\scriptsize{$\pm$1.11} & - & 67.84\scriptsize{$\pm$0.29} \\ \midrule
+
+\multirow{6}{*}{200}  
+  & ER  & 44.79\scriptsize{$\pm$1.86} & 91.19\scriptsize{$\pm$0.94}  & 21.40\scriptsize{$\pm$0.22} & 61.36\scriptsize{$\pm$0.35} & 8.57\scriptsize{$\pm$0.04} & 38.17\scriptsize{$\pm$2.00} \\
+   & FDR  & 30.91\scriptsize{$\pm$2.74} & 91.01\scriptsize{$\pm$0.68} & 22.02\scriptsize{$\pm$0.08} & 61.72\scriptsize{$\pm$1.02}& 8.70\scriptsize{$\pm$0.19} & 40.36\scriptsize{$\pm$0.68} \\
+  & DER++  & 64.88\scriptsize{$\pm$1.17} & 91.92\scriptsize{$\pm$0.60}&  29.60\scriptsize{$\pm$1.14} & \underline{62.49}\scriptsize{$\pm$1.02}& 10.96\scriptsize{$\pm$1.17} & 40.87\scriptsize{$\pm$1.16} \\
+    & Co$^{2}$L  &  \underline{65.57}\scriptsize{$\pm$1.37} & 93.43\scriptsize{$\pm$0.78} & \underline{31.90}\scriptsize{$\pm$0.38} & 55.02\scriptsize{$\pm$0.36} & 13.88\scriptsize{$\pm$0.40} & 42.37\scriptsize{$\pm$0.74} \\
+    & TARC  &  53.23 \scriptsize{$\pm$0.10} & - & 23.48 \scriptsize{$\pm$0.10} & - & 9.57 \scriptsize{$\pm$0.12} & - \\
+  & ER-ACE  & 62.08\scriptsize{$\pm$1.44} & 92.20\scriptsize{$\pm$0.57} & 35.17\scriptsize{$\pm$1.17} & 63.09\scriptsize{$\pm$1.23} &  11.25 \scriptsize{$\pm$ 0.54}  & 44.17 \scriptsize{$\pm$1.02} \\
+  & CLS-ER\tnote{1}& 	61.88\scriptsize{$\pm$2.43}  & \underline{93.59}\scriptsize{$\pm$0.87} & - & - &  \underline{17.68}\scriptsize{$\pm$1.65} & \underline{52.60}\scriptsize{$\pm$1.56} \\
+  & DRI  & 65.16\scriptsize{$\pm$1.13} & 92.87\scriptsize{$\pm$0.71} & - & - & 17.58\scriptsize{$\pm$1.24} & 44.28\scriptsize{$\pm$1.37} \\
+  & TAMiL  & 	\textbf{68.84}\scriptsize{$\pm$1.18}  & \textbf{94.28}\scriptsize{$\pm$0.31} & 	\textbf{41.43}\scriptsize{$\pm$0.75}  & \textbf{71.39}\scriptsize{$\pm$0.17} & \textbf{20.46}\scriptsize{$\pm$0.40} & \textbf{55.44}\scriptsize{$\pm$0.52}  \\
+  \midrule
+  & TAMiL (Oracle)  & \textbf{91.08}\scriptsize{$\pm$0.91} & 91.08 \scriptsize{$\pm$0.91} & 	\textbf{71.21}\scriptsize{$\pm$0.27} & \textbf{71.68}\scriptsize{$\pm$0.15} & \textbf{54.41}\scriptsize{$\pm$0.49}  & \textbf{55.78}\scriptsize{$\pm$0.75} \\
+\midrule
+
+\multirow{6}{*}{500}  
+  & ER  & 57.74\scriptsize{$\pm$0.27} & 93.61\scriptsize{$\pm$0.27} & 28.02\scriptsize{$\pm$0.31} & 68.23\scriptsize{$\pm$0.17} & 9.99\scriptsize{$\pm$0.29} & 48.64\scriptsize{$\pm$0.46}  \\
+   & FDR  & 28.71\scriptsize{$\pm$3.23} & 93.29\scriptsize{$\pm$0.59} & 29.19\scriptsize{$\pm$0.33} & 69.76\scriptsize{$\pm$0.51}& 10.54\scriptsize{$\pm$0.21} & 49.88\scriptsize{$\pm$0.71} \\
+  & DER++  & 72.70\scriptsize{$\pm$1.36} & 93.88\scriptsize{$\pm$0.50} & \underline{41.40}\scriptsize{$\pm$0.96} & \underline{70.61}\scriptsize{$\pm$0.08} & 19.38\scriptsize{$\pm$1.41}  & 51.91\scriptsize{$\pm$0.68} \\
+    & Co$^{2}$L  &   \underline{74.26}\scriptsize{$\pm$0.77} & \textbf{95.90}\scriptsize{$\pm$0.26} & 39.21\scriptsize{$\pm$0.39} & 62.98\scriptsize{$\pm$0.58} &  20.12\scriptsize{$\pm$0.42} & 53.04\scriptsize{$\pm$0.69} \\
+     & TARC  &  67.41 \scriptsize{$\pm$0.41}& - & 31.50 \scriptsize{$\pm$0.40} & - & 13.77 \scriptsize{$\pm$0.17} & - \\
+  & ER-ACE  & 68.45\scriptsize{$\pm$1.78} & 93.47\scriptsize{$\pm$1.00} & 40.67\scriptsize{$\pm$0.06} & 66.45\scriptsize{$\pm$0.71} &  17.73 \scriptsize{$\pm$ 0.56}  & 49.99 \scriptsize{$\pm$1.51} \\
+  & CLS-ER\tnote{1}  &	70.40\scriptsize{$\pm$1.21}  & 94.35\scriptsize{$\pm$0.38}  & - & - & \underline{24.97}\scriptsize{$\pm$0.80} & \underline{61.57}\scriptsize{$\pm$0.63} \\
+  & DRI  &  72.78\scriptsize{$\pm$1.44} & 93.85\scriptsize{$\pm$0.46} & - & - & 22.63\scriptsize{$\pm$0.81} & 52.89\scriptsize{$\pm$0.60} \\
+  & TAMiL  & \textbf{74.45}\scriptsize{$\pm$0.27} & \underline{94.61}\scriptsize{$\pm$0.19}& \textbf{50.11}\scriptsize{$\pm$0.34} & \textbf{76.38}\scriptsize{$\pm$0.30}& \textbf{28.48}\scriptsize{$\pm$1.50}& \textbf{64.42}\scriptsize{$\pm$0.27} \\
+  \midrule
+  & TAMiL (Oracle)  & \textbf{93.93}\scriptsize{$\pm$0.38} & 93.93\scriptsize{$\pm$0.38}& \textbf{76.75}\scriptsize{$\pm$0.12} & \textbf{76.88}\scriptsize{$\pm$0.11}& \textbf{64.06}\scriptsize{$\pm$2.38}& \textbf{64.55}\scriptsize{$\pm$2.14} \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\item [1] Single EMA model. 
+\end{tablenotes}
+\end{threeparttable}}
+% -------------------------------------------------
+
+\vspace{.25in}
+ 
+\textbf{Comparison with evolving architectures}\label{dynamic_sparse_comparison}:
+Similar to progressive networks (e.g. PNN, CPG, PAE), dynamic sparse networks (e.g. CLIP, NISPA, PackNet) reduce task interference by learning a non-overlapping task-specific sparse architecture within a fixed capacity model. We consider these two approaches to be two extremes of evolving architectures in CL and present a comparison with TAMiL on Seq-CIFAR100 (20 tasks, buffer size 500) under the Task-IL scenario. Figure \ref{fig:nispa} presents \textit{final task accuracies} after training on all tasks.
+Although TAMiL uses a slightly larger model (Appendix \ref{backbones}), it does not suffer from capacity saturation and retains strong performance compared to fixed capacity models.  On the other hand, progressive networks grow in size when encountered with a new task: PNN grows exorbitantly while CPG by 1.5x, PAE by 2x (results taken from Table 1 in \cite{hung2019compacting}) and TAMiL by 1.12x (Table \ref{tab:forgetting})  for 20 tasks compared to a fixed capacity model. Therefore, TAMiL and CPG grow more slowly than other progressive networks. TAMiL outperforms all progressive networks with an average accuracy of 84\% on all 20 tasks. As earlier layers capture task-agnostic information, scalable parameter isolation in the later layers largely benefits TAMiL.  
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/nispa.pdf}
+  \caption{ Comparison of final task accuracies of evolving architectures after training on all 20 tasks in Seq-CIFAR100. Mean accuracy on all tasks after training is provided in the legend. TAMiL outperforms all evolving architectures considered in this work.} 
+  \label{fig:nispa}
+\end{figure}
+
+\textbf{Effect of task-attention on prior art}\label{tams_on_prior_art}: 
+Analogous to our method, we attempt to augment several existing rehearsal-based methods by equipping them with the TAMs. Figure \ref{fig:combined}(left) provides a comparison of CL methods with and without TAM when trained on Seq-CIFAR100 (5 tasks) with buffer size 500 in the Class-IL scenario. We also provide an ablation of contribution of different components in TAMiL in \ref{sec:ablation}. Quite evidently, TAMs drastically improve the performance of all CL methods, more so when the true TAM is used for inference (oracle).
+Independent of the underlying learning mechanism,  these dedicated modules admit only the task-relevant information from the common representation space to the global workspace when warranted by a task-specific input, thereby drastically reducing interference. The generalizability of the effectiveness of TAMs across algorithms reinforces our earlier hypothesis that emulating GWT in computational models can greatly benefit CL with systematic generalization across tasks. 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/combined.pdf}
+  \caption{Left: Comparison of top-1 accuracy ($\%$) of CL models  with and without TAMs. Right: Average task probabilities of different CL models after Cl training. Both of the above experiments were done on Seq-CIFAR100 with buffer size 500.}
+  \label{fig:combined}
+\end{figure}
+
+\textbf{Task-recency bias}: CL models trained in an incremental learning scenario tend to be biased towards the most recent tasks, termed task-recency bias \citep{hou2019learning}. Following the analysis of recency bias in \citet{buzzega2020dark, arani2022learning}, we present the task probabilities in Figure \ref{fig:combined} (right). We first compute the prediction probabilities of all samples and average them. For each task, the task probability stands for the sum of average prediction probabilities of the associated classes.  The predictions of ER are biased mostly towards recent tasks, with the most recent task being almost 8X as much as the first task. On the contrary, the predictions in TAMiL are more evenly distributed than the baselines, greatly mitigating the task recency bias. 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{images/cifar100.pdf}
+  \caption{Comparison of Top-1 accuracy ($\%$) of CL models in Seq-CIFAR100 with different number of tasks. TAMiL consistently outperforms the baselines under longer task sequences. }
+  \label{fig:longer}
+\end{figure}
+
+\textbf{Performance under longer-task sequences}: Computational systems deployed in the real world are often exposed to a large number of sequential tasks. For rehearsal-based methods with a fixed memory budget, the number of samples in the buffer representing each previous task is drastically reduced in longer sequences of tasks, resulting in poor performance, called long-term catastrophic forgetting \citep{peng2021overcoming}. Therefore, it is quintessential for the CL model to perform well under low buffer regimes and longer task sequences. Figure \ref{fig:longer} provides an overview of the performance of CL models with 5, 10, and 20 task sequences on Seq-CIFAR100 with a fixed buffer size of 500.  As the number of tasks increases, the number of samples per class decreases, resulting in increased forgetting. Our method equipped with TAMs preserves the previous task information better and exhibits superior performance over baselines even under extreme low-buffer regimes. 
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth, keepaspectratio]{images/calibration.pdf}
+  \caption{Reliability diagram along with ECE for different CL models trained on Seq-CIFAR100 (buffer size 500) with 5 tasks. TAMiL is well-calibrated  when compared to the baselines.}
+  \label{fig:calibration}
+\end{figure}
+
+
+\textbf{Model calibration}: 
+A well-calibrated model improves reliability by reducing the expectation difference between confidence and accuracy \citep{guo2017calibration}. Figure \ref{fig:calibration} shows the Expected Calibration Error (ECE) along with a reliability diagram on Seq-CIFAR100 using a calibration framework \citep{kuppers2020multivariate}. As can be seen, ER is highly miscalibrated and more overconfident than other CL models. On the other hand, TAMiL has the lowest ECE by ensuring that the predicted softmax scores are better indicators of the actual probability of a correct prediction. In addition to drastically reducing catastrophic forgetting in CL, TAMs in our approach help mitigate miscalibration.
+
+
+% --------------------------------------------------
+\section{Conclusion}
+We proposed TAMiL, a novel CL approach that encompasses both experience rehearsal and self-regulated scalable neurogenesis to further mitigate catastrophic forgetting in CL. Inspired by the Global Workspace theory (GWT) of conscious information access in the brain, Task-specific Attention Modules (TAMs) in our approach capture task-specific information from the common representation space, thus greatly reducing task interference. The generalizability of the effectiveness of TAMs across CL algorithms reinforces the applicability of GWT in computational models in CL.  
+% Similar to neurogenesis in the brain, TAMs encode and store task-specific attention while still being scalable to a large number of tasks.
+Given the bottleneck nature of TAMs, the additional parameters introduced in each task are negligible in size compared to parameter growth in PNNs. TAMiL neither suffers from capacity saturation nor scalability issues and retains strong performance even when exposed to a large number of tasks. Although TAMiL performs extremely well, more sophisticated matching criteria can be developed to shore up performance close to the oracle version in the future. 
+
+
+% --------------------------------------------------
+\bibliography{iclr2023_conference}
+\bibliographystyle{iclr2023_conference}
+
+% --------------------------------------------------
+\newpage
+\appendix
+
+\section{Analysis of Task-specific Attention Modules}
+
+\subsection{Ablation study}\label{sec:ablation}
+We attempt to disentangle the contribution of key components in our approach. Table \ref{tab:ablation} provides an ablation study of our method trained on Seq-CIFAR100 with buffer size 500 for 5 tasks  (More ablation on TAMs can be found in Appendix \ref{tam_choice}). When the EMA model is absent, we store past predictions in the buffer for consistency regularization. As can be seen, each component contributes significantly to the overall performance of TAMiL 
+
+\begin{table} [h]
+\centering
+\caption{Ablations of the different key components of our proposed method. The Top-1 accuracy (\%) is reported on Seq-CIFAR100 for the 500 buffer size learned with 5 tasks.}
+\label{tab:ablation}
+\begin{tabular}{@{}ccc|c|c}
+\toprule
+EMA Model & Pairwise loss & TAMs & Class-IL & Task-IL \\
+\midrule
+\cmark & \cmark & \cmark & \textbf{50.11}\tiny{$\pm$0.34} & \textbf{76.47}\scriptsize{$\pm$0.51} \\
+\xmark & \cmark & \cmark & 47.51\tiny{$\pm$0.96} & 73.79 \tiny{$\pm$0.51}\\
+\xmark & \xmark & \cmark & 45.10\tiny{$\pm$3.46} & 73.34	\tiny{$\pm$0.67}  \\
+\xmark & \xmark & \xmark & 41.40\tiny{$\pm$0.96} & 70.61\scriptsize{$\pm$0.08} \\
+ \bottomrule
+\end{tabular}%}
+\end{table}
+
+\subsection{Selection of appropriate TAM during inference} \label{ignition_event_bio}
+ 
+ Continual learning in the brain is mediated by a rich set of neurophysiological processes that harbor different types of knowledge, and conscious processing integrates them coherently. The Global Workspace Theory (GWT) \citep{baars1994global} of the conscious information access in the brain states that only the behaviorally relevant information from the perceptual contents in the common representation space are admitted to the global workspace when warranted by a task. However, unless there is sufficient activation in the prefrontal region, information is not always consciously processed in the brain  \citep{juliani2022link}. To this end, Global Neuronal Workspace (GNW) hypothesis \citep{dehaene1998neuronal} posits that brain entails a second computational space composed of widely distributed excitatory neurons that selectively mobilize or suppress, through descending connections, the contribution of specific processor neuron. GNW acts as a router associated with the different brain regions through which the information is selected and made available when triggered by an external stimulus \cite{MASHOUR2020776}. 
+
+ GNW is associated with an \textit{ignition} event \citep{dehaene2003neuronal} characterized by the activation of subset of workspace neurons and inhibition of the rest of the neurons. Analogously, the TAMs in our network $\tau_{\theta} = \{\tau^{k}_{\theta} \mid k \leq t\} $ act as a communication bottleneck and are associated with an ignition event defined in Equation \ref{eqn_criterion}. Although quite simple in its formulation, Equation \ref{eqn_criterion} activates a subset of neurons (an appropriate TAM)  and inhibits the rest of neurons (rest of the TAMs) from processing the incoming information. When warranted by a task-specific input, the gating mechanism in Equation \ref{eqn_criterion} allows only relevant information to pass through the global workspace.  The appropriate activation and inhibition of TAMs is quintessential for reducing interference between tasks. As is clear from the experimental evaluation in Table \ref{tab:main}, any deviation from \textit{Oracle} results in higher forgetting. More complex alternatives such as learning a policy using reinforcement learning, a gating mechanism using Gumbel-softmax, and prototype matching can also be explored in place of the proposed ignition event to further improve the selection accuracy. 
+
+
+\subsection{Choice of TAMs} \label{tam_choice}
+The prefrontal cortex of the primate brain is presumed to have task-dependent neural representations that act as a gating in different brain functions \citep{mante2013context}. When warranted by a task-specific input, the gating mechanism allows only the relevant information to pass through the global workspace. As noted in Section \ref{tamil}, emulating such task-specific attention modules in computational systems comes with several design constraints, including scalability, effectiveness, etc. Table \ref{tab:ae} shows some of the TAMs considered in this work. The undercomplete autoencoder (the encoder learns a lower-dimensional embedding than input layer) with ReLu non-linearity as opposed to multi-layer perceptron (MLP) or linear layer achieves the best performance. A linear autoencoder with a Euclidean loss function learns the same subspace as PCA. However, AE with nonlinear functions yields better dimensionality reduction compared to PCA \citep{hinton2006reducing}. Therefore, in our proposed approach, we chose autoencoder with ReLu non-linearity in the latent stage and sigmoid activation in the output stage as TAM. 
+
+\begin{table}[t]
+\centering
+\caption{Ablation of the different types of task-attention in place of TAMs in our proposed method. The accuracy is reported on Seq-CIFAR100 for the 500 buffer size learned with 5 tasks.}
+\label{tab:ae}
+% \resizebox{0.49\textwidth}{!}{
+\begin{tabular}{@{}l|c|c}
+\toprule
+ \multirow{2}{*}{TAMs} & \multirow{2}{*}{\specialcell{Output \\ non-linearity}}  & Top-1 (\%) Seq-CIFAR100 \\
+ &&  Class-IL\\
+ \midrule
+Linear layer & - & 41.96 \tiny{$\pm$2.32}  \\ 
+ \midrule
+No learnable layer & Sigmoid & 42.04	\tiny{$\pm$0.49}  \\ 
+ \midrule
+Multi-layer Perceptron & Sigmoid & 46.08 \tiny{$\pm$4.99}  \\
+ \midrule
+ \multirow{3}{*}{Autoencoder} & ReLu & 44.31	 \tiny{$\pm$0.18}  \\ 
+ & Tanh & 40.78	\tiny{$\pm$1.56}   \\ 
+ &  Sigmoid &\textbf{49.01}	\tiny{$\pm$1.11}  \\ 
+ \bottomrule
+\end{tabular}%}
+\end{table}
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.78\linewidth]{images/similarity.pdf}
+  \caption{Cosine similarity between different weight feature extractors and selectors of different TAMs under Seq-CIFAR100 (buffer size 500). Although each TAM receives the same input from the common representation space,  each TAM learns a different embedding resulting in different attention for each task. Therefore, the cosine similarity between any two TAM is negligibly small. }
+  \label{fig:similarity}
+\end{figure}
+
+\subsection{TAMs similarity}
+We attempt to improve the understanding of TAMs in our proposed method.  Each of these TAMs consists of two parts $\tau^{i}_\theta = \{\tau^{ie}_\theta, \tau^{is}_\theta\}$, where $\tau^{ie}_\theta$ acts as a feature extractor and $\tau^{is}_\theta$ as a feature selector. The feature extractor learns a low-dimensional subspace using a linear layer followed by ReLU activation. On the other hand, the feature selector learns task-specific attention using another linear layer followed by sigmoid activation. When using task-specific attention in Class-IL / Task-IL, one would envisage TAMs to capture drastically different information for each task, as each task in Class-IL / Task-IL is vastly different. As the knowledge of the learned tasks is encoded in the weights \citep{krishnan2019biologically}, we envisage to compute the similarity between weight matrices to gauge whether TAMs are indeed capturing different information. As cosine similarity is widely used in high-dimensional spaces \citep{luo2018cosine}, we plot the cosine similarity between respective feature extractor and selector weight matrices of each TAMs in Figure \ref{fig:similarity}. As can be seen, all TAMs are vastly different from each other inline with the tasks they were exposed to earlier. We attribute this functional diversity to the pairwise discrepancy loss described in Section \ref{tamil} and Equation \ref{eqn_lp}). As evident in Figure \ref{fig:selector_out}, the average activation of the feature extractors begins to diverge from Task-2 as pairwise discrepancy loss kicks in. From Task-2, the average activations are coherent, distributed, and diverse from each other. Due to the limited size of the embedding dimension, there is sparsity in activations in a desirable byproduct. 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\linewidth]{images/selector_out.pdf}
+  \caption{Average activation of feature extractors within each TAM on Seq-CIFAR100. As can be seen, each TAM maps the common representation space to a different latent space thereby reducing the interference. We attribute this behaviour to pairwise discrepancy enforced through Equation \ref{eqn_lp}.}
+  \label{fig:selector_out}
+\end{figure}
+
+
+\subsection{Parameter growth comparison}
+
+We compare the parameter growth in TAMiL with respect to fixed-capacity models and PNNs. Table \ref{tab:parameter} presents a comparison of parameter growth in 5, 10, and 20 tasks. As the EMA model is not central to the working of our method, we present two versions of TAMiL with and without the EMA model.  Compared to a fixed capacity model, TAMiL (without EMA) grows only marginally at 11\% even for 20 tasks.  Having an EMA model doubles the parameter growth, as both EMA and working model will have same number of TAMs. On the other hand, the number of parameters in PNNs grows exponentially with the number of tasks, thus rendering them inapplicable in real-world scenarios. As shown earlier in Section \ref{dynamic_sparse_comparison}, TAMiL neither suffers from capacity saturation nor from scalability issues, thus producing strong performance even in longer task sequences. 
+
+\begin{table*}
+\centering
+\caption{Growth in number of parameters for different number of task sequences.} 
+\label{tab:parameter}
+\begin{tabular}{l|ccc}
+\toprule
+ \multirow{2}{*}{Methods} & \multicolumn{3}{c}{Number of parameters (Millions)} \\  \cmidrule{2-4}
+  & 5 tasks & 10 tasks  & 20 tasks  \\ \midrule
+Fixed capacity model & 11.23 & 11.23 & 11.23  \\
+TAMiL (without EMA) & 11.55 & 11.88 & 12.54  \\
+TAMiL (with EMA) & 23.10 & 23.76 & 25.08  \\
+PNNs & 297.21 & 874.01 & 2645.05 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\section{Limitations}
+ Inspired by the GWT, we propose TAMiL, a continual learning method that entails task attention modules to capture task-specific information from the common representation space. Although TAMiL performs extremely well on different CL scenarios, it is not without limitations: TAMiL assumes that the common representation space captures the information generalizable across tasks. Violation of this assumption limits the ability of TAMs to capture task-specific information. Second, TAMiL requires task boundary information to switch to a new TAM to avoid interference between tasks. We plan to leverage task similarity to merge multiple TAMs into one to avoid this constraint in the future. Finally, as is clear from the experimental evaluation in Table \ref{tab:main}, any deviation from \textit{Oracle} results in higher forgetting. TAMiL can benefit from a more accurate matching criterion to match the performance of Oracle. More complex alternatives such as learning a policy using reinforcement learning, a gating mechanism using Gumbel-softmax, and prototype matching can also be explored in place of the proposed matching criterion to further improve the selection accuracy. 
+
+
+\section{Task performance}
+
+\subsection{Task-wise performance}
+In Table \ref{tab:main}, we report the final accuracy after learning all tasks in the Class-IL and Task-IL scenarios. In Figure \ref{fig:taskwise}, we disentangle the task-wise performance of different CL models trained on Seq-CIFAR100 with buffer size 500 on 5 tasks. Our proposed method TAMiL retains the performance on previous tasks while the baseline models adapt mostly towards the recent tasks. Therefore, the final average accuracy alone can sometimes be quite misleading. 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{images/task_all_cif100.pdf}
+  \caption{Task-wise performance of CL models trained on Seq-CIFAR100 with buffer size 500 on 5 tasks. The performance of the baseline models is mostly emanating from the performance on the last task while TAMiL achieves considerably more distributed performance on all tasks.   }
+  \label{fig:taskwise}
+\end{figure}
+
+\subsection{Forgetting} \label{forgetting}
+While one can argue that learning to classify unseen classes is desirable,  Class-IL and Task-IL show different classes in different tasks, making transfer impossible \citep{buzzega2020dark}. On the contrary, forgetting is an important measure to gauge the overall performance of the CL model. We compute forgetting as the difference between the current accuracy and its best value for each task. Table \ref{tab:forgetting} presents the forgetting results complementary to the results reported in Table \ref{tab:main}. As noted earlier, TAMiL drastically reduces forgetting, thereby enabling efficient CL with systematic generalization. 
+
+
+\begin{table*}
+\centering
+\caption{Forgetting in CL models across various CL scenarios. The results are the average of 3 runs.} 
+\label{tab:forgetting}
+\begin{tabular}{ll|cc|cc}
+\toprule
+\multirow{2}{*}{\specialcell{Buffer \\ size}} & \multirow{2}{*}{Methods} & \multicolumn{2}{c|}{Seq-CIFAR10}  & \multicolumn{2}{c}{Seq-TinyImageNet}   \\  \cmidrule{3-6}
+ &  & Class-IL & Task-IL  & Class-IL & Task-IL  \\ \midrule
+%  - & SGD  & 96.39\scriptsize{$\pm$0.12} & 46.24\scriptsize{$\pm$2.12} &\scriptsize{$\pm$} &\scriptsize{$\pm$} \\ \midrule
+\multirow{3}{*}{200}  
+  & ER  &  61.24\scriptsize{$\pm$2.62} & 7.08\scriptsize{$\pm$0.64} & 76.37\scriptsize{$\pm$0.53} & 43.14\scriptsize{$\pm$0.97} \\
+  & DER++  & 32.59\scriptsize{$\pm$2.32} &  5.16\scriptsize{$\pm$0.21}& 72.74\scriptsize{$\pm$0.56} & 41.63\scriptsize{$\pm$1.13} \\
+  & TAMiL  & \textbf{22.03}	\scriptsize{$\pm$ 1.89}  & \textbf{3.45 }\scriptsize{$\pm$0.39} & \textbf{55.69}\scriptsize{$\pm$1.45} & \textbf{24.54}\scriptsize{$\pm$0.94}  \\
+\midrule
+\multirow{3}{*}{500}  
+  & ER  & 45.35\scriptsize{$\pm$0.07} & 3.54\scriptsize{$\pm$0.35} & 75.27\scriptsize{$\pm$0.17} & 31.36\scriptsize{$\pm$0.27}  \\
+  & DER++  & 22.38\scriptsize{$\pm$4.41} & 4.66\scriptsize{$\pm$1.15} & 64.58\scriptsize{$\pm$2.01}  & 27.85\scriptsize{$\pm$0.51} \\
+  & TAMiL  & \textbf{15.95}\scriptsize{$\pm$0.86} & \textbf{3.14}\scriptsize{$\pm$0.42}& \textbf{43.43}\scriptsize{$\pm$2.24}& \textbf{15.68}\scriptsize{$\pm$0.18} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+ \subsection{Performance on Seq-core50}
+ Table \ref{tab:core50} provides a comparison of different Cl models on Seq-core50. Following \citet{maltoni2019continuous}, Seq-Core50 is organized into nine tasks, the first of which includes ten classes, while the rest have five classes each. As can be seen, TAMiL improves performance in most settings. In the oracle version, using a task-specific TAM greatly improves performance, up to 30\% in the Class-IL scenario. 
+
+
+\subsection{Comparison with multi-head setup}
+ We seek to provide an understanding of how task-specific parameters improve learning in sequential tasks. Table \ref{tab:multihead} describes an ablation of three baseline methods, namely ER, DER++, and CLS-ER (single EMA model version) in the presence of multiple heads and TAMs in the Task-IL setting. We report the results on Seq-CIFAR100 with 5 tasks and a buffer size of 500. Each method was evaluated under single-head setting, multi-head setting, and single-head with TAMs setting. We tried two variants within multihead setting: multihead (v1) has a linear layer for each task representing classes within respective tasks, while multihead (v2) has a two-layer MLP for each task with number of parameters comparable with TAMs. As per the original formulation of CLS-ER, we evaluated the EMA model instead of the working model. 
+
+ s can be seen, TAMs and multi-head (both versions) perform comparably with TAMs producing slightly higher Task-IL performance. As is clear from the multi-head versions, having more task-specific parameters does not necessarily result in significant improvement. On the other hand, TAMs offer an alternative way of augmenting CL models with task-specific parameters. Besides, TAMs are much more than plain task-specific parameters: with an appropriate ignition event, TAMs can be easily adapted to the Class-IL setting without requiring task identity at inference.   In the future, a comprehensive method that includes both multiple-heads and TAMs can be developed to further improve the performance of CL models. 
+
+ It is important to note that multiple heads in Task-IL bring limited performance improvement compared to single head. However, multiple heads require task identity at inference time and do not work in Class-IL scenario. This is also true for several progressive networks (PNN, CPG, and PAE) considered in this work. This limits their applicability to real-life scenarios. On the other hand, TAMiL performs extremely well in both Class-IL and Task-IL without having to change anything in the proposed method. Therefore, we argue that TAMs bring more sophistication and design flexibility than their task-specific counterparts in other approaches.
+ 
+\begin{table*}
+\centering
+\caption{Comparison of CL models on Seq-CIFAR-100 (5 tasks, with 500 buffer size) in three different settings: Single-head, multi-head, and single-head with TAMs. TAMs and multi-head perform comparably with TAMs producing slightly higher Task-IL performance.}  
+\label{tab:multihead}
+% \resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|c|c|c}
+\toprule
+Methods &  Single head & Multi-head (V1) & Multi-head (V2) & With TAMs (Single head)\\ 
+ \midrule
+ ER  & 68.23\scriptsize{$\pm$0.17} & 68.15\scriptsize{$\pm$0.31} & 68.60\scriptsize{$\pm$0.82} & \textbf{69.15} \scriptsize{$\pm$0.72}\\
+ DER++  &  70.61\scriptsize{$\pm$0.08} & 75.58\scriptsize{$\pm$0.30} & 75.77\scriptsize{$\pm$0.48} & \textbf{77.47} \scriptsize{$\pm$0.28}\\
+ CLS-ER  & 76.00 \scriptsize{$\pm$0.96} & 79.58  \scriptsize{$\pm$0.38} & 78.59  \scriptsize{$\pm$0.48} & \textbf{79.62}\scriptsize{$\pm$0.11} \\
+\bottomrule
+\end{tabular}%}
+\end{table*}
+
+ 
+\begin{table*}
+\centering
+\caption{Comparison of CL models on Seq-core50. We provide the average Top-1 ($\%$) accuracy of all tasks after CL training.} 
+\label{tab:core50}
+\begin{tabular}{ll|cc}
+\toprule
+\multirow{2}{*}{\specialcell{Buffer \\ size}} & \multirow{2}{*}{Methods} &  \multicolumn{2}{c}{Seq-Core50}  \\ 
+ &  & Class-IL & Task-IL \\ \midrule
+
+\multirow{3}{*}{200}  
+  & ER  & 21.49\scriptsize{$\pm$0.56} & 65.63\scriptsize{$\pm$0.92}\\
+  & DER++  & 28.47\scriptsize{$\pm$0.61} & 	68.50\scriptsize{$\pm$1.03} \\
+  & TAMiL & \textbf{32.67}\scriptsize{$\pm$0.36} & \textbf{70.76}   \scriptsize{$\pm$1.05} \\
+  \midrule
+  & TAMiL (Oracle)  & \textbf{64.04}\scriptsize{$\pm$1.34} & 70.53\scriptsize{$\pm$0.47} \\
+\midrule
+
+\multirow{3}{*}{500}  
+  & ER  & 29.39\scriptsize{$\pm$0.77} & 69.90\scriptsize{$\pm$0.95} \\
+  & DER++  &  \textbf{40.31}\scriptsize{$\pm$1.49} & 75.94\scriptsize{$\pm$0.24}\\
+  & TAMiL  & 39.15\scriptsize{$\pm$1.48}  & \textbf{77.36} \scriptsize{$\pm$0.60} \\
+  \midrule
+  & TAMiL (Oracle)  & \textbf{70.90} \scriptsize{$\pm$0.43} & 76.53\scriptsize{$\pm$0.20} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+
+\section{Implementation details}\label{implementation_details}
+
+\subsection{Reservoir sampling}
+Algorithm \ref{alg:reservoir} describes the steps for building a memory buffer using the reservoir sampling strategy \citep{vitter1985random}. Reservoir sampling assigns equal probability to
+each sample of a data stream of unknown length to be represented in the memory buffer. When the buffer is full, the replacements are made randomly. 
+
+
+\begin{figure}[!t]
+\begin{algorithm}[H]
+\caption{Reservoir sampling \citep{vitter1985random}}
+\label{alg:reservoir}
+\begin{algorithmic}[1]
+    \Statex \textbf{input:} Data streams $\mathcal{D}_{t}$, $\mathcal{D}_{m}$,  $\{x, y\} \in \mathcal{D}_{t}$ 
+     \Statex Maximum buffer size $\mathcal{M}$, current buffer size $\mathcal{N}$ 
+        \If{$\mathcal{M} > \mathcal{N}$ }
+        
+       \State  $\mathcal{D}_{m}[\mathcal{N}] \leftarrow \{x, y\}$
+        \Else
+         \State $v = randomInteger(min = 0, max = \mathcal{N})$
+         \If{$v < \mathcal{N}$}
+         \State $\mathcal{D}_{m}[v] \leftarrow \{x, y\}$
+         \EndIf
+        \EndIf
+        \State \textbf{return} $\mathcal{D}_{m}$
+    \end{algorithmic}
+    \end{algorithm}
+
+\end{figure}
+
+
+\subsection{Datasets and model}
+We obtain Seq-CIFAR10, Seq-CIFAR100 and Seq-TinyImageNet by splitting CIFAR10 \citep{krizhevsky2009learning}, CIFAR100 \citep{krizhevsky2009learning} and TinyImageNet \citep{le2015tiny} into 5, 5 and 10 partitions of 2, 20 and 20 classes per task, respectively. We also experiment with longer task sequences in Seq-CIFAR100 by increasing number of tasks to 5, 10 and 20 while correspondingly decreasing number classes to 20, 10, and 5, respectively. 
+%Following \citet{maltoni2019continuous}, Seq-Core50 is organized into nine tasks, the first of which includes ten classes, while the rest have five classes each. 
+ Following \cite{arani2022learning, buzzega2020dark, cha2021co2l, caccia2021new}, we employ ResNet-18 \citep{he2016deep} as the backbone to learn a common representation space for all our experiments. We use a single, expanding linear classifier representing all classes belonging to all tasks. The training regime for both Class-IL and Task-IL are as follows: The CL model is trained on all tasks sequentially with/without experience-rehearsal with reservoir sampling depending on its formulation. During training, entire network is updated including the linear classifier. The training scheme is same for both Class-IL and Task-IL. For comparison between different state-of-the-art methods, we report the average of accuracies on all tasks seen so far in Class-IL. As is the standard practice in Task-IL, we leverage the task identity and mask the neurons that do not belong to the prompted task in the linear classifier.  
+
+Our CL model consists of as many TAMs as the number of tasks. Each TAM is an autoencoder with a linear layer with ReLu activation as an encoder and a linear layer with sigmoid activation as a decoder. Both input and output are 512 dimensional while the latent space is of 64 dimensions. As TAMiL involves an EMA model for consistency regularization, we use CLS-ER's two-model version with a single EMA copy for a fair comparison. As TAMs can be plugged into any rehearsal-based approach, we plan to improve multiple-EMA CLS-ER with TAMs in the future. 
+
+
+ \subsection{Backbones used for comparison with dynamic sparse networks}\label{backbones}
+Diverging from the mainstream practice of utilizing a dense CL model, dynamic sparse approaches 
+start with a sparse network and maintain the same connection density throughout the learning trajectory. As sparsifying a CL model involves disentangling interfering units to avoid forgetting and
+creating novel pathways to encode new knowledge, implementing batch normalization and residual connections is not trivial for both NISPA and CLNP. Therefore, these methods do not use the ResNet-18 architecture. Instead, they opt for a simple CNN architecture without skip connections and batch normalization. On the other hand, TAMiL is not prone to complexities in the underlying model and is therefore simple to plug-and-play for any approach with any kind of backbone.  
+
+
+\subsection{Maintaining an EMA model for consistency regularization}
+Knowledge of previous tasks can be better preserved using consistency regularization in CL \citep{bhat2022consistency}. To enforce consistency, the previous predictions can be stored along with the image in the buffer or an EMA teacher model can be employed to distill the knowledge of the previous tasks. In DER++, previous predictions are stored in the buffer. In Figure \ref{fig:combined}(left) we plug-and-play TAMs on top of DER++ and show discernible improvement, indicating that the effectiveness of TAMs is independent of the use of EMA model. 
+
+ The EMA of a model can be considered as forming a self-ensemble of the intermediate model states that leads to better internal representations \citep{arani2022learning}. Therefore, using an EMA model instead of storing the logits yields better results in CL. Therefore, we use an EMA model in all our experiments in Table \ref{tab:main}. When training a CL model in TAMiL, we stochastically update the EMA model as follows: 
+\begin{equation}
+    \label{eqn:ema}
+\theta_{EMA}= 
+\begin{cases}
+    \theta_{EMA},& \text{if  } \: \gamma \leq \mathcal{U}(0, 1)\\
+    \eta \; \theta_{EMA} +\left(1-\eta \right) \theta,              & \text{otherwise}
+\end{cases}
+\end{equation}
+ where $\eta$ is a decay parameter, $\gamma$ is a update rate and, $\theta$ and  $\theta_{EMA}$ represent weights of CL model and EMA model respectively. During each iteration, buffered input is passed through each of these models and CL model's predictions are enforced to be consistent with the EMA model's predictions.  
+
+ 
+\subsection{Intuition behind working of ignition event}
+The TAMs in our framework act as a communication bottleneck and select features relevant for the corresponding task. However, association between an input sample and its corresponding TAM is not given as task identity is not available during inference in Class-IL. Motivated by ignition event in the brain (Appendix \ref{ignition_event_bio}), we develop a simple ignition event to select appropriate TAM both during training and inference. To this end, during training, each TAM first learns task-specific attention using task-specific data $\mathcal{D}_t$. As our method employs experience-rehearsal, we use $\mathcal{D}_m$ to automatically select the appropriate TAM. Since each TAM is associated with a specific task, inferring a wrong TAM for the buffered samples can result in sub-par performance and higher penalty in terms of cross-entropy loss and consistency regularization. This way, the CL model is trained to first capture task-specific information and also learn the routing through buffered samples using an ignition event. 
+
+ CL models without TAMs (DER++, CLS-ER), already accumulate information in their common representation space that is sufficient for decent classification performance. TAMs, on the other hand, denoisify these features resulting in higher performance due to lessened interference. We empirically found that deviating too much from common representation space features incurred higher interference and consequent forgetting in presence of TAMs. Therefore, the task-specific attention should be such that it promotes denoising, but not at the expense of features important for the current task. To this end, we proposed a simple matching criterion that dynamically selects a TAM that is most similar to common representation space features. For buffered samples, appropriate TAM is dynamically selected using Equation \ref{eqn_criterion}. Only the output of selected TAM is forward propagated to global workspace. We then compute cross entropy loss and consistency regularization, and backpropagate the errors.
+
+ The obvious downside of such an approximation is a drop in performance. Compared to Oracle version, TAMiL with ignition event described in Equation 5 produces a subpar performance. We note this obvious limitation in Appendix B. TAMiL can benefit from more accurate matching criterion to match the performance of Oracle. More complex alternatives such as learning a policy using reinforcement learning, a gating mechanism using Gumbel-softmax, and prototype matching can also be explored in place of proposed matching criterion to further improve the selection accuracy. 
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+% Inspired by the GWT, our approach entails task-specific attention modules that act as bottleneck when broadcasting information from the common representation space to the global workspace. 
+%  Although continual learning sequentially exposes the CL model to non-stationary data distributions, there are many aspects of the data that are stationary and generalizable, learning about which eventually converges \citep{goyal2020inductive}. If we divide the information captured by the CL model into stationary and non-stationary aspects, the model is expected to consolidate as much information as possible in the stationary part. To do so, the model must amass the non-stationary information as quickly as possible while stationary information can be amortized over the lifetime. Reminiscent of the works in the meta-learning \citep{finn2017model, ravi2016optimization}, consolidating stationary information can be associated with slow-learning while capturing non-stationary aspects be associated with fast-learning. Eventually, more aspects of the CL model's consolidated knowledge become stable  and might hold the key to further mitigating forgetting in sequential learning.
+
+
+% old related works
+% Continual learning over a sequence of tasks has been a long-standing challenge, since learning a new task causes large weight changes in the DNNs, resulting in overfitting on the current task and catastrophic forgetting of older tasks \citep{parisi2019continual}. Similar to experience rehearsal in the brain, early works attempted to address catastrophic forgetting through Experience-Replay (ER) \citep{ratcliff1990connectionist, robins1995catastrophic} by explicitly storing and replaying previous task samples alongside current task samples. Gradient Episodic Memory (GEM; \cite{lopez2017gradient}) and its light-weight counterpart Averaged-GEM (A-GEM; \cite{chaudhry2018efficient}) are built on top of the ER and impose optimization constraints that encourage positive backward transfer. iCaRL \citep{rebuffi2017icarl} uses a self-distillation loss term to prevent representation drift and trains a nearest-mean-of-exemplars classifier using buffered samples.  Function Distance Regularization (FDR) \citep{benjamin2018measuring} and Dark Experience Replay (DER++; \cite{buzzega2020dark}) leverage soft targets in addition to ground truth labels to enforce consistency regularization across previous and current model predictions. Given sufficient memory, replay-based approaches mimic the association of past and present experiences in humans and are fairly successful in challenging CL scenarios. 
+
+% The prevalence of several knowledge bases in the brain warrants conscious information processing to deal with an ever-changing environment. GWT proposes that the brain has specialized modules dedicated to specific functions, and when warranted by a task-specific input, these modules admit only relevant information from the common representation space to the global workspace \citep{baars1994global, baars2005global}.
+% Inspired by GWT, we propose TAMiL, a CL approach that involves TAMs to create a communication bottleneck between the common representation space and the global workspace, thus allowing only the task-relevant information. Our work effectively combines rehearsal with evolving architectures with limited memory overhead (Table \ref{tab:parameter}), 
+
+% On the other hand, regularization-based approaches \citep{kirkpatrick2017overcoming, zenke2017continual, li2017learning} penalize changes to the weights of CL model that are important for the previous tasks.  
+% Elastic Weight Consolidation (EWC) \citep{kirkpatrick2017overcoming} and online-EWC (oEWC) \citep{schwarz2018progress} employ the diagonal of the Fisher information matrix to estimate the parameters' importance.  Similar to EWC, Synaptic-Intelligence (SI) \citep{zenke2017continual} regularizes important parameters, but the importance measure is computed online and along the entire continual learning trajectory. Learning Without Forgetting (LwF) \citep{li2017learning} exploits the past version of the model as a teacher to distill knowledge to the current model thereby restricting the representation drift. Although these approaches improve stability without requiring rehearsal of previous exemplars, CL model struggles to learn new tasks due to insufficient plasticity. Parameter-isolation methods introduce new set of parameters for each task thereby mitigating interference between tasks. Progressive neural networks (PNNs) instantiates a new sub-network for each task with lateral connections to the previously learned frozen models. Expert-gate \citep{aljundi2017expert} extended PNNs by adding a gating network that enables dynamic choice of sub-network during inference. Although parameter isolation reduces catastrophic forgetting, these approaches are not scalable due to addition of large number of parameters for each task.
+
+
+
+
+
+
+
+% \subsection{Comparison with broader related works} \label{additional_results}
+% We compare with several recent rehearsal-based methods in different CL scenarios. We consider  Co$^{2}$L \citep{cha2021co2l}, DRI \citep{wang2022continual}, LVT \citep{wang2022continual2}, Mean-ER \citep{arani2022learning} and
+%  GCR \citep{tiwari2022gcr} for broader comparison of our method.  Mean-ER is closest to our method as both approaches employ EMA model to ensure consistency in predictions. As can be seen, TAMiL is quite competitive and outperforms the baselines in most of the settings.
+
+
+% \begin{table*}
+% \centering
+% \caption{Comparison of broader related works in CL across various continual learning scenarios. Results are taken directly from the respective papers. Best results are in bold while second best results are underlined.} 
+% \label{tab:broader_rl}
+
+% \begin{tabular}{ll|c|cc|cc}
+% \toprule
+% \multirow{2}{*}{\specialcell{Buffer \\ size}} & \multirow{2}{*}{Methods} & \multirow{2}{*}{Venue} & \multicolumn{2}{c|}{Seq-CIFAR10}  & \multicolumn{2}{c}{Seq-TinyImageNet}   \\  \cmidrule{4-7}
+%  &  & &Class-IL & Task-IL  & Class-IL & Task-IL  \\ \midrule
+ 
+%  - & SGD  & - & 19.62\scriptsize{$\pm$0.05} & 61.02\scriptsize{$\pm$3.33} & 7.92\scriptsize{$\pm$0.26} & 18.31\scriptsize{$\pm$0.68} \\ \midrule
+
+% \multirow{6}{*}{200}  
+%   & ER  & - &  57.74\scriptsize{$\pm$0.27} & \underline{93.61}\scriptsize{$\pm$0.27} & 8.57\scriptsize{$\pm$0.04} & 38.17\scriptsize{$\pm$2.00} \\
+%   & TARC &  CoLLAs 2022   & 	53.23\scriptsize{$\pm$1.00}  & 88.6\scriptsize{$\pm$0.62}  & 9.57\scriptsize{$\pm$0.12} & 38.42\scriptsize{$\pm$0.25} \\
+%   & DER++  & NeurIPS 2020 & 64.88\scriptsize{$\pm$1.17} & 91.92\scriptsize{$\pm$0.60}& 10.96\scriptsize{$\pm$1.17} & 40.87\scriptsize{$\pm$1.16} \\
+%   & GCR  & CVPR 2022 & 64.84\scriptsize{$\pm$1.63} & 90.8\scriptsize{$\pm$1.05}& 13.05\scriptsize{$\pm$0.91} & 42.11\scriptsize{$\pm$1.01} \\
+%   & DRI  & AAAI 2022 & 65.16\scriptsize{$\pm$1.13} & 92.87\scriptsize{$\pm$0.71}& 17.58\scriptsize{$\pm$1.24} & 44.28\scriptsize{$\pm$1.37} \\
+%   & Mean-ER &  ICLR 2022   & 	61.88\scriptsize{$\pm$2.43}  & 93.59\scriptsize{$\pm$0.87} & \underline{17.68}\scriptsize{$\pm$1.65} & \underline{52.60}\scriptsize{$\pm$1.56} \\
+%   & LVT &  CVPR 2022   & 	-   & -  & 17.34\scriptsize{$\pm$1.13} & 46.15\scriptsize{$\pm$1.21}\\
+%   & Co$^{2}$L  &  ICCV 2021 &  \underline{65.57}\scriptsize{$\pm$1.37} & 93.43\scriptsize{$\pm$0.78}& 13.88\scriptsize{$\pm$0.40} & 42.37\scriptsize{$\pm$0.74} \\
+%   & TAMiL & -  & 	\textbf{68.84}\scriptsize{$\pm$1.18}  & \textbf{94.28}\scriptsize{$\pm$0.31} & \textbf{20.46}\scriptsize{$\pm$0.40} & \textbf{55.44}\scriptsize{$\pm$0.52}  \\
+
+% \midrule
+
+% \multirow{6}{*}{500}  
+%   & ER  & - &  44.79\scriptsize{$\pm$1.86} & 91.19\scriptsize{$\pm$0.94} & 9.99\scriptsize{$\pm$0.29} & 48.64\scriptsize{$\pm$0.46}  \\
+%   & TARC &  CoLLAs 2022   & 	67.41\scriptsize{$\pm$0.94}  & 	92.9\scriptsize{$\pm$0.39}  & 13.77\scriptsize{$\pm$0.17} & 47.3\scriptsize{$\pm$0.50}\\
+%   & DER++  &  NeurIPS 2020 & 72.70\scriptsize{$\pm$1.36} & 93.88\scriptsize{$\pm$0.50} & 19.38\scriptsize{$\pm$1.41}  & 51.91\scriptsize{$\pm$0.68} \\
+%   & GCR  & CVPR 2022 & \textbf{74.69}\scriptsize{$\pm$0.85} & 94.44\scriptsize{$\pm$0.32}& 19.66\scriptsize{$\pm$0.68} & 52.99\scriptsize{$\pm$0.89} \\
+%   & DRI  & AAAI 2022 & 72.78\scriptsize{$\pm$1.44} & 93.85\scriptsize{$\pm$0.46}& 22.63\scriptsize{$\pm$0.81} & 52.89\scriptsize{$\pm$0.60} \\
+%  & LVT &  CVPR 2022   & 	-   & -  &  23.97\scriptsize{$\pm$1.27} & 57.39\scriptsize{$\pm$0.75}\\
+%   & Mean-ER & ICLR 2022  & 	70.40\scriptsize{$\pm$1.21}  & 94.35\scriptsize{$\pm$0.38}  & \underline{24.97}\scriptsize{$\pm$0.80} & \underline{61.57}\scriptsize{$\pm$0.63} \\
+%   & Co$^{2}$L  & ICCV 2021 &   74.26\scriptsize{$\pm$0.77} & \textbf{95.90}\scriptsize{$\pm$0.26}& 20.12\scriptsize{$\pm$0.42} & 53.04\scriptsize{$\pm$0.69} \\
+%   & TAMiL & -  & \underline{74.45}\scriptsize{$\pm$0.27} & \underline{94.61}\scriptsize{$\pm$0.19}& \textbf{28.48}\scriptsize{$\pm$1.50}& \textbf{64.42}\scriptsize{$\pm$0.27} \\
+% \bottomrule
+% \end{tabular}
+% \end{table*}
+
+
+% \subsection{Experimental settings }
+
+% \begin{table*}
+% \centering
+% \caption{Hyper-parameters chosen for TAMiL's optimum performance. } 
+% \label{tab:hyperparameter}
+% \begin{tabular}{ll|cc|cc}
+% \toprule
+%  Dataset &  & Class-IL & Task-IL  & Class-IL & Task-IL  \\ \midrule
+ 
+% %  - & SGD  & 96.39\scriptsize{$\pm$0.12} & 46.24\scriptsize{$\pm$2.12} &\scriptsize{$\pm$} &\scriptsize{$\pm$} \\ \midrule
+
+% \multirow{3}{*}{200}  
+%   & ER  &  61.24\scriptsize{$\pm$2.62} & 7.08\scriptsize{$\pm$0.64} & 76.37\scriptsize{$\pm$0.53} & 43.14\scriptsize{$\pm$0.97} \\
+%   & DER++  & 32.59\scriptsize{$\pm$2.32} &  5.16\scriptsize{$\pm$0.21}& 72.74\scriptsize{$\pm$0.56} & 41.63\scriptsize{$\pm$1.13} \\
+%   & TAMiL  & \textbf{22.03}	\scriptsize{$\pm$ 1.89}  & \textbf{3.45 }\scriptsize{$\pm$0.39} & \textbf{55.69}\scriptsize{$\pm$1.45} & \textbf{24.54}\scriptsize{$\pm$0.94}  \\
+
+% \midrule
+
+% \multirow{3}{*}{500}  
+%   & ER  & 45.35\scriptsize{$\pm$0.07} & 3.54\scriptsize{$\pm$0.35} & 75.27\scriptsize{$\pm$0.17} & 31.36\scriptsize{$\pm$0.27}  \\
+%   & DER++  & 22.38\scriptsize{$\pm$4.41} & 4.66\scriptsize{$\pm$1.15} & 64.58\scriptsize{$\pm$2.01}  & 27.85\scriptsize{$\pm$0.51} \\
+%   & TAMiL  & \textbf{15.95}\scriptsize{$\pm$0.86} & \textbf{3.14}\scriptsize{$\pm$0.42}& \textbf{43.43}\scriptsize{$\pm$2.24}& \textbf{15.68}\scriptsize{$\pm$0.18} \\
+% \bottomrule
+% \end{tabular}
+% \end{table*}
+
+
+% \section{Theoretical insight}
+% Although several approaches have been proposed in the literature to address Task-IL scenario with almost no forgetting \citep{wortsman2020supermasks}, Class-IL still remains a long standing challenge in CL. The TAMs proposed in this work help bridge this gap in performance between Task-IL and Class-IL by capturing information relevant for the current task thereby minimizing the interference between tasks. To this end, we set out to provide theoretical insights and intuitions to better understand how TAMiL improves Class-IL performance. 
+% % As any ignition event (e.g. Equation \ref{eqn_criterion}) is an approximation of Oracle, we attribute TAMiL  to TAMiL(Oracle) in the rest of this section. 
+
+% \textbf{Definition 1} \label{def1}: (Class-Incremental Learning (Class-IL)): The CL model encounters $t \in \{ 1, 2. ..., T \}$ tasks with $j \in \{ 1, 2. ..., J \}$ classes per task sequentially such that the classes themselves and their domains are disjoint i.e. for current task data $(\mathbf{X}_{t, j}, \mathbf{Y}_{t, j}) \in \mathcal{D}_t$, $\:\:$ $\mathbf{Y}_{t, j} \cap \mathbf{Y}_{t^{\prime}, j}=\emptyset,  \:\:  \mathbf{X}_{t, j} \cap \mathbf{X}_{t^{\prime}, j^{\prime}}=\emptyset, \:\: \forall j \neq j^{\prime}, \:\: \forall t \neq t^{\prime}$ 
+
+% We consider a widely adopted Class-IL setting in definition \ref{def1} such that classes and their domains appear at most in one task i.e. there is no overlap of classes between tasks. Given such a setting, the primary goal of CL model is to learn $\mathbf{P}\left(y \in \mathbf{Y}_{t, j} \mid \mathcal{D}\right)$.  \citet{kim2022theoretical} partitioned this probability into two sub-problems namely within-task prediction (WP) probability $\mathbf{P}\left(y \in \mathbf{Y}_{t, j} \mid y \in \mathbf{Y}_t, D\right)$ and task-id prediction (TP) probability $\mathbf{P}\left(y \in \mathbf{Y}_t \mid D\right)$ as follows: 
+
+
+% \begin{equation}
+% \label{eqn_wp_tp}
+% \begin{aligned}
+% \mathbf{P}\left(y \in \mathbf{Y}_{k_0, j_0} \mid D\right) &=\sum_{t=1, \ldots, T} \mathbf{P}\left(y \in \mathbf{Y}_{t, j_0} \mid y \in \mathbf{Y}_t, D\right) \mathbf{P}\left(y \in \mathbf{Y}_t \mid D\right) \\
+% &=\mathbf{P}\left(y \in \mathbf{Y}_{t_0, j_0} \mid y \in \mathbf{Y}_{t_0}, D\right) \mathbf{P}\left(y \in \mathbf{Y}_{t_0} \mid D\right)
+% \end{aligned}
+% \end{equation}
+
+% where $t_0$ and $j_0$ represent a particular task and one of its classes respectively. WP means that the prediction for a test instance is only done within the classes of the task to which the test instance belongs, which is basically the Task-IL problem. TP predicts the task-id of the sample. The performance of CL model in Class-IL setting is highly correlated with WP and TP performance. Equation \ref{eqn_wp_tp} tells us that CL model's performance in Class-IL can be improved by improving either WP or TP, or both. As rehearsal-based approaches have access to previous task data, majority of these approaches produce a good WP performance. However, these approaches lack a good task-identifier thereby producing sub-par Class-IL performance.  The CL model should posses a good WP and entail a good TP or out-of-distribution detection as a necessary prerequisite to establish a good Class-IL performance \citep{kim2022theoretical}. 
+
+% The TAMs in our proposed method act as a communication bottleneck between common representation space and global workspace, and attend to features important for the current task. Therefore, each TAM captures the associated task-specific information  thereby leading to reduced task-interference. As each TAM is associated with a specific task, TAMs improve the task discovery when sample-specific TAM is chosen for inference. We argue that TAMs greatly improve TP performance thereby leading to superior Class-IL performance. 

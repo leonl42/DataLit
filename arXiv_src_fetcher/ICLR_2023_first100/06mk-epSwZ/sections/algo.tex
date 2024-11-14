@@ -1,0 +1,40 @@
+\algdef{SE}[SUBALG]{Indent}{EndIndent}{}{\algorithmicend\ }%
+\algtext*{Indent}
+\algtext*{EndIndent}
+\begin{wrapfigure}[18]{r}{0.55\textwidth}
+\vspace{-23pt}
+\begin{minipage}{0.55\textwidth}
+\begin{algorithm}[H]
+\small
+    \caption{DiffMimic}
+    \begin{algorithmic}[1]
+        \State \textbf{Input:} Optimization Iteration I, Episode Length T, Reference States $\hat{S}=\{\hat{s}_1, \hat{s}_2, \cdots, \hat{s}_t\}$, Error Threshold $\epsilon$.
+        \State \textbf{Output:} Optimized policy
+        \State Initialize the stochastic policy as \(\pi_\theta\).
+        \For{ optimization iteration $i = 1 \cdots I $}
+        \State \# Roll out trajectories with Expert Replay
+        \State Initialize $s_1 \leftarrow \hat{s}_1$
+        \For{ step $t = 1 \cdots T-1 $}
+            \begin{equation*}
+              s_{t+1} =
+                \begin{cases}
+                  \mathcal{T}(s_{t}, a_t), \; a_t \sim \pi_{\theta}(a|s_{t}) & \text{if} \; \|s_t-\hat{s}_t\|_2^2 < \epsilon \\
+                  \mathcal{T}(\hat{s}_{t}, a_t), \; a_t \sim \pi_{\theta}(a|\hat{s}_{t}) & \text{otherwise.}
+                \end{cases}       
+            \end{equation*}       
+        \EndFor
+  
+        \State Compute loss
+           $ \mathcal{L} =  \sum_{t=1}^T 
+            \| s_t - \hat{s}_t \|_2^2$
+        
+        \State Update the policy \(\pi_\theta\) with analytical gradient \(\bigtriangledown_\theta \mathcal{L}\).
+
+        
+        \EndFor
+        \State \textbf{Return} the policy \(\pi_\theta\).
+\end{algorithmic}
+\label{alg:DIL}
+\end{algorithm}
+\end{minipage}
+\end{wrapfigure}

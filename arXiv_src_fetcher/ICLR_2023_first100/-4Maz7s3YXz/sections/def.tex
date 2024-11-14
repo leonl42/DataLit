@@ -1,0 +1,37 @@
+\vspace{-0.3cm}
+\section{Definition and Notation}
+\vspace{-0.1cm}
+\subsection{Atypical Samples and Memorization}\label{sec:def_atypical}
+In this section, we start by introducing necessary concepts and definitions about the memorization effects. As well known, overparameterized DNNs have tremendous capacity to make them easy to perfectly fit the training dataset~\cite{zhang2016understanding}. In practice, on common benchmark classification tasks, such as CIFAR10~\cite{he2016deep}, CIFAR100 and ImageNet~\cite{krizhevsky2012imagenet}, we also tune the DNNs to achieve very high training accuracy even close to 100\%, and enjoy good test performance. While, this property of DNNs in practice cannot be well explained by standard theories about model generalization~\cite{evgeniou2000regularization, bartlett2002rademacher} from the regularization perspective. At a high level, the standard theories underline the importance of regularization on the model complexity, to make DNNs to avoid ``overfitting'' or ``memorizing'' the outliers and nonuseful samples in the training data. 
+
+Fortunately, recent works~\cite{feldman2020does, feldman2020neural,bartlett2020benign, muthukumar2020harmless, chatterji2020finite} make significant progress to close this gap from both theoretical and empirical perspectives. They suggest that the memorization effect is one necessary property for DNNs to achieve optimal generalization performance. In detail, the empirical studies~\cite{feldman2020does, feldman2020neural} point out that the common benchmark datasets, such as CIFAR10, CIFAR100, ImageNet, contain a large portion of atypical samples (or namely, rare samples, sub-populations, etc.). These atypical samples look very different from the other samples in the main distribution of its labeled class (see Appendix~\ref{app:atypical}), and are statistically indistinguished from outliers or mislabeled samples. Because these atypical samples are deviated from the main distribution, DNNs can only fit these samples by memorizing their labels. Moreover, without memorizing these atypical samples during training, the DNNs can totally fail to predict the atypical samples appearing in the test set~\cite{feldman2020neural}.
+%As the works~\cite{feldman2020neural} suggest, 
+
+
+
+
+
+\noindent\textbf{Identify Atypical Samples.} To identify such atypical samples in common datasets in practice, the work~\cite{feldman2020neural} proposes to examine which training samples can only be fitted by memorization, and measure each training sample's \textit{``memorization value''}. Formally, for a training algorithm $\mathcal{A}$ (i.e., ERM), the memorization value ``$\text{mem}(\mathcal{A}, \mathcal{D}, x_i)$'' of a training sample $(x_i,y_i)\in \mathcal{D}$ in training set $\mathcal{D}$ is defined as:
+\begin{align}\label{eq:mem}
+    \text{mem}(\mathcal{A}, \mathcal{D}, x_i) = \underset{F\leftarrow \mathcal{A}(\mathcal{D})}{\text{Pr.}} (F(x_i) = y_i) - \underset{F\leftarrow \mathcal{A}(\mathcal{D}\backslash x_i)}{\text{Pr.}} (F(x_i) = y_i),
+\end{align}
+which calculates the difference between the model $F$'s accuracy on $x_i$ with and without $x_i$ removed from the training set $\mathcal{D}$ of algorithm $\mathcal{A}$. 
+Note that for each sample $x_i$, if its memorization value is high, it means that removing $x_i$ from training data will cause the model with a high possibility to wrongly classify itself, so $x_i$ is very likely to be fitted only by memorization and be atypical. From the work~\cite{feldman2020neural}, these atypical samples have non-ignorable portion in common datasets. For example, there are around $40\%$ training samples in CIFAR100 having a large memorization value $>0.15$. 
+
+The similar strategy can also facilitate to find atypical samples in the test set, which are the samples that are strongly influenced by atypical training samples.
+In detail, by removing an atypical training sample $(x_i, y_i)$, we calculate its \textit{``influence value''} on each test sample $(x_j', y_j')\in\mathcal{D}'$ in test set $\mathcal{D}'$:
+\begin{align}\label{eq:infl}
+    \text{infl}(\mathcal{A}, \mathcal{D}, x_i, x'_j) = \underset{F\leftarrow \mathcal{A}(\mathcal{D})}{\text{Pr.}} (F(x_j') = y_j') - \underset{F\leftarrow \mathcal{A}(\mathcal{D}\backslash x_i)}{\text{Pr.}} (F(x_j') = y_j').
+\end{align} 
+If the sample pair $(x_i,x'_j)$ has a high influence value, removing the atypical sample $x_i$ will drastically decrease the model's accuracy on $x'_j$. It suggests that the model's prediction on $x'_j$ is mainly based on the memorization of $x_i$, thus, $x'_j$ is the corresponding atypical sample of $x_i$. The sample pair $x_i$ and $x'_j$ is called a \textit{high-influence pair}, if they have a high influence value and belong to the same class. In practice, the high-influence pairs of images are typically visually similar and have similar semantic features. The memorization benefits the model's performance especially on these test atypical samples, and hence boosts the overall test accuracy. 
+
+\vspace{-0.2cm}
+\subsection{Adversarial Training}
+Similar to classification models trained via empirical risk minimization (ERM) algorithms, adversarial training methods
+~\cite{madry2017towards, kurakin2016adversarial} are also devised to fit the whole dataset by training the model on manually generated adversarial examples. Formally, they are optimized to have the minimum adversarial loss:
+\begin{align}
+    \min_F \underset{x}{\E}~  \left[\max_{||\delta||\leq\epsilon} \mathcal{L}(F(x+\delta),y)\right],
+    \label{eq:adv_training}
+\end{align}
+which is the model $F$'s average loss on the data $(x,y)$ that perturbed by adversarial noise $\delta$.
+These adversarial training methods~\cite{kurakin2016adversarial, madry2017towards, zhang2019theoretically} have been shown to be one of the most effective approaches to improve the model robustness against adversarial attacks. Note that similar to traditional ERM, adversarially trained models can also achieve very high training performance. For example, under ResNet18~\cite{he2016deep}, PGD adversarial training~\cite{he2016deep} can achieve over 99\% clean accuracy and 85\% adversarial accuracy on the training set of CIFAR~100. Under a larger network with WideResNet28-10 (WRN28), it can achieve 100\% clean accuracy and 99\% adversarial accuracy. It suggests that these DNN models have sufficient capacity to memorize the labels of these atypical samples and their adversarial counterparts. However, different from ERM, adversarially trained models usually suffer from bad generalization performance on the test set. For example, the ResNet18 model can only have 57\% and 22\% test clean accuracy and adversarial accuracy ($\sim59\%$ and $24\%$ on WRN28). Moreover, the study~\cite{rice2020overfitting} suggests that during the adversarial training process, the model's test adversarial accuracy keeps dropping as more training data is fitted (after the first time learning rate decay). Thus, these facts indicate that the memorization in adversarial training is probably not always beneficial to the test performance and requires deep understanding. In the following sections, we will empirically draw a significant connection between these properties with the memorization effect.

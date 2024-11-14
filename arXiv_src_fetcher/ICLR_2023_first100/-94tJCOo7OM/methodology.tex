@@ -1,0 +1,183 @@
+% Section 4.1: borrow justification from MC-BRL (and two similar works) and MoREL
+
+\section{Methodology}
+
+In this work, we propose a novel offline MBRL algorithm based on Bayes Adaptive MCTS. The core challenge is to design a Bayes Adaptive planning method that is efficient in large stochastic MDPs. In this case, we propose Continuous BAMCP in Section \ref{ContBAMCP}, which can be applied to continuous control tasks with high dynamics stochasticity. Then, in Section \ref{SBPI}, we present a search-based policy iteration framework, where the search results are distilled into policy and value networks for policy improvement and policy evaluation, respectively, at each iteration. In this way, we integrate offline MBRL with Bayes Adaptive MCTS. Both components require the use of an ensemble of world models for practical implementation and uncertainty quantification, which is detailed in Section \ref{DeepEns}.
+
+
+\subsection{The Key Role of Deep Ensembles} \label{DeepEns}
+
+% why bayes adaptive
+% why using ensembles
+
+Offline MBRL methods estimate world models $\mathcal{M}_\theta$ from a static dataset $\mathcal{D}_\mu$, which would inevitably induce epistemic uncertainty about the identity of the real MDP $\mathcal{M}^*$. Specifically, there could be various potential MDPs that behave identically on the limited set of states and actions in $\mathcal{D}_\mu$, but their dynamics and reward functions may differ, especially on out-of-sample states and actions. Thus, we are actually dealing with a distribution of world models that follow a prior distribution $b_0(\theta) \triangleq P(\mathcal{M}_\theta | \mathcal{D}_\mu)$. As introduced in Section \ref{back}, Bayesian RL based on BAMDP is a principled framework for handling model uncertainty by explicitly including the belief over the models in its state representation.
+% by transforming the uncertainty about the world model into certainty about the current state inside an augmented state space $\mathcal{S} \times \mathcal{B}$
+Essentially, the belief is updated with experience, providing a measure of how the models' uncertainty has changed since the beginning of the episode. As a result, the agent can adjust its behavior upon receiving new information that reduces the epistemic uncertainty. Such an adaptive policy is necessary to act optimally in offline RL, as demonstrated in (\cite{DBLP:conf/icml/GhoshAAL22}).
+
+The idea of deep ensembles (\cite{DBLP:conf/nips/Lakshminarayanan17}) is to train multiple deep neural networks as approximations of a function, each using a different weight initialization and optimized with a different mini-batch sequence. For offline MBRL, we can learn an ensemble of dynamics models $\{\mathcal{P}_{\theta}^1, \cdots, \mathcal{P}_{\theta}^K\}$ and reward models $\{\mathcal{R}_{\theta}^1, \cdots, \mathcal{R}_{\theta}^K\}$\footnote{In some MBRL scenarios, a certain reward function is available, for instance, as defined by domain experts. Otherwise, the reward and dynamics function $(\mathcal{R}_\theta^i, \mathcal{P}_\theta^i)$ are usually trained as a unified probabilistic model $\mathcal{N}(\mu_{\theta}^i, \sigma_{\theta}^i)$, since the reward $r$ can be viewed as an element of the next state $s'$.} from the dataset $\mathcal{D}_\mu$ by minimizing the following supervised learning loss: ($i = 1, \cdots, K$)
+\begin{equation}
+    \mathcal{L}(\mathcal{P}_{\theta}^i) = -\mathbb{E}_{(s, a, s') \sim \mathcal{D}_\mu} \left[\log \mathcal{P}_{\theta}^i(s'|s, a)\right],\ \mathcal{L}(\mathcal{R}_{\theta}^i) = -\mathbb{E}_{(s, a, r) \sim \mathcal{D}_\mu} \left[\log \mathcal{R}_{\theta}^i(r|s, a)\right]
+\end{equation}
+$\{(\mathcal{P}_{\theta}^i, \mathcal{R}_{\theta}^i)_{i=1}^K\}$ can be viewed as a set of independent and identically distributed (IID) samples from the prior $P(\mathcal{M}_\theta | \mathcal{D}_\mu)$ and constitute a finite approximation of the space of world models. With such an ensemble, the belief over the world models can be converted to a mass function over a set of $K$ items, where the $i$-th element denotes the probability of being in the MDP $(\mathcal{P}_{\theta}^i, \mathcal{R}_{\theta}^i)$. In this case, a reasonable prior distribution is $b_0(\theta) = [1/K, \cdots, 1/K]$, since these models are IID prior samples. After receiving a transition $(s, a, r, s')$, the belief can be updated as follows:
+\begin{equation} \label{b'}
+    b'(\theta)(i) = x^i / \sum_{j=1}^K x^j,\ x^i = b(\theta)(i)\mathcal{P}_\theta^i(s' | s, a) \mathcal{R}_\theta^i(r | s, a)
+\end{equation}
+This update requires a single inference from each ensemble member, but can be parallelized for computational efficiency. Equation (\ref{b'}) is a practical implementation of the Bayesian posterior update based on deep ensembles, and the simplification of the definition of $b(\theta)$ makes the transitions in Bayesian RL (i.e., Equation (\ref{bamdp-mdp})) both practical and efficient.
+
+% justification for using such a finite approximation
+
+The ensemble can also be used for uncertainty quantification. As aforementioned, our algorithm relies on thorough search on the learned world models. Without any constraints on the search process, the learned policy may overfit to an inaccurate model (by overestimating the expected return) and fail in the true MDP.
+Although the agent could adapt its belief and follow more reliable ensemble members in the Bayesian RL framework, there could be regions in the state-action space where none of the members generalize well, as they are all learned from a static offline dataset.
+A typical solution is to construct a P-MDP (see Section \ref{rel_works}), which lower-bounds the true MDP and discourages the policy from regions where there is large discrepancy between the true and learned world models. 
+% This type of methods provides a theoretical guarantee of improvement over cloning the behavior policy, and can be implemented by using a reward function penalized by the uncertainty in the world model. 
+We construct the P-MDP by modifying each reward estimation $r$ into $\tilde{r}$: ($\mu_\theta(s, a) = \sum_{i=1}^K b(\theta)(i) \mu_{\theta}^i(s, a)$)
+\begin{equation} \label{p-rwd}
+    \Tilde{r}(s, a, r, b(\theta)) = r - \lambda \sqrt{\sum_{i=1}^K b(\theta)(i) (\sigma_{\theta}^i(s, a)^2 + \mu_{\theta}^i(s, a)^2) - \mu_\theta(s, a)^2}
+\end{equation}
+The reward penalty is weighted by a hyperparameter $\lambda > 0$ and corresponds to the standard deviation (std) of the mixture of Gaussian dynamics models, where $\mu_{\theta}^i$ and $\sigma_{\theta}^i$ are the mean and std from the ensemble member $i$. 
+% We choose to use \(b(\theta)\) rather than \(b'(\theta)\) in Eq. (\ref{p-rwd}) since \(b(\theta)\) provides the mixture weights of the ensemble members (i.e., $(\mu_\theta^i, \sigma_\theta^i)_{i=1}^K$) when determining $r$ and $s'$. 
+This penalty design combines epistemic and aleatoric model uncertainty and has been shown to be successful at capturing errors in predicted dynamics (\cite{DBLP:conf/iclr/LuBPOR22})\footnote{In the original literature (\cite{DBLP:conf/nips/Lakshminarayanan17, DBLP:conf/iclr/LuBPOR22}), the ensemble is treated as a uniformly-weighted mixture model, i.e., $b(\theta)(i) = 1/K,\ (i=1, \cdots K)$, since their belief is not adaptive. Equation (\ref{p-rwd}) fits into the Bayesian RL framework by adapting the belief $b(\theta)$, which is part of our novelty.}.
+
+% justify that the idea of P-MDP and its theoretical derivation can still be applied when the main algorithm component is MCTS
+
+% possible replacement for deep ensembles
+
+\begin{algorithm}[t]
+  \caption{Continuous BAMCP}
+  \label{alg:2}
+  \begin{multicols}{2}
+    \begin{algorithmic}
+      \State \textbf{Input:} $\pi$, $V$, $E$, $d_{\text{max}}$, $\gamma$, $\alpha$, $\beta$, $\mathcal{P}_\theta^{1:K}$, $\mathcal{R}_\theta^{1:K}$
+      \Procedure{Search}{$(s, h), b(\theta)$}
+        \For{$e=1 \cdots E$}
+        \State \textproc{Simulate}($(s, h), b(\theta), d_{\text{max}}$)
+        \EndFor
+        \State $v_{\text{ret}} = \sum_{a \in C((s, h))} \frac{N((s, h), a)}{N((s, h))} Q((s, h), a)$
+        \State {\color{blue} \Return $\pi_{\text{ret}}, v_{\text{ret}}$} 
+      \EndProcedure
+      \Procedure{Simulate}{$(s, h), b(\theta), d$}
+        \IfThen{$d==0$}{{\color{blue}\Return $V((s, h))$}}
+        \State $a \leftarrow \textproc{ActionPW}((s, h))$
+        \State $r, s', b'(\theta) \leftarrow \textproc{StatePW}((s, h), b(\theta), a)$
+        \State $N((s, h)) \mathrel{{+}{=}} 1, N((s, h), a) \mathrel{{+}{=}} 1$
+        \If{{\color{blue}$N((s, h)) > 1$}}
+        \State {\small $R \leftarrow \textproc{Simulate}((s', hars'), b'(\theta), d-1)$}
+        \Else
+        \State {\color{blue}{\small $R \leftarrow V((s', hars'))$}}
+        \EndIf
+        \State Access $\tilde{r}$ or calculate $\tilde{r}$ using Eq. (\ref{p-rwd})
+        \State $R \leftarrow \tilde{r} + \gamma R$, cache $\tilde{r}$
+        \State $Q((s, h), a) \mathrel{{+}{=}} \frac{R - Q((s, h), a)}{N((s, h), a)}$
+        \State \Return $R$ 
+      \EndProcedure
+    \end{algorithmic}
+    \columnbreak
+    \begin{algorithmic}
+      \Procedure{ActionPW}{$(s, h)$}
+        \IfThen{first visit}{$C((s, h)) \leftarrow \emptyset$}
+        \If{{\color{blue}$\left \lfloor {N((s, h))^\alpha}\right \rfloor \geq |C((s, h))|$}}
+        \State $a \sim \pi(\cdot|(s, h))$
+        \State $C((s, h)) \leftarrow C((s, h)) \cup \{a\}$
+        \State $N((s, h), a), Q((s, h), a) \leftarrow 0, 0$
+        \Else
+        \State {\color{blue}$a \leftarrow \arg \max_{x \in C((s, h))} \tilde{Q}((s, h), x)$}
+        \EndIf
+        \State \Return $a$
+      \EndProcedure
+      \Procedure{StatePW}{$(s, h), b(\theta), a$}
+        \IfThen{first visit}{$C((s, h), a) \leftarrow \emptyset$}
+        \If{{\color{blue}$\left \lfloor {N((s, h), a)^\beta}\right \rfloor \geq |C((s, h), a)|$}}
+        \State $r \sim \sum_{i=1}^K b(\theta)(i) \mathcal{R}_\theta^i(\cdot|s, a)$
+        \State $s' \sim \sum_{i=1}^K b(\theta)(i) \mathcal{P}_\theta^i(\cdot|s, a)$
+        \State Update $b(\theta)$ to $b'(\theta)$ using Eq. (\ref{b'})
+        \State {\scriptsize $C((s, h), a) \leftarrow C((s, h), a) \cup \{(r, s', b'(\theta))\}$}
+        \State $N((s', hars')) \leftarrow 0$
+        \State \Return $r, s', b'(\theta)$
+        \EndIf
+        \State {\color{blue}\Return the least visited node in {\small $C((s, h), a)$}}
+      \EndProcedure
+    \end{algorithmic}
+  \end{multicols}
+\end{algorithm}
+
+\subsection{Bayes Adaptive MCTS in Continuous State and Action Spaces} \label{ContBAMCP}
+
+% decision-making at the node (s, b) via planning
+
+% according to MoREL, any online methods can be applied on top of the P-MDP
+
+% less desired than running more simulations with worse estimates
+
+BAMCP (\cite{DBLP:journals/jair/GuezSD13}) has been successful in solving large-scale BAMDPs, as detailed in Appendix \ref{bamcp}, but it is limited to scenarios with discrete state and action spaces.
+In this subsection, we introduce an online planning method to approximate the Bayes-optimal policy at a decision point $(s, h)$. ($h$ denotes the transition history that ends at $s$.) In particular, this method can be used to solve BAMDPs with continuous states and actions. 
+% Checking Algorithm \ref{alg:1}, we can see that, when the action or observation space is continuous, the tree generation degenerates and does not extend beyond a single layer of nodes since each simulation procedure would produce a new branch from the root node. 
+Specifically, we adopt double progressive widening (DPW, \cite{DBLP:conf/lion/CouetouxHSTB11, DBLP:conf/pkdd/AugerCT13}), which maintains a finite list of chance nodes to be searched at each decision point and incrementally adds a new chance node to the list based on the visitation counts. For a node $(s, h)$, a new action $a$ is sampled (with the current policy) and added to its children set $C((s, h))$, if $\left \lfloor {N((s, h))^\alpha}\right \rfloor \geq |C((s, h))|$, where $\alpha \in (0, 1)$ is a hyperparameter that controls the growth rate and $N$ denotes the visitation counts. Otherwise, an action will be sampled from $C((s, h))$ according to the UCT (\cite{DBLP:conf/ecml/KocsisS06}) rule. Similarly, to handle the infinitely many possible transitions, a new next state \(s'\) is added to the children set \(C((s, h), a)\) only if \(\left \lfloor {N((s, h), a)^\beta}\right \rfloor \geq |C((s, h), a)|\) (\(\beta \in (0, 1)\)). Otherwise, the least visited child in \(C((s, h), a)\) will be selected as the next state. With DPW, the sets of possible actions or next states for search are all finite, allowing deep search as in discrete scenarios, and the more promising states and actions (with higher $N$) have more subsequent branches, thereby reducing corresponding estimation uncertainty. 
+% However, it also introduces bias; for example, the state transition \(\tilde{\mathcal{P}}_\theta(s'|s, a)\) differs from the true distribution \(\mathcal{P}_\theta(s'|s, a)\) due to the DPW rule.
+However, directly integrating DPW and BAMCP (i.e., Algorithm \ref{alg:1}) likely cannot solve BAMDPs with continuous state and action spaces. As introduced in Appendix \ref{bamcp}, BAMCP relies on root sampling, which samples dynamics functions (from $b(\theta)$) only at the root node and follows a specific dynamics function throughout a simulation procedure. However, the rationale of root sampling (i.e., Lemma \ref{lem:1}) does not hold when applying DPW\footnote{The last equality of Eq. (\ref{root_sampling}) does not hold, since $\Tilde{b}(\theta|has') \propto \tilde{b}(\theta|ha) \widetilde{\mathcal{P}}_\theta(s'|s, a) \neq \tilde{b}(\theta|ha) \mathcal{P}_\theta(s'|s, a)$. \(\widetilde{\mathcal{P}}_\theta(s'|s, a)\) represents the state transition distribution when applying DPW, which differs from the true distribution \(\mathcal{P}_\theta(s'|s, a)\), as dictated by the DPW rule.}. Also, BAMCP assumes that the reward function is certain rather than a function of $\theta$. 
+
+On the other hand, Polynomial Upper Confidence Trees (PUCT, \cite{DBLP:conf/pkdd/AugerCT13}), based on DPW, is a provably consistent planning method for solving MDPs with infinite-scale state/action spaces and arbitrarily stochastic transition kernels.
+% be more specific about the guarantee
+In this case, we propose casting BAMDPs into MDPs (i.e., $\mathcal{M}^+$ defined in Section \ref{back}) and solving them with PUCT. The pseudo code is shown as Algorithm \ref{alg:2}. Ideally, as the number of simulations $E \rightarrow \infty$, PUCT can find a near-optimal solution of $\mathcal{M}^+$, which is also a near Bayes-optimal solution for the true environment. Each simulation follows a path that begins at the root node and ends at a leaf node, utilizing progressive widening for sampling both actions and next states, as illustrated in the \textproc{ActionPW} and \textproc{StatePW} procedures. Compared to PUCT, the significant modifications include: (1) replacing \(\langle \mathcal{S}, \mathcal{P}, \mathcal{R} \rangle\) with their extended definitions in BAMDPs, \(\langle \mathcal{S}^+, \mathcal{P}^+, \mathcal{R}^+ \rangle\), and (2) applying reward penalties to account for model uncertainty. To be specific, in \textproc{StatePW}, $r$ and $s'$ are sampled from a mixture of ensemble members, which is a practical implementation of sampling from $\mathcal{R}^+$ and $\mathcal{P}^+$ as shown in Eq. (\ref{bamdp-mdp}). After receiving the transition $(s, a, r, s')$, the belief vector $b(\theta)$ is updated to $b'(\theta)$ following Eq. (\ref{b'}), finishing the transition in $\mathcal{S}^+$ from $(s, b(\theta))$ to $(s, b'(\theta))$. Moreover, the reward \(r\) is adjusted with a penalty term as defined in Eq. (\ref{p-rwd}), which is then used to calculate the return \(R\). As aforementioned, applying such a reward penalty can effectively mitigate the issue of model exploitation.
+% Note that the penalties are not part of the BAMDP and won't influence the Bayesian posterior update.
+% Note that, in BAMDPs, $s$ and the corresponding belief $b(\theta)$ constitute an extended state, and $b(\theta)$ is a function of the prior $b_0(\theta)$ and history $h$ (according to its recursive updating rule).
+% The use of ensembling enables these processes to be parallelized and computationally feasible. Moreover, in \textproc{Simulate}, the reward \(r\) is adjusted with a penalty term as defined in Eq. (\ref{p-rwd}), which is then used to calculate the return \(R\). The penalty comes from the aleatoric and epistemic uncertainty of the learned models (i.e., $\mathcal{P}_\theta^{1:K}$, $\mathcal{R}_\theta^{1:K}$) and can effectively mitigate the model exploitation issue. Note that the penalties are not part of the BAMDP and won't influence the Bayesian posterior update.
+% Without these penalties, Algorithm \ref{alg:2} is PUCT applied to $\mathcal{M}^+$. However, the world models are learned from offline data, which may provide poor coverage in certain regions of the state-action space. In these regions, none of the ensemble members are reliable, which violates the Bayesian RL assumption that the true MDP lies within the prior distribution (with high probability), so simply adapting the belief vector over them cannot resolve the issues brought by model uncertainty. However, the reward penalties can effectively indicate these regions and prevent the agent from overly exploiting experiences from them.
+
+The proposed algorithm can be used to approximate the Bayes-optimal policy at $(s, h)$, which is $\pi_{\text{ret}}(a|(s, h)) \propto N((s, h), a), a \in C((s, h))$ (\cite{DBLP:conf/pkdd/AugerCT13}). However, our objective is to solve the entire BAMDP offline, eliminating the need for anything beyond simple lookup or inference using the learned policy function during execution. This necessitates a well-learned policy function at each state, but we cannot execute Algorithm \ref{alg:2} at every $(s, h)$ due to the scale of the state space. Therefore, we integrate the planning algorithm into a policy iteration framework, which is introduced in the next subsection. In this case, $\pi$ and $V$ in Algorithm \ref{alg:2} denote the policy and value functions from the previous learning iteration.\footnote{\(\pi\) and \(V\) are implemented as functions of \((s, h)\) because the states in BAMDPs consist of both \(s\) and the corresponding belief \(b(\theta)\), with \(b(\theta)\) being a function of the history \(h\) (according to its recursive updating rule).} As further details, multiple terms (labeled in blue) in Algorithm \ref{alg:2} have alternative design choices across different literatures, which we elaborate on in Appendix \ref{alg1_details}.
+
+%  We also notice POMCPOW
+
+
+
+\subsection{The Overall Framework: Search-based Policy Iteration} \label{SBPI}
+
+% The algorithm introduced in the previous subsection is an online method, while the overall algorithm should be an offline one so that only policy inference is required during the execution.
+
+In this subsection, we present a framework (inspired by MuZero\footnote{The novelty of our algorithm in comparison to MuZero is detailed in Section \ref{rel_works}.}) that integrates continuous BAMCP (i.e., Algorithm \ref{alg:2}) into policy improvement and policy evaluation. By iteratively running these procedures, we can approach a near Bayes-optimal policy, i.e., $\pi$, that can be directly referred to during execution in the true environment. The pseudo code of the overall framework is shown as Algorithm \ref{alg:3}. For efficiency, a learner and a number of actors execute in parallel, reading from and sending data to the replay buffer $\mathcal{D}$ respectively. The actors update their copies of policy and value functions every $E_l$ learner steps.
+
+In particular, each actor would interact with the learned world models to sample trajectories $\tau$.\footnote{In Algorithm \ref{alg:3}, $\hat{\rho}(s)$ denotes the empirical distribution of initial states in the offline dataset $\mathcal{D}_\mu$.} At each time step of the trajectory, a \textproc{Search} procedure (defined in Algorithm \ref{alg:2}) is executed using the actor's current copy of $\pi$ and $V$ for planning at the current decision point. The search result $\pi_{\text{ret}}$ is then used to indicate the action choice, i.e., $a \sim \pi_{\text{ret}}(\cdot|(s, h))$. The subsequent transition process follows a BAMDP, where $r \sim \mathcal{R}^+(\cdot|(s, h), a)$, $s' \sim \mathcal{P}^+(\cdot|(s, h), a)$, and the belief $b({\theta})$ adapts with experience, as described in \textproc{StatePW}. The collected trajectories are used in the learning process, where $\pi$ is trained to mimic the search result $\pi_{\text{ret}}$ by minimizing a cross-entropy loss (i.e., $\mathcal{L}(\pi, \{\tau_i\}_{i=1}^{B})$), while $V$ is trained to predict the $n$-step pessimistic return $z$.\footnote{In the definition of $z$, $\tilde{r}^{(0)}=\tilde{r}$ is the pessimistic reward associated with $(s, h)$ and the subscript $(i)$ denotes that the corresponding quantity is collected in $i$ time steps within that trajectory.} As noted in (\cite{DBLP:conf/icml/HubertSABSS21}), $\pi_{\text{ret}}$ improves $\pi$ at each decision point, so repeatedly applying continuous BAMCP to obtain $\pi_{\text{ret}}$ and projecting the search results to the parameter space of $\pi$ (by minimizing $\mathcal{L}(\pi, \{\tau_i\}_{i=1}^{B})$) represents the policy improvement process. Meanwhile, value backups to update the Q estimates (i.e., $R \leftarrow V((s', hars'))$ in Algorithm \ref{alg:2}) and the temporal difference learning for the value function $V$ constitute the policy evaluation process. In this way, the search algorithm is used as a powerful improvement operator to iteratively enhance the performance of the learned policy \(\pi\).
+
+% using SAC instead of 
+
+\begin{algorithm}[t]
+  \caption{Search-based Policy Iteration}
+  \label{alg:3}
+  \begin{multicols}{2}
+    \begin{algorithmic}
+      \State \textbf{Input:} $T$, $E_l$, $\mathcal{P}_\theta^{1:K}$, $\mathcal{R}_\theta^{1:K}$
+      \State
+      \State Initialize $\pi$ and $V$, $\mathcal{D} \leftarrow \emptyset$
+      \Procedure{Learner}{}
+      \State $e \leftarrow 0$
+        \While{true}
+            \State $\{\tau_i\}_{i=1}^{B} \sim \mathcal{D}$
+            \State $\min_\pi \mathcal{L}(\pi, \{\tau_i\}_{i=1}^{B})$, $\min_V \mathcal{L}(V, \{\tau_i\}_{i=1}^{B})$
+            \State $e \mathrel{{+}{=}} 1$
+            \State Update $\pi, V$ in \textproc{Actor} if $e \% E_l == 0$
+        \EndWhile
+      \EndProcedure
+      \State {\scriptsize $\mathcal{L}(\pi, \{\tau_i\}_{i=1}^{B}) = -\sum_{((s, h), \pi_{\text{ret}})} \pi_{\text{ret}}^T \log \pi(\cdot|(s, h)) / (BT)$}
+      \State {\scriptsize $\mathcal{L}(V, \{\tau_i\}_{i=1}^{B}) = \sum_{((s, h), z)} (V(s, h) - z)^2 / (BT)$}, 
+      \State {\scriptsize $z = \tilde{r}^{(0)} + \gamma \tilde{r}^{(1)} + \cdots + \gamma^{n-1} \tilde{r}^{(n-1)} + \gamma^{n} v_{\text{ret}}^{(n)}$}
+      
+    \end{algorithmic}
+    \columnbreak
+    \begin{algorithmic}
+      \Procedure{Actor}{}
+        \While{true}
+            \State $s \leftarrow \hat{\rho}_0(\cdot)$, $h \leftarrow s$, $\tau \leftarrow []$
+            \State $b(\theta) \leftarrow [1/K, \cdots, 1/K]$
+            \For{$t=1 \cdots T$}
+            \State $\pi_{\text{ret}}, v_{\text{ret}} \leftarrow \textproc{Search}((s, h), b(\theta))$
+            \State $a \sim \pi_{\text{ret}}(\cdot|(s, h))$
+            \State Acquire $r, s', b'(\theta)$ as in {\small \textproc{StatePW}}
+            \State Calculate $\tilde{r}$ using Eq. (\ref{p-rwd})
+            \State Append $\tau$ with $((s, h), \tilde{r}, \pi_{\text{ret}}, v_{\text{ret}})$
+            \State $s, h, b(\theta) \leftarrow s', hars', b'(\theta)$
+            \EndFor
+            \State $\mathcal{D} \leftarrow \mathcal{D} \cup \{\tau\}$
+        \EndWhile
+      \EndProcedure
+    \end{algorithmic}
+  \end{multicols}
+\end{algorithm}

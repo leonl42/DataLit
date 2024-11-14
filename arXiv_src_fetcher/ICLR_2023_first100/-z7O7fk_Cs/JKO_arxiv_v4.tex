@@ -1,0 +1,1968 @@
+\documentclass{article}
+
+\usepackage{wrapfig}
+\usepackage{graphicx}
+\usepackage{natbib}
+
+\usepackage{booktabs}
+\usepackage{subcaption}
+\usepackage{cprotect}
+\usepackage{amssymb,amsmath,amsthm,mathtools}
+\usepackage{epstopdf}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+\usepackage{bbm}
+\usepackage[marginratio=1:1,height=600pt,width=460pt,tmargin=100pt]{geometry}
+\usepackage{layout, color}
+\usepackage{bbm}
+\usepackage{enumerate}
+\usepackage{authblk}
+
+
+\usepackage{algorithmic}
+\usepackage{algorithm}
+
+\usepackage{setspace}
+\usepackage{hyperref}
+%
+\usepackage{url}
+
+\usepackage[font=scriptsize]{caption}
+\usepackage[font=scriptsize]{subcaption}
+
+
+\usepackage{mdwlist}
+\usepackage{multirow}
+\usepackage{amsthm}
+\usepackage{color}
+\usepackage{makecell}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{problem}{Problem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{notation}[theorem]{Notation}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+\newtheorem{conjecture*}{Conjecture}
+\theoremstyle{plain}
+
+
+\newlength{\tempdima}
+\newcommand{\rowname}[1]% #1 = text
+{\rotatebox{90}{\makebox[\tempdima][c]{\textbf{#1}}}}
+\renewcommand{\thesubfigure}{\alph{subfigure}}
+\newcommand{\mycaption}[1]% #1 = caption
+{\refstepcounter{subfigure}\textbf{(\thesubfigure) }{\ignorespaces #1}}
+
+\usepackage{array}
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\newcommand{\xt}[1]{x_{#1}}
+
+
+\newcommand{\JKO}{JKO-iFlow}
+
+
+\newcommand{\ResNetf}[1]{f_{\theta_{#1}}}
+\newcommand{\ResNetT}[1]{T_{\theta_{#1}}}
+
+\newcommand{\D}{\mathbf{D}}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\calN}{\mathcal{N}}
+\newcommand{\calM}{{\cal M}}
+\newcommand{\calX}{\mathcal{X}}
+\newcommand{\calP}{\mathcal{P}}
+
+\usepackage{soul}
+\usepackage{xcolor}
+
+\newcommand{\xc}[1]{{\color{orange}{\textsf{XC: #1}}}}
+\newcommand{\chen}[1]{{\color{brown}{Chen: #1}}}
+\newcommand{\yao}[1]{{\color{cyan}{Yao: #1}}}
+
+\newcommand{\old}[1]{\textcolor{gray}{ {old: #1}}}
+\newcommand{\revold}[1]{{\color{black}#1}}
+\newcommand{\rev}[1]{{\color{blue}#1}}
+\newcommand{\rex}[1]{{\color{cyan}#1}} 
+
+
+\begin{document}
+
+
+\title{Normalizing flow neural networks by JKO scheme}
+
+\author[1]{Chen Xu}
+\author[2]{Xiuyuan Cheng}
+\author[1]{Yao Xie}
+\affil[1]{{\small H. Milton Stewart School of Industrial and Systems Engineering, Georgia Institute of Technology.}}
+\affil[2]{{\small Department of Mathematics, Duke University}}
+
+
+\date{
+}
+
+
+\maketitle
+
+
+\begin{abstract}
+Normalizing flow is a class of deep generative models for efficient sampling and likelihood estimation, which achieves attractive performance, particularly in high dimensions. The flow is often implemented using a sequence of invertible residual blocks. Existing works adopt special network architectures and regularization of flow trajectories. In this paper, we develop a neural ODE flow network called JKO-iFlow, inspired by the Jordan-Kinderleherer-Otto (JKO) scheme, which unfolds the discrete-time dynamic of the Wasserstein gradient flow. The proposed method stacks residual blocks one after another, allowing efficient block-wise training of the residual blocks, avoiding sampling SDE trajectories and score matching or variational learning, thus reducing the memory load and difficulty in end-to-end training. We also develop adaptive time reparameterization of the flow network with a progressive refinement of the induced trajectory in probability space to improve the model accuracy further. Experiments with synthetic and real data show that the proposed JKO-iFlow network achieves competitive performance compared with existing flow and diffusion models at a significantly reduced computational and memory cost. 
+\end{abstract}
+
+\section{Introduction}
+\begin{wrapfigure}[18]{r}{5.6cm}
+\vspace{-32pt}
+    \centering
+    \begin{minipage}{0.36\linewidth}
+      \includegraphics[width=\linewidth]{JKOFlow_1D_transition_ZtoX.png}
+      \subcaption{\JKO{}}
+  \end{minipage}
+  \begin{minipage}{0.36\linewidth}
+      \includegraphics[width=\linewidth]{FFJORD_1D_transition_ZtoX.png}
+      \subcaption{usual CNF}
+  \end{minipage}
+  \vspace{-5pt}
+  \caption{\label{fig:trajectory}
+  Comparison of \JKO{} (proposed) and standard 
+  CNF models.
+  In contrast to most existing CNF models, 
+  \JKO{} learns the unique deterministic transport equation corresponding to the diffusion process by \revold{directly performing block-wise} training of a neural ODE model.
+  } 
+\end{wrapfigure}
+Generative models have wide applications in statistics and machine learning to infer data-generating distributions 
+and to sample from the model distributions learned from the data. 
+In addition to widely used deep generative models such as variational auto-encoders (VAE) \cite{VAE,VAE_review}
+and generative adversarial networks (GAN) \cite{GAN,WassersteinGAN}, normalizing flow models \cite{nflow_review} have been popular and with a great potential. The flow model learns the data distribution via an invertible mapping $F$ between the data density $p_X$ in $\mathbb{R}^d$ and the target standard multivariate Gaussian density $p_Z$, $Z \sim \calN (0,I_d)$. 
+While flow models, once trained, can be utilized for efficient data sampling and explicit likelihood evaluation, training of such models is often difficult in practice. To alleviate such difficulties, many prior works \citep{dinh2015nice,RNVP,kingma2018glow,iResnet,ruthotto2020machine,OT-Flow}, among others, have explored designs of training objectives, network architectures, and computational techniques.
+
+Among various flow models, continuous normalizing flow (CNF) transports the data density to a target distribution through continuous dynamics, primarily neural ODE \citep{chen2018neural} models. CNF models have shown promising performance on generative tasks \cite{FFJORD,nflow_review}. 
+However, a known computational challenge of CNF models is model regularization, primarily due to the non-uniqueness of the flow transport. 
+Without additional regularization, the trained CNF model \revold{such as FFJORD \cite{FFJORD}} may follow a less regular trajectory in the probability space, see Figure \ref{fig:trajectory}(b),
+which may worsen the generative performance.
+%
+While regularization of flow models has been developed using different techniques, including using spectral normalization \cite{iResnet} and optimal transport \cite{liutkus2019sliced,OT-Flow,finlay2020train,xu2022invertible,huang2023bridging}, only using regularization may not resolve the non-uniqueness of the flow.
+%
+Besides regularization, several practical difficulties remain when training CNF models, particularly the high computational cost.
+In many settings, CNF models consist of stacked blocks, and each can be complex. 
+{\it End-to-end training} of such deep models often places a high demand on computational resources and memory consumption. 
+
+
+In this work, we propose \JKO{}, 
+an invertible normalizing flow network that unfolds the Wasserstein gradient flow via a neural ODE model inspired by the JKO-scheme \cite{jordan1998variational}. 
+% 
+The JKO scheme, see \eqref{eq:def-JKO-1}, can be viewed as a proximal step 
+%
+to minimize the Kullback–Leibler (KL) divergence 
+% 
+between the current density and the equilibrium density. It recovers the solution of the Fokker-Planck equation \revold{(FPE)} in the limit of small step size. 
+%
+The proposed \JKO{} model thus can be viewed as trained to learn the {\it unique} transport map following the FPE
+which flows from the data distribution toward the normal equilibrium and gives a smooth trajectory of density evolution, see Figure \ref{fig:trajectory}(a).
+%
+Unlike most CNF models, where all the residual blocks are 
+%
+trained end-to-end, 
+each block in the \JKO{} network implements one step in the JKO scheme \revold{to learn the deterministic transport map} by minimizing an objective of that block given the trained previous blocks.
+The block-wise training significantly reduces memory and computational load.
+%
+\revold{ 
+Theoretically, with a small step size, the discrete-time transport map approximates the continuous solution of FPE, 
+which leads to the invertibility of each trained residual block.
+%
+This leaves the residual blocks to be completely general, such as graph neural network layers and convolutional neural network layers, depending on the structure of data considered in the problem.
+%
+The theoretical need for small step sizes 
+%
+does not incur a restriction in practice,
+whereby one can use step size not exceeding a certain maximum value
+when adopting the neural ODE integration.}
+%
+We further introduce time reparameterization with progressive refinement in computing the flow network, where each block corresponds to a representative point along the density evolution trajectory in the space of probability measures. 
+\revold{The algorithm adaptively chooses the number of blocks and step sizes.}
+%
+
+% 
+The proposed approach is related to the diffusion models \citep{song2019generative,ho2020denoising,block2020generative,song2021score} yet differs fundamentally in that our approach is a type of flow models, which directly computes the data likelihood, and such likelihood estimation is essential for statistical inference. While the diffusion models can also indirectly obtain likelihood estimation, they are more designed as samplers.
+\revold{In terms of implementation, our approach} trains a neural ODE model without SDE sampling (injection of noise) nor learning of score matching.
+It also differs from previous works on progressive training of ResNet generative models \cite{johnson2019framework,fan2022variational} in that the model trains an invertible flow mapping and avoids inner loops of variational learning. We refer to Section \ref{related_work} for more discussions on related works. 
+%
+Empirically, \JKO{} yields competitive performance as other CNF models with significantly less computation. 
+The model is also compatible with general equilibrium density $p_Z$ having a parametrized potential $V$, exemplified by the application to the conditional generation setting where $p_Z$ is replaced with Gaussian mixtures \cite{xu2022invertible}.
+%
+In summary, the contributions of the work include
+
+\vspace{5pt}
+$\bullet$ We propose \revold{an invertible} neural ODE model where each residual block \revold{corresponds to} a JKO step, and the training objective can be computed \revold{from pushed data samples through the previous blocks.}
+The residual block has a general form, and the invertibility is ensured due to the regularity and continuity of the approximate solution of the FPE.
+
+\vspace{5pt}
+$\bullet$ We develop a block-wise procedure to train the \JKO{} model, which can adaptively determine the number of blocks.
+%
+We also propose to adaptively reparameterize the computed trajectory in the probability space with refinement, which \revold{improves the model accuracy and the overall computational efficiency.} 
+
+\vspace{5pt}
+$\bullet$
+We show that \JKO{} greatly reduces memory and computational cost when achieving competitive or better generative performance 
+and likelihood estimation 
+compared to existing flow and diffusion models on simulated and real data.
+
+
+
+
+
+
+\subsection{Related works}\label{related_work}
+
+
+%
+For deep generative models, popular approaches include generative adversarial networks (GAN) \citep{GAN,WassersteinGAN,CGAN} and variational auto-encoder (VAE)\citep{VAE,VAE_review}. 
+Apart from known training difficulties (e.g., mode collapse \citep{Salimans2016ImprovedTF} and posterior collapse \citep{Lucas2019UnderstandingPC}), these models do not provide likelihood or inference of data density. 
+The normalizing flow framework \citep{nflow_review} has been extensively developed, including continuous flow \citep{FFJORD}, Monge-Ampere flow \citep{zhang2018monge}, discrete flow \citep{ResFlow}, 
+\revold{and extension to non-Euclidean data \citep{liu2019graph,mathieu2020riemannian,xu2022invertible}.}
+Efforts have been made to develop novel invertible mapping structures \citep{RNVP,papamakarios2017masked}
+and regularize the flow trajectories \revold{by transport cost }  \citep{finlay2020train,OT-Flow,ruthotto2020machine,xu2022invertible,huang2023bridging}.
+Despite such efforts, the model and computational challenges of normalizing flow models include regularization and the large model size when using a large number of residual blocks, which cannot be determined a priori, and the associated memory and computational load.
+
+%
+In parallel to continuous normalizing flows, which are neural ODE models, neural SDE models become an emerging tool for generative tasks. Diffusion process and Langevin dynamics in deep generative models have been studied in score-based generative models \citep{song2019generative,ho2020denoising,block2020generative,song2021score} under different settings. 
+Specifically, these models estimate the score function
+(i.e., the gradient of the log probability density with respect to data) of data distribution via neural network parametrization, which may encounter challenges in learning and sampling high dimensional data and call for special techniques \citep{song2019generative}.
+The recent work of \cite{song2021score}  developed reverse-time SDE  sampling for score-based generative models 
+and adopted the connection to neural ODE to compute the likelihood; using the same idea of backward SDE, \cite{zhang2021diffusion} proposed joint training of forward and backward neural SDEs. Theoretically, latent diffusion \cite{tzen2019theoretical,tzen2019neural}  was used to analyze neural SDE models.
+%
+The current work focuses on a neural ODE model where the deterministic vector field ${\bf f}(x,t)$ is to be learned from data following a JKO scheme of the FPE.
+%
+Rather than neural SDE, our approach involves no sampling of SDE trajectories nor learning of the score function, and it learns an invertible residual network directly. 
+In contrast, diffusion-based models derive the ODE model from the learned diffusion model to achieve explicit likelihood computation.
+For example,  \cite{song2021score} derived neural ODE model
+from the learned score function of the diffused data marginal distributions for all $t$.
+%
+We experimentally obtain competitive or improved performance against the diffusion model on simulated two-dimensional and high-dimensional tabular data.
+
+
+
+% 
+JKO-inspired deep models have been studied in several recent works. 
+% 
+\citep{bunne2022proximal} reformulated the JKO step 
+for minimizing an energy function over convex functions. 
+% 
+JKO scheme has also been used to discretize Wasserstein gradient flow to learn a deep generative model in \citep{alvarez-melis2022optimizing,mokrov2021large},
+which adopted input convex neural networks (ICNN) \citep{amos2017input}.
+ICNN, as a special type of network architecture,
+may have limited expressiveness \citep{rout2022generative,korotin2021wasserstein}.
+In addition to using the gradient of ICNN, 
+\citep{fan2022variational} proposed parametrizing the transport in a JKO step by a residual network but identified difficulty in calculating the push-forward distribution. 
+The approach in \citep{fan2022variational} also relies on a variational formulation, which requires training an additional network similar to the discriminator in GAN using inner loops. 
+{The idea of progressive additive learning in training generative ResNet, namely training ResNet block-wisely by a variational loss, dates back to \cite{johnson2019framework} under the GAN framework.}
+%
+Our method trains an invertible neural-ODE flow network that flows from data density to the normal one and backward, which enables the computation of model likelihood as in other neural-ODE approaches.
+%
+The objective in each JKO step to minimize KL divergence can also be computed directly without any inner-loop training, see Section \ref{sec:algo}. 
+
+
+%
+%
+Compared to score-based neural SDE methods, our approach is closer to the more recent flow-based models related to diffusion models \citep{lipman2023flow,albergo2023building,boffi2023probability}. These works proposed to learn the transport equation (a deterministic ODE) corresponding to the SDE process.
+Specifically, \citep{lipman2023flow,albergo2023building} matched the velocity field from interpolated distributions between initial and terminal ones;
+\citep{boffi2023probability} proposed to learn the score $\nabla \log \rho_t(x)$ (where $\rho_t$ solves the FPE and is unknown {\it a priori}) to solve high-dimensional FPE.
+Using Stein's identity (which is equivalent to the derivation in Section \ref{subsec:optimal-f}), the step-wise training objective in \citep{boffi2023probability} optimizes to learn the score without the need to simulate the entire SDE. 
+%
+The idea of approximating the solution of FPE by a deterministic transport equation dates back to the 90s \cite{degond1990deterministic,degond1989weighted},
+and has been used in kernel-based solver of FPE in \citep{maoutsa2020interacting} and studied via a self-consistency equation in \citep{shen2022self}.
+While our approach learns an equivalent velocity field at the infinitesimal time step, see section \ref{subsec:optimal-f}, the formulation in \JKO{} is at a finite time-step motivated by the JKO scheme. 
+% 
+We also mention that an independent concurrent work \citep{vidal2023taming} proposed a similar block-wise training algorithm using the JKO scheme under the framework of \citep{OT-Flow}
+and demonstrated benefits in avoiding tuning the penalty hyperparameter associated with the KL-divergence objective.
+%
+Our model is applied to generative tasks of high-dimensional data, including image data, and we also develop additional techniques for computing the flow probability trajectory.
+
+% 
+For the expressiveness of deep generative models, 
+% 
+approximation properties of deep neural networks for representing probability distributions have been developed in several works.
+\cite{lee2017ability} established approximation by composition of Barron functions \citep{barron1993universal};
+\cite{bailey2018size} developed space-filling approach, which was generalized in \cite{perekrestenko2020constructive,perekrestenko2021high}; \cite{lu2020universal} constructed a deep ReLU network with guaranteed approximation under integral probability metrics, using techniques of empirical measures and optimal transport.
+These results show that deep neural networks can provably transport one source distribution to a target one with sufficient model capacity under certain regularity conditions of the pair of densities. 
+Our \JKO{} model potentially leads to a constructive approximation analysis of the neural ODE flow model.
+%
+
+%
+
+
+
+
+%
+\section{{Preliminaries}}\label{sec:background}
+%
+
+{\it Normalizing flow}. 
+A normalizing flow can be mathematically expressed via a density evolution equation of $\rho(x,t)$ such that $\rho(x,0) = p_X$ and as $t$ increases $\rho(x,t)$ approaches $p_Z \sim \calN(0, I_d)$ \citep{tabak2010density}.
+Given an initial distribution $\rho(x,0)$, such a flow typically is not unique.
+We consider when the flow is induced by  an ODE of $x(t)$ in $\R^d$
+\begin{equation}\label{eq:ode-Xt}
+\dot{x}(t) = {\bf f} (x(t), t),
+\end{equation}
+where  $x(0) \sim p_X$. 
+ The marginal density of $x(t)$ is denoted as $p (x,t)$, and it evolves according to the continuity equation (Liouville equation) of \eqref{eq:ode-Xt} written as
+\begin{equation} \label{eq:Liouville}
+\partial_{t} p + \nabla\cdot( p {\bf f}) =0, \quad p(x,0) = p_X(x).
+\end{equation}
+
+
+
+\noindent 
+{\it Ornstein–Uhlenbeck (OU) process}.
+Consider a Langevin dynamic denoted by the SDE $dX_{t}=- \nabla V (X_{t}) dt+\sqrt{2}dW_{t}$, where $V$ is the potential of the equilibrium density $p_Z$. 
+We focus on the case of normal equilibrium, that is, $V(x) = |x|^2/2$ and then $p_Z \propto e^{-V}$. In this case, the process is known as the (multivariate) OU process. Suppose $X_0 \sim p_X$, and let the density of $X_t$ be $\rho(x,t)$ also denoted as $\rho_t(\cdot)$. The Fokker-Planck equation (FPE) describes the evolution of $\rho_t$ towards the equilibrium $p_Z$ as follows, where $V(x) := {|x|^{2}}/{2}$,
+\begin{equation}\label{eq:fokker-planck}
+\partial_{t}\rho=\nabla\cdot(\rho\nabla V + \nabla \rho), 
+%
+\quad \rho(x,0) = p_X(x).
+\end{equation}
+Under generic conditions, $\rho_t$ converges to  $p_Z$ exponentially fast. 
+For Wasserstein-2 distance and the standard normal $p_Z$, classical argument gives that (take $C=1$ in Eqn (6) of \cite{bolley2012convergence})
+\begin{equation}\label{eq:W2-convergence-FK}
+W_2( \rho_t, p_Z) \le e^{-t} W_2( \rho_0, p_Z), \quad t > 0.
+\end{equation}
+
+
+%
+
+\noindent 
+{\it JKO scheme}. The seminal work \cite{jordan1998variational} established a time discretization scheme of the solution to \eqref{eq:fokker-planck} by the gradient flow to minimize $ {\rm KL}(\rho || p_Z)$ under the Wasserstein-2 metric  in probability space.
+Denote by $\calP$ the space of all probability densities on $\R^d$ with a finite second moment.
+The JKO scheme computes a sequence of distributions $p_k$, $k=0,1,\cdots,$ starting from $p_0 = \rho_0 \in \calP$.
+With step size $h > 0$, the scheme at the $k$-th step is written as
+%
+\begin{equation}\label{eq:def-JKO-1}
+p_{k+1}  = \arg \min_{\rho  \in \calP } F[\rho] + \frac{1}{2 h} W_2^2( p_{k}, \rho),
+ %\quad 
+\end{equation}
+where $F[\rho]: = {\rm KL}( \rho || p_Z)$.
+It was proved in \cite{jordan1998variational} that as $h \to 0$, 
+the solution $ p_{k} $ converges to the solution $\rho( \cdot,  k h)$ of \eqref{eq:fokker-planck} for all $k$,
+and the convergence $\rho_{ (h) }(\cdot, t) \to \rho(\cdot, t)$
+is strongly in $L^1(\R^d, (0,T))$ for finite $T$ 
+where $\rho_{ (h) }$ is piece-wise constant interpolated %
+from $p_{k}$. 
+
+
+\section{JKO scheme by neural ODE}\label{sec:mtd}
+
+
+Given i.i.d. observed data samples $X_i \in \R^d$, $i=1,\ldots, N$, drawn from some unknown density $p_{X}$, 
+the goal is to train an invertible neural network to transport the density $p_{X}$ to an \textit{a priori} specified density $p_Z$ in $\R^d$, where each data sample $X_i$ is mapped to a code $Z_i$. A prototypical choice of $p_Z$ is the standard multivariate Gaussian $\calN(0, I_d)$.
+In this work, we leave the potential of $p_Z$ abstract and denote by $V$, that is, $p_Z \propto e^{-V}$
+and $V(x) = |x|^2/2$ for normal $p_Z$.
+By a slight abuse of notation, we denote by $p_X$ and $p_Z$ both the distributions and the density functions of data $X$ and code $Z$ respectively. 
+
+
+
+
+\subsection{Objective of JKO step}
+
+We are to specify ${\bf f}(x ,t)$ in the ODE \eqref{eq:ode-Xt}, to be parametrized and learned by a neural ODE,
+such that the induced density evolution of $p(x,t)$ converges to  $p_Z $ as $t$ increases. 
+We start by dividing the time horizon $[0,T]$ into finite subintervals with step size $h$, 
+let  $t_k = kh$ and $I_{k+1} := [t_{k}, t_{k+1})$.
+Define $p_k(x) := p(x, k h)$, namely the density of $x(t)$ at $t= kh$.
+The solution of  \eqref{eq:ode-Xt} determined by the vector-field ${\bf f}(x ,t)$ on $t \in I_{k+1}$ 
+(assuming the ODE is well-posed {\citep{Sideris2013OrdinaryDE}})
+gives a one-to-one mapping $T_{k+1}$ on $\R^d$,
+s.t. $T_{k+1}( x( t_{k}) ) = x( t_{k+1})$ and  $T_{k+1}$ transports $p_{k}$ into $p_{k+1}$,
+i.e., $(T_k)_\# p_{k-1} = p_{k}$,
+where we denote by $T_\# p $ the push-forward of distribution $p$ by $T$, such that $(T_\# p)( A ) = p( T^{-1} (A))$ for a measurable set $A$.
+In other words, the mapping $T_{k+1}$ is the solution map of the ODE from time $t_k$ to $t_{k+1}$.
+
+Suppose we can find ${\bf f}( \cdot ,t)$ on $I_{k+1}$ such that the corresponding $T_{k+1}$ solves 
+the JKO scheme \eqref{eq:def-JKO-1}, 
+then with small $h$, $p_k$ approximates the solution to the Fokker-Planck equation \ref{eq:fokker-planck},
+ which then flows towards $p_Z$. 
+By the Monge formulation of the Wasserstein-2 distance between $p$ and $q$ as
+$W_{2}^{2}(p, q)=\min_{T:T_{\#} p = q} \E_{x \sim p} \| x-T(x) \|^{2} $,
+solving for the transported density $p_{k}$ by \eqref{eq:def-JKO-1} is equivalent to solving for the transport $T_{k+1}$ by
+\begin{equation}\label{eq:def-JKO-2}
+T_{k+1} = \arg \min_{T: \R^d \to \R^d}
+F[T ]+ \frac{1}{2h} \E_{x \sim p_{k}} \| x-T(x) \|^{2},
+%
+\end{equation}
+where $F[T] = {\rm KL}(  T_\# p_{k} || p_Z)$.
+The equivalence between \eqref{eq:def-JKO-1} and \eqref{eq:def-JKO-2} is proved in Lemma \ref{lemma:JKO-by-Tk}. 
+
+%
+Furthermore, the following proposition gives that, once $p_{k}$ is determined by  ${\bf f}(x ,t)$ for $t  \le t_{k}$, 
+the value of $F[T]$ can be computed from ${\bf f}(x ,t)$ on $t \in I_{k+1}$ only. 
+The counterpart for convex function-based parametrization of $T_k$ was given in Theorem 1 of \citep{mokrov2021large},
+where the computation using the change-of-variable differs as we adopt an invertible neural ODE approach here.
+The proof is left to Appendix \ref{sec:proof}.
+
+%
+\begin{proposition}\label{prop:FT-layer-wise}
+Given $p_{k}$, up to a constant  $c$ independent from  ${\bf f}(x ,t)$ on $t \in I_{k+1}$,
+\begin{equation}\label{eq:FT-layer-wise}
+{\rm KL}(  T_\# p_{k} || p_Z)
+=  \E_{x(t_{k}) \sim p_{k}}  
+  	\left(  V( x( t_{k+1}))  -  \int_{ t_k }^{t_{k+1} }\nabla\cdot\mathbf{f}( x (s),s)ds  \right) + c.
+\end{equation}
+\end{proposition}
+
+
+
+By Proposition \ref{prop:FT-layer-wise}, 
+ the minimization \eqref{eq:def-JKO-2} is equivalent to 
+ \begin{equation}\label{eq:loss-block-k}  
+ \min_{ \{ {\bf f}(x,t) \}_{t \in I_{k+1} } } 
+  \E_{x( t_{k}) \sim p_k}  
+\big(  V( x( t_{k+1})) -  \int_{t_{k} }^{ t_{k+1} }\nabla\cdot\mathbf{f}( x (s), s )ds  
+ +\frac{1}{2h}  \|  x(t_{k+1})  -  x(t_{k})  \|^{2} \big), 
+\end{equation}
+where $x(t_{k+1}) = x(t_{k}) + \int_{t_{k} }^{ t_{k+1} }  \mathbf{f}( x (s), s ) ds$.
+Taking a neural ODE approach, 
+we parametrize $\{ {\bf f}(x,t) \}_{t \in I_{k+1} }$ as a residual block with parameter $\theta_{k+1}$,
+and then \eqref{eq:loss-block-k} is reduced to minimizing over $\theta_{k+1}$. This leads to a block-wise learning algorithm to be introduced in Section \ref{sec:algo},
+where we further allow the step-size $h$ to vary for different $k$ as well.
+
+
+
+\subsection{Infinitesimal optimal ${\bf f}(x,t)$}\label{subsec:optimal-f}
+
+
+In each JKO step of \eqref{eq:loss-block-k}, 
+let $p = p_k$ denote the current density, $q = p_Z$ be the target equilibrium density. 
+In this subsection, 
+{we show that the optimal ${\bf f}$ in 
+\eqref{eq:loss-block-k} with small $h$ reveals the difference between score functions between target and current densities. 
+Thus, minimizing the objective \eqref{eq:loss-block-k} searches for a neural network parametrization of the score function $\nabla \log \rho_t$ implicitly,
+in contrast to diffusion-based models which learn the score function explicitly \citep{ho2020denoising,song2021score}, e.g., via denoising score matching.
+\revold{At infinitesimal $h$, this is equivalent to solving the FPE by learning a deterministic transport equation as in \citep{boffi2023probability,shen2022self}.}
+
+Consider general equilibrium distribution $q$ with a differentiable potential $V$.
+To analyze the optimal pushforward mapping in the small $h$ limit,  we shift the time interval $[kh, (k+1)h]$ to be $[0,h]$ to simplify the notation. 
+Then \eqref{eq:loss-block-k} is reduced to 
+\begin{equation}\label{eq:JKO-4}
+  \min_{ \{ {\bf f}(x,t) \}_{t \in [0,h)} } 
+  \E_{x(0) \sim p}  
+\left(  V( x(h))  
+ -  \int_{0}^{h }\nabla\cdot\mathbf{f}( x (s),s )ds  
+ +\frac{1}{2h}  \|  x(h)  -  x(0)  \|^{2} \right), 
+\end{equation}
+where
+$x(h) = x(0) + \int_{0 }^{h }  \mathbf{f}( x (s),s)ds$.
+In the limit of $h \to 0+$, formally,
+$x(h)-x(0) = h {\bf f}( x(0), 0) + O(h^2)$,
+and suppose $V$ of $q$ is $C^2$, 
+$
+V( x(h))
+= V(x(0)) + h  \nabla V(x(0)) \cdot {\bf f}( x(0), 0) + O(h^2)$.
+For any differentiable density $\rho$, the (Stein) score function is defined as  $ {\bf s}_\rho = \nabla \log \rho $,
+and we have $\nabla V = - {\bf s}_q$.
+Taking the formal expansion of orders of $h$, the objective in \eqref{eq:JKO-4} is written as
+\begin{equation}\label{eq:objective-expansion}
+\E_{x \sim p}  \left( 
+ V(x) + h \left(  - {\bf s}_q(x ) \cdot {\bf f}( x , 0) 
+ -   \nabla\cdot\mathbf{f}( x,0 )
+ +\frac{1}{2}    \|    {\bf f}( x, 0) \|^2 \right) + O(h^2)  \right).
+\end{equation}
+Note that $\E_{ x \sim p}V(x)$ is independent of ${\bf f}(x,t)$, 
+and the $O(h)$ order term in \eqref{eq:objective-expansion} is over ${\bf f}(x,0)$ only, 
+thus the minimization of the leading term is equivalent to 
+\begin{equation}\label{eq:L2-stein}
+\min_{ {\bf f}(\cdot) = {\bf f} (\cdot,0) } \E_{x \sim p} 
+\left( -  T_q {\bf f}+ \frac{1}{2} \|{\bf f}  \|^2 \right),
+\quad T_q {\bf f}:= {\bf s}_q \cdot {\bf f} + \nabla \cdot {\bf f },
+\end{equation}
+where $ T_q$ is known as the Stein operator \citep{stein1972bound}. 
+{
+The $T_q {\bf f}$ in \eqref{eq:L2-stein} echoes that the derivative of KL divergence with respect to transport map gives Stein operator \citep{liu2016stein}. The Wasserstein-2 regularization gives an $L^2$ regularization in \eqref{eq:L2-stein}.}
+Let $L^2(p)$ be the  $L^2$ space on $(\R^d, p(x) dx)$,
+and for vector field ${\bf v}$ on $\R^d$, ${\bf v} \in L^2(p)$ if $\int |{\bf v}(x)|^2 p(x) dx <\infty$.
+One can verify that, when both ${\bf s}_p$ and ${\bf s}_q$ are in $L^2(p)$, the minimizer of \eqref{eq:L2-stein} is 
+\[
+{\bf f}^*(\cdot, 0) = {\bf s}_q - {\bf s}_{p}.
+\]
+This shows that the infinitesimal optimal ${\bf f}(x,t)$ equals the difference between the score functions of the equilibrium and the current density. 
+
+\subsection{Invertibility of flow model and expressiveness}\label{subsec:invertible-express}
+
+At time $t$ the current density of $x(t)$ is $\rho_t$, 
+the analysis in Section \ref{subsec:optimal-f} implies that 
+the optimal vector field ${\bf f}(x,t)$ has the expression as 
+\begin{equation}\label{eq:f(x,t)-FK}
+{\bf f}(x,t) 
+= {\bf s}_q - {\bf s}_{\rho_t} 
+= - \nabla V - \nabla \log \rho_t.
+\end{equation}
+With this ${\bf f}(x,t)$, the Liouville equation  \eqref{eq:Liouville} coincides with the FPE \eqref{eq:fokker-planck}.
+%
+This is consistent with the JKO scheme with a small $h$ recovering the solution to the FPE.
+Under proper regularity condition of {$V$ and} the initial density $\rho_0$, the {r.h.s. of} \eqref{eq:f(x,t)-FK} is also regular over space and time. 
+This leads to two consequences, in approximation and in learning:
+Approximation-wise, the regularity of  ${\bf f}(x,t)$ allows to construct a $k$-th residual block in the flow network to approximate $\{ {\bf f}(x,t) \}_{t \in I_k}$ when there is sufficient model capacity, by classical universal approximation theory of shallow networks \citep{barron1993universal,yarotsky2017error}. 
+%
+We further discuss the approximation analysis based on the proposed model in the last section.
+
+For learning, when properly trained with sufficient data, the neural ODE vector field ${\bf f}(x,t; \theta_k )$ will learn to approximate \eqref{eq:f(x,t)-FK}.
+This can be viewed as inferring the score function of $\rho_t$, and also leads to the invertibility of the trained flow net in theory:
+Suppose the trained ${\bf f}(x,t; \theta_k )$ is close enough to \eqref{eq:f(x,t)-FK}; it will also have bounded Lipschitz constant. Then the residual block is invertible as long as the step size $h$ is sufficiently small, e.g. less than $1/L$ where $L$ is the Lipschitz bound of ${\bf f}(x,t; \theta_k )$. In practice, we typically use smaller $h$ than needed merely by invertibility (allowed by the model budget) so that the flow network can more closely track the FPE of the diffusion process. The invertibility of the proposed model is numerically verified in experiments (see Table \ref{inv_err}).
+
+
+
+
+
+
+
+\section{Training of \JKO{} net}\label{sec:algo}
+
+The proposed \JKO{} model allows progressive  learning of the residual blocks in the neural-ODE model in a block-wise manner (Section \ref{sec:layer_wise}).
+We also introduce two techniques to improve the training of the trajectories in probability space (Section \ref{sec:traj_prob_comp}),
+illustrated in a vector space in Appendix \ref{app:traj_comp_detail}.
+  
+ 
+\subsection{Block-wise training}\label{sec:layer_wise}
+
+
+Note that the training of $(k+1)$-th block in \eqref{eq:loss-block-k} can be conducted once the previous $k$ blocks are trained. 
+Specifically, with finite training data $\{ X_i = x_i(0) \}_{i=1}^n$, the expectation $\E_{x(t) \sim p_k} $ in \eqref{eq:loss-block-k} is replaced by the sample average over $\{ x_i( kh ) \}_{i=1}^n$ which can be computed from the previous $k$ blocks.
+Note that for each given $x(t) = x(t_k)$,
+both $x(t_{k+1}) $ and the integral of $\nabla \cdot {\bf f}$ in \eqref{eq:loss-block-k} can be computed by 
+a numerical neural ODE integrator.
+Following previous works, we use the Hutchinson trace estimator \citep{Hutchinson1989ASE,FFJORD} to compute the quantity $\nabla \cdot {\bf f}$ in high dimensions, and we also propose a finite-difference approach to reduce the computational cost (details in Appendix \ref{app:finite-diff}).
+Applying the numerical integrator in computing \eqref{eq:loss-block-k}, 
+we denote the resulting $k$-th residual block abstractly as $f_{\theta_k}$ with trainable parameters $\theta_k$.
+
+
+
+This leads to a block-wise training of the normalizing flow network, as summarized in Algorithm \ref{block_training}. 
+The sequence of time stamps $t_k$ is given by specifying the time steps $h_k := t_{k+1}-t_k$, which we allow to differ across $k$. The choice of the sequence $h_k$ is initialized by a geometric sequence starting from $h_0$ with maximum stepsize $h_{\rm max}$, see Appendix \ref{append:tk}. In the special case where the multiplying factor is one, the sequence of $h_k$ gives a constant step size. The adaptive choice of $h_k$ with refinement (by adding more blocks) will be introduced in Section \ref{sec:traj_prob_comp}.
+Regarding the termination criterion $\rm{Ter}(k)$ in line 2 of Algorithm \ref{block_training}, we monitor the ratio
+$ \E_{x \sim p_{k-1}} \| x-T_k(x)\|^2
+/ \E_{x \sim p_{k-1}} \| T_k(x) \|^2$
+and terminate when it is below some threshold $\epsilon$,
+set as 0.01 in all experiments.
+\revold{In practice, when training the $k$-th block,
+both the averages of $\| x-T_k(x)\|^2$
+and $\| T_k(x) \|^2$ are computed by empirically averaging over the training samples (in the last epoch) at no additional computational cost.}
+Lastly, line 5 of training a ``free block'' (i.e., the block without the $W_2$ regularization) is to flow the push-forward density $p_L$ closer to the target density $p_Z$, where the former is obtained through the first $L$ blocks. 
+
+% 
+% JKO-iFlow algorithm
+\begin{wrapfigure}[14]{r}{0.5\textwidth}%
+\vspace{-0.1in}
+\begin{minipage}{\linewidth}
+\begin{algorithm}[H]
+\caption{Block-wise \JKO{} training}
+\label{block_training}
+\begin{algorithmic}[1]
+\REQUIRE Time stamps $\{t_k\}$, 
+training data,  
+termination criterion $\rm{Ter}$ and
+tolerance level $\epsilon$, 
+{maximal number of blocks $L_{\max}$.}
+\STATE {Initialize} $k=1$.
+\WHILE{$\rm{Ter}(k)>\epsilon$ {and $k\leq L_{\max}$}}
+\STATE Optimize $\ResNetf{k}$ upon minimizing \eqref{eq:loss-block-k} {with mini-batch sample approximation}, given $\{\ResNetf{i}\}_{i=1}^{k-1}$. Set $k\leftarrow k+1$.
+\ENDWHILE
+\STATE {$L \leftarrow  k$. 
+\revold{
+Optional: 
+Optimize $\ResNetf{L+1}$ without $W_2$ regularization.}
+%
+}
+\end{algorithmic}
+\end{algorithm}
+\end{minipage}
+\end{wrapfigure}
+
+The block-wise training significantly reduces the memory and computational load since only one block is trained when optimizing \eqref{eq:loss-block-k} regardless of flow depth. 
+Therefore, one can use larger training batches and potentially more expensive numerical integrators within a certain memory budget for higher accuracy. We also empirically observe that training each block using standard back-propagation (rather than the adjoint method in neural ODE) gives a comparable result at a lower cost. 
+%
+To ensure the invertibility of the trained \JKO{} network, we further break the time interval $[t_{k-1}, t_k)$ into 3 or 5 subintervals to compute the neural ODE integration, e.g., by Runge-Kutta-4. 
+We empirically verify small inversion errors on test samples.
+
+
+
+\subsection{Computation of trajectories in probability space}\label{sec:traj_prob_comp}
+
+
+We adopt two additional computational techniques to facilitate learning of the trajectories in the probability space,
+represented by the sequence of densities $p_k$, $k=1, \ldots, L$, 
+associated with the $L$ residual blocks of the proposed normalizing flow network. The two techniques are illustrated in Figure \ref{enhanced_illu}.
+Further details and illustrations of the approach  can be found in Appendix \ref{app:detail-algo}. 
+
+\vspace{5pt}
+$\bullet$ {\it Trajectory reparameterization}. 
+We empirically observe fast decay of the movements $W_2^2(T_\# p_k,p_k)$ when $h_k$ is set to be constant,
+that is,
+initial blocks transport the densities much further than the later ones. 
+This is consistent with the exponential convergence of the Fokker-Planck flow, see \eqref{eq:W2-convergence-FK}, but unwanted in the algorithm because in order to train the current block, the flow model needs to transport data through all previous blocks, 
+and yet the later blocks trained using constant step size barely contribute to the density transport.
+%  
+Hence, 
+%  
+instead of having constant $h_k$, we \textit{reparameterize} the values of $t_k$ through an adaptive procedure based on the $W_2$ distance at each block.
+{The procedure uses an adaptive % 
+approach to encourage the $W_2$ movement in each block to be more even across the $L$ blocks, where the retraining of the trajectory can be potentially warm-started by the previous trajectory in iteration.}
+
+%
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.7\linewidth]{JKO-Flow.pdf}
+    \caption{
+    Diagram illustrating trajectory reparameterization and refinement. 
+    Top: the original trajectory under three blocks via Algorithm \ref{block_training}.
+    % 
+    Bottom: the trajectory under six blocks after reparameterization and refinement,
+    which renders the $W_2$ movements more even.}
+    \label{enhanced_illu}
+\end{figure}
+
+$\bullet$  {\it  Progressive refinement}. 
+The performance of CNF models is typically improved with a larger number of residual blocks, corresponding to a smaller step size.
+The smallness of stepsize $h$ also ensures the invertibility of the flow model, in theory and also in practice. 
+However, directly training the model with a small non-adaptive stepsize $h$ may result in long computation time and convergence to the normal density $q_Z$ only after a large number of blocks, where the choice of $h_k$ is not as efficient as after adaptive reparameterization. 
+We introduce a refinement approach to increase the number of blocks progressively, where each time interval $[t_{k-1}, t_k)$ splits into two halves, and the number of blocks doubles after the adaptive reparameterization of the trajectory converges at the coarse level. 
+The new trajectory at the refined level is again trained with adaptive reparameterization, where the residual blocks can be warm-started from the coarse-level model to accelerate the convergence.
+The trajectory refinement allows going to a smaller step size $h_k$, which benefits the accuracy of the \JKO{} model including the numerical accuracy in integrating each neural ODE block.
+
+
+
+\section{Experiment}\label{sec:experiment}
+
+
+In this section, we examine the proposed \JKO{} model on simulated and real datasets, including both unconditional and conditional generation tasks.
+Codes are available at \url{https://github.com/hamrel-cxu/JKO-iFlow}.
+
+
+
+
+
+% 2D toy data
+\begin{figure*}[!t]
+\centering
+    % 0.32 & 0.16 nearly full width
+    \begin{minipage}{.30\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img_rose_true_vs_gen.png}
+        \subcaption{
+        % \small
+        True data \hspace{1cm} \JKO{}\\
+        \textbf{$\tau$: 2.79e-4}, MMD-c: \hspace{0.05cm} 2.73e-4\\
+        NLL \hspace{2.1cm} 2.64}\label{fig_JKO_rose}
+    \end{minipage}
+    \begin{minipage}{.15\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Img_rose_FFJORD.jpg}
+        \subcaption{
+        % \small
+        FFJORD\\
+        3.88e-4\\
+        2.95
+        }\label{fig_FFJORD_rose}
+    \end{minipage}
+    \begin{minipage}{.15\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Img_rose_OT-flow.png}
+        \subcaption{
+        % \small
+        OT-Flow\\
+        1.42e-3\\
+        3.30
+        }\label{fig_OTflow_rose}
+    \end{minipage}
+    \begin{minipage}{.15\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Img_rose_IGNN.png}
+        \subcaption{
+        % \small
+        IGNN\\
+        3.14e--3 \\
+        3.35
+        }\label{fig_IGNN_rose}
+    \end{minipage}
+    \begin{minipage}{.15\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Img_rose_ScoreSDE.png}
+        \subcaption{
+        % \small
+        ScoreSDE\\
+        6.90e-4\\
+        3.2
+        }\label{fig_scoresde_rose}
+    \end{minipage}
+
+    \begin{minipage}{0.30\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img_tree_true_vs_gen.png}
+        \subcaption{
+        % \small
+        Fractal tree \\
+        \textbf{$\tau$: 3.12e-4}, MMD-c: \hspace{0.05cm} 2.17e-4 \\
+        NLL \hspace{2.1cm} 2.20}
+        \label{img1}
+    \end{minipage}
+     \begin{minipage}{0.30\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img_5rings_true_vs_gen_new.png}
+        \subcaption{
+        % \small
+        Olympic rings\\
+        \textbf{$\tau$: 3.16e-4}, MMD-c: \hspace{0.05cm} 2.36e-4\\
+        NLL \hspace{2.1cm} 1.66}
+        \label{img2}
+    \end{minipage}
+     \begin{minipage}{0.30\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{img_checkerboard_true_vs_gen_new.png}
+        \subcaption{
+        % \small
+        Checkerboard\\
+        \textbf{$\tau$: 3.09e-4}, MMD-c: \hspace{0.05cm} 2.70e-4\\
+        NLL \hspace{2.1cm} 3.59}
+        \label{img3}
+    \end{minipage}
+     \vspace{-5pt}
+    \caption{
+    Results on two-dimensional simulated datasets  by \JKO{} and competitors. }
+    \label{fig_rose_full_data}
+\end{figure*}
+\begin{table}[!b]
+    \centering
+    \caption{
+    Inversion error 
+    $\mathbb{E}_{x\sim p_X }\|{T_{\theta}^{-1}}({T_{\theta}}(x))-x\|^2_2$ of \JKO{}
+    computed via sample average on the test split of the data set,
+    where $T_{\theta}$ denotes the transport mapping over all the blocks of the trained flow network.
+    }\label{inv_err}
+    \resizebox{\linewidth}{!}{\begin{tabular}{cccc|cccc|c}
+        Rose  & Fractal tree & Olympic rings & Checkerboard & POWER & GAS & MINIBOONE & BSD300 & MNIST  \\
+       \hline
+         3.30e-6 & 3.58e-5 & 2.24e-6 & 3.07e-5 &
+         1.48e-5 & 1.58e-6 & 1.09e-6 & 1.53e-5  & 1.87e-5  
+    \end{tabular}}
+\end{table}
+
+
+\subsection{Baselines and metrics}
+
+
+We compare five alternatives, 
+including four CNF  models and one diffusion model. 
+%
+The first two CNF models are 
+FFJORD \citep{FFJORD} and OT-Flow \citep{OT-Flow}, which are continuous-time flow (neural-ODE models).
+%
+The next two CNF models are 
+IResNet \citep{iResnet} and IGNN \citep{xu2022invertible}, 
+which are discrete in time (ResNet models). 
+%
+The diffusion model baseline is the score-based neural SDE \citep{song2021score}, which we call ``ScoreSDE.''
+Details about the experimental setup, including dataset construction and neural network architecture and training,  can be found in Appendix \ref{sec:additional_results}.
+
+
+
+The accuracy of trained generative models is evaluated by two quantitative metrics,
+the negative log-likelihood (NLL) metric,
+ and the kernel \textit{maximum mean discrepancy} (MMD)  \citep{Gretton2012AKT} metric, 
+ including MMD-1, MMD-m, and MMD-c
+ for constant, median distance, and custom bandwidth, respectively.
+The test threshold $\tau$ is computed by bootstrap, where an MMD metric less than $\tau$ indicates that the generated distribution is evaluated by the MMD test to be the same as  the true data distribution (achieving $\alpha = 0.05$ test level).
+ See details in Appendix \ref{sec:metrics}.
+The computational cost is measured by the number of mini-batch stochastic gradient descent steps %(e.g., batches that the model uses in training) 
+and the training time. The performance is also reported under a fixed-budget setting to compare across models.
+\revold{The numerical inversion error of the trained flow models are at the 1e-5 level or below; see Table \ref{inv_err}.}
+
+% Main paper, tabular results
+\begin{table}[!t]
+\bgroup
+\centering
+\vspace{-15pt}
+\caption{\label{tab_high_dim}
+\revold{Results on} tabular datasets.
+All competitors are trained in a fixed-budget setup using 10 times more mini-batches
+(their performances using the same number of mini-batches are worse and not comparable to \JKO{}).
+See the complete table in Table \ref{tab_high_dim_appendix}.
+The results using more computation are given in Table \ref{tab_high_dim_appendix_2}.
+}
+\def\arraystretch{1}%  
+\resizebox{0.47\linewidth}{!}{
+\begin{tabular}{lllrrr}
+    \hline
+    Data Set & Model & \# Param & Test MMD-m & Test MMD-1 & NLL \\
+    \hline
+    \multirow{7}{*}{\makecell[l]{\textbf{{POWER}} \\ $d=6$}} & & &
+    \makecell[r]{\textbf{$\tau$: 1.73e-4}} &     \makecell[r]{\textbf{$\tau$: 2.90e-4}}             \\
+  &   \JKO{} &  76K & 9.86e-5 & 2.40e-4 & -0.12 \\
+  &  OT-Flow &  76K & 7.58e-4 & 5.35e-4 &  0.32 \\
+  &   FFJORD &  76K & 9.89e-4 & 1.16e-3 &  0.63 \\
+  &     IGNN & 304K & 1.93e-3 & 1.59e-3 &  0.95 \\
+  &  IResNet & 304K & 3.92e-3 & 2.43e-2 &  3.37 \\
+  & ScoreSDE &  76K & 9.12e-4 & 6.08e-3 &  3.41 \\
+    \hline
+    \multirow{7}{*}{\makecell[l]{\textbf{GAS} \\ $d=8$}}  & & &
+     \makecell[r]{\textbf{$\tau$: 1.85e-4}} &     \makecell[r]{\textbf{$\tau$: 2.73e-4}}       \\
+  &   \JKO{} &  76K & 1.52e-4 & 5.00e-4 & -7.65 \\
+  &  OT-Flow &  76K & 1.99e-4 & 5.16e-4 & -6.04 \\
+  &   FFJORD &  76K & 1.87e-3 & 3.28e-3 & -2.65 \\
+  &     IGNN & 304K & 6.74e-3 & 1.43e-2 & -1.65 \\
+  &  IResNet & 304K & 3.20e-3 & 2.73e-2 & -1.17 \\
+  & ScoreSDE &  76K & 1.05e-3 & 8.36e-4 & -3.69 \\
+    \hline
+\end{tabular}
+}
+\def\arraystretch{1}
+\resizebox{0.52\linewidth}{!}{
+\begin{tabular}{lllrrr}
+    \hline
+    Data Set & Model & \# Param & Test MMD-m & Test MMD-1 & NLL\\
+    \hline
+    \multirow{7}{*}{\makecell[l]{\textbf{MINIBOONE} \\ $d=43$}} & & &
+    \makecell[r]{\textbf{$\tau$: 2.46e-4}} &     \makecell[r]{\textbf{$\tau$: 3.75e-4}}       \\
+  &   \JKO{} & 112K & 9.66e-4 & 3.79e-4 & 12.55 \\
+  &  OT-Flow & 112K & 6.58e-4 & 3.79e-4 & 11.44 \\
+  &   FFJORD & 112K & 3.51e-3 & 4.12e-4 & 23.77 \\
+  &     IGNN & 448K & 1.21e-2 & 4.01e-4 & 26.45 \\
+  &  IResNet & 448K & 2.13e-3 & 4.16e-4 & 22.36 \\
+  & ScoreSDE & 112K & 5.86e-1 & 4.33e-4 & 27.38 \\
+    \hline
+    \multirow{7}{*}{\makecell[l]{\textbf{BSDS300}\\ $d=63$}} & & &
+    \makecell[r]{\textbf{$\tau$: 1.38e-4}} &     \makecell[r]{\textbf{$\tau$: 1.01e-4}}            \\
+  &   \JKO{} & 396K & 2.24e-4 & 1.91e-4 & -153.82 \\
+  &  OT-Flow & 396K & 5.43e-1 & 6.49e-1 & -104.62 \\
+  &   FFJORD & 396K & 5.60e-1 & 6.76e-1 &  -37.80 \\
+  &     IGNN & 990K & 5.64e-1 & 6.86e-1 &  -37.68 \\
+  &  IResNet & 990K & 5.50e-1 & 5.50e-1 &  -33.11 \\
+  & ScoreSDE & 396K & 5.61e-1 & 6.60e-1 &   -7.55 \\
+    \hline
+\end{tabular}}
+\egroup
+\end{table}
+
+
+
+\subsection{Two-dimensional toy data}
+
+The results on four toy datasets are shown in Figure \ref{fig_rose_full_data}, where the metrics of NLL and MMD-c are reported. 
+Plots (a)-(e) compare \JKO{} with the alternative models on the dataset Rose, where both NLL and MMD-c metrics show the better performance of \JKO{}. Visually, the generated samples $\hat X$ by \JKO{} also more resemble the true data distribution of $X$ than the competitors in (b)-(e). 
+Plots  (f)-(h) show the results by \JKO{} on the examples of Fractal tree, Olympic rings, and Checkerboard,
+\revold{where \JKO{} gives a satisfactory generative performance.}
+%
+%
+The \revold{results of} \JKO{} in Figure \ref{fig_rose_full_data} are obtained after applying the trajectory improvement techniques in Section \ref{sec:traj_prob_comp}. 
+The comparison results without using the techniques are provided in Figures \ref{fig_rose_sub_reparam} and \ref{fig_tree_sub_reparam}, which show the benefit of the two techniques in learning the model. 
+
+
+
+\subsection{High-dimensional tabular data}
+\begin{figure}[!b]
+    \begin{minipage}[b]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{miniboon_reparam_W2.png}
+    \subcaption{Per-block $W_2^2$
+    over reparameterization iterations.}\label{fig_reparam}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.51\textwidth}
+    \includegraphics[width=\textwidth]{miniboone_true_vs_gen_together.png}
+    \subcaption{Results at initial training (middle) and Iter 7 (right).
+    }
+    \end{minipage}
+    \vspace{-0.05in}
+    \caption{
+    Reparametrization iterations of \JKO{} model on MINIBOONE.
+    (a) After 7 reparameterization iterations, a trajectory of more uniform $W_2$ movements is obtained. 
+    (b) Generated samples by the models before and after the moving iterations (visualized in the first two principal components computed from test data).
+    }
+    \label{fig_MINIBOONE_sub_reparam}
+\end{figure}
+
+Table \ref{tab_high_dim} assesses the performance of \JKO{} and baseline methods on four high-dimensional tabular datasets under a fixed-budget setting:
+we keep the model size of continuous flow models (OT-Flow and FFJORD) and the diffusion model (ScoreSDE) the same, 
+and we increase model sizes for discrete flow models (IGNN and IResNet) which can be 
+%
+computed faster therein and this also improves their performances.
+%
+Except for \revold{MINIBOONE} dataset, \JKO{} yields smaller or similar \revold{quantitative} metrics compared to all alternatives. 
+%
+The visual comparisons of generated data distributions %
+are shown in Figure \ref{pca_projection}. 
+%
+
+
+After additional training to apply the trajectory reparametrization, the performance of \JKO{} is furtherly improved; see Table \ref{tab_high_dim_appendix_2} in comparison with additional baselines of OT-Flow and FFJORD from the original references.
+The effects of trajectory reparameterization on the MINIBOONE dataset are shown in Figure \ref{fig_MINIBOONE_sub_reparam},
+where the $W_2$ movements across the blocks become more even as the iteration proceeds, see (a). The generative performance, as shown in (b), visually improves after the reparametrization, which is consistent with the lower NLL values in Table \ref{tab_high_dim_appendix_2} (NLL improves from 12.55 to 10.55). 
+%
+These results show that \JKO{} 
+performs \revold{comparably to the best baseline},
+and often better under small computational and memory budgets.
+
+
+
+\revold{
+
+
+\subsection{Image generation}\label{sec:img_gen}
+% 
+\begin{figure}[!t]
+    \begin{center}
+    \begin{minipage}{0.9\textwidth}
+        \includegraphics[width=\linewidth]{MNIST_block_6.png}
+        
+        \subcaption{Generated MNIST digits. FID: 7.95.}
+    \end{minipage}
+    \end{center}
+    \begin{center}
+    \begin{minipage}{0.445\linewidth}
+        \includegraphics[width=\linewidth]{CIFAR10_final_curated_4by5.png}
+        %
+        \subcaption{Generated CIFAR10 images. FID: 29.10.}
+    \end{minipage}
+    \begin{minipage}{0.445\linewidth}
+        \includegraphics[width=\linewidth]{ImageNet_final_curated_4by5.png}
+        
+        %
+        \subcaption{Generated Imagenet-32 images. FID: 20.10.}
+    \end{minipage}
+    \end{center}
+    \vspace{-5pt}
+    \caption{
+    Generated samples of MNIST, CIFAR10, and Imagenet-32 by \JKO{} model in latent space. 
+    We select 2 images per class for CIFAR10 and 1 image per class for Imagenet-32. The FIDs are shown in subcaptions.
+    Uncurated samples are shown in Figure \ref{fig:img_uncurated}.}
+    \label{fig:mnist-cifar-imagenet}
+\end{figure}
+
+
+We apply the \JKO{} model to image generation tasks on the MNIST, CIFAR-10, and Imagenet-32 datasets. In all examples, we train \JKO{} in the latent space of a pre-trained variational auto-encoder (VAE) adopted from \citep{esser2021taming}.
+Training generative models in latent space have been shown to obtain state-of-the-art image generation performance, e.g., in StableDiffusion \citep{rombach2022high}. 
+Here we train a flow model instead of a score-based diffusion model in the latent space, and more details can be found in Appendix \ref{sec:additional_results}.
+
+%
+The generated images are shown in Figure \ref{fig:mnist-cifar-imagenet}. 
+The quantitative evaluation is by the Fréchet inception distance (FID) score \citep{heusel2017gans}, which is included in the figure captions.  
+Comparatively, we are aware of some performance gap between our model and the state-of-the-art performance of score-based diffusion models like DDPM \citep{ho2020denoising} and ScoreSDE \citep{song2021score}; however, the results here are obtained with less computation. 
+%
+Specifically, on a single A100 GPU, our experiments took 24 hours on CIFAR10 and 30 hours on Imagenet-32.
+%
+Meanwhile, the image generation by \JKO{} model here obtains visually more appealing images and achieves lower FIDs compared to most CNF baselines \citep{FFJORD,iResnet,ResFlow,finlay2020train}.}
+
+
+\subsection{Conditional generation}\label{sec:cond_gen}
+
+The problem aims to generate input samples $X$ given a label $Y$ from the conditional distribution $X|Y$ to be learned from data. 
+We follow the approach in IGNN \citep{xu2022invertible}. 
+In this setting, the \JKO{} network pushes from the distribution $X|Y=k$ to the class-specific component in the Gaussian mixture of $H|Y=k$, see Figure \ref{fig_cond_gen_toy} and Appendix \ref{append_cond_gen} for more details.
+%
+%
+We apply \JKO{} to the Solar ramping dataset
+and compare it with the original IGNN model,
+%
+and both models use graph neural network layers in the residual blocks. 
+The results are shown in Figure \ref{cond_gen_solar}, where both the NLL and MMD-m metrics indicate the superior performance of \JKO{} 
+%
+and is consistent with the visual comparison.   
+
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \begin{minipage}{0.66\textwidth}
+        \includegraphics[width=\linewidth]{Top1_solar_Chebnet_PCA.png}
+        \subcaption{{True $X|Y$} \hspace{1.2cm}  \JKO{}\\
+        \textbf{$\tau$: 2.13e-3}, MMD-m: \hspace{0.2cm} 8.12e-3
+\\
+        NLL \hspace{2.4cm} -13.60}
+    \end{minipage}
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{Top1_solar_Chebnet_PCA_IGNN.png}
+        
+        \subcaption{IGNN\\
+         5.70e-2\\
+         -4.55}
+    \end{minipage}
+    \end{minipage}
+    \begin{minipage}{0.48\textwidth}
+    %
+    \begin{minipage}{0.66\textwidth}
+        \includegraphics[width=\linewidth]{Top2_solar_Chebnet_PCA.png}
+        \subcaption{{True $X|Y$} \hspace{1.2cm} \JKO{}\\
+        \textbf{$\tau$: 2.88e-3,} MMD-m: \hspace{0.2cm} 4.00e-2\\
+        NLL \hspace{2.4cm} -4.19}
+    \end{minipage}
+    \begin{minipage}{0.3\textwidth}
+        \includegraphics[width=\linewidth]{Top2_solar_Chebnet_PCA_IGNN.png}
+        \subcaption{IGNN\\
+         7.67e-2\\
+         1.53
+        }
+    \end{minipage}
+    \end{minipage}
+     \vspace{-5pt}
+    \caption{
+    Conditional graph nodal data generation by \JKO{} and iGNN on Solar ramping data. 
+    The nodal data $X\in \R^{10\times 2}$ and the nodal label $Y \in \{0,1\}^{10}$. 
+    \revold{
+    Plots (a)(b) and (c)(d) are for two different sets of values $Y$ across all nodes respectively.
+    Samples $X$ (concatenated across all nodes) are visualized by projection to two principal components (determined by true samples $X|Y$). }}
+    \label{cond_gen_solar}
+\end{figure}
+
+
+\section{Discussion}\label{sec:conclude}
+
+
+The work can be extended in several directions.
+%
+The application to larger-scale image datasets
+and larger graphs will enlarge the scope of usage.
+To overcome the computational challenge faced by neural ODE models for high dimensional input, e.g., images of higher resolution, one would need to improve the training efficiency of the backpropagation in neural ODE in addition to the dimension reduction techniques by VAE as been explored here. 
+Another possibility is to combine the \JKO{} scheme with other backbone flow models that are more suitable for the specific tasks. 
+% 
+Meanwhile, it would be interesting to extend the method to other problems for which CNF models have proven to be effective. 
+Examples include 
+multi-dimensional probabilistic regression \citep{chen2018neural}, 
+a plug-in to deep architectures such as StyleFlow \citep{abdal2021styleflow},
+and the application to Mean-field Games \citep{huang2023bridging}. 
+
+
+Theoretically, the expressiveness of the flow model to generate a regular data distribution can be analyzed based on Section \ref{subsec:invertible-express}.
+To sketch a road map,
+a block-wise approximation guarantee of ${\bf f}(x,t)$ as in \eqref{eq:f(x,t)-FK} can lead to approximation of the Fokker-Planck flow \eqref{eq:fokker-planck}, which pushes forward the density to be $\varepsilon$-close to normality in $T= \log (1/\varepsilon )$ time, see \eqref{eq:W2-convergence-FK}. 
+Reversing the time of the ODE then leads to an approximation of the initial density $\rho_0 = p_X$ by flowing backward in time from $T$ to zero. Further analysis under technical assumptions is left to future work. \revold{During the time that this paper was being published, the convergence analysis of the proposed model was studied in \cite{cheng2023convergence}.}
+
+
+
+\section*{Acknowledgement}
+
+The authors thank Jianfeng Lu, Yulong Lu, and  Yiping Lu for helpful discussions.
+The work is partially supported by NSF DMS-2134037.
+C.X. and Y.X. are partially supported by an NSF CAREER CCF-1650913, and NSF DMS-2134037, CMMI-2015787, CMMI-2112533, DMS-1938106, and DMS-1830210 and the Coca-Cola Foundation.
+XC is also partially supported by 
+NSF DMS-2237842 and Simons Foundation. 
+
+
+\bibliography{JKO_references}
+\bibliographystyle{plainnat}
+
+\appendix
+
+\setcounter{table}{0}
+\setcounter{figure}{0}
+\renewcommand{\thetable}{A.\arabic{table}}
+\renewcommand{\thefigure}{A.\arabic{figure}}
+\renewcommand{\thelemma}{A.\arabic{lemma}}
+
+
+
+\section{Proofs}\label{sec:proof}
+
+\subsection{Proofs in Section }
+%
+\begin{lemma}\label{lemma:JKO-by-Tk}
+Suppose $p$ and $q$ are two densities on $\R^d$ in $\calP$,  the following two problems
+\begin{equation}\label{eq:def-JKO-1-lemma}
+\min_{\rho  \in \calP } 
+L_\rho[\rho] = 
+{\rm KL}( \rho || q) + \frac{1}{2 h} W_2^2( p, \rho),
+\end{equation}
+\begin{equation}\label{eq:def-JKO-2-lemma}
+\min_{T: \R^d \to \R^d} 
+L_T[T] =
+{\rm KL}(  T_\# p || q) + \frac{1}{2h} \E_{x \sim p} \| x-T(x) \|^{2},
+\end{equation}
+have the same minimum and 
+
+(a) If $T^*: \R^d \to \R^d$ is a minimizer of \eqref{eq:def-JKO-2-lemma}, 
+then $\rho^* = (T^*)_\# p$ is a minimizer of \eqref{eq:def-JKO-1-lemma}.
+
+(b) If $\rho^*$ is a minimizer of \eqref{eq:def-JKO-1-lemma},
+then the optimal transport from $p$ to $\rho^*$  minimizes \eqref{eq:def-JKO-2-lemma}.
+\end{lemma}
+
+\begin{proof}[Proof of Lemma \ref{lemma:JKO-by-Tk}]
+
+Let the minimum of \eqref{eq:def-JKO-2-lemma} be $L_T^*$, and that of \eqref{eq:def-JKO-1-lemma} be $L_\rho^*$. 
+
+Proof of (a): 
+Suppose $L_T$ achieves minimum at $T^*$,
+then $T^*$ is the optimal transport from $p$ to $ \rho^* = (T^*)_\# p$ because otherwise $L_T$ can be further improved. 
+By definition of $L_\rho$, we have
+$L_T^* = L_T[T^*] = L_\rho[ \rho^* ] \ge L_\rho^* $. 
+We claim that $L_T^* = L_\rho^*$.
+Otherwise,  there is another $\rho'$ such that $L_\rho[\rho'] < L_T^*$. 
+Let $T'$ be the optimal transport from $p$ to $\rho'$, and then $L_T[T'] = L_\rho[\rho'] < L_T^*$,
+contradicting with that $L_T^*$ is the minimum of $L_T$. This also shows that $ L_\rho[ \rho^* ] = L_T^* = L_\rho^*$, that is, $\rho^*$ is a minimizer of $L_\rho$. 
+
+Proof of (b): Suppose $L_\rho$  achieves minimum at $\rho^*$. Let $T^*$ be the OT from $p$  to $\rho^*$, then $\E_{x \sim p} |x-T^*(x)|^2 = W_2(p, \rho^*)^2$, and then $L_T[T^*] = L_\rho[ \rho^* ] = L_\rho^*$ which equals $L_T^*$ as proved in (a). This shows that $T^*$ is a minimizer of $L_T$. 
+\end{proof}
+
+
+
+%
+\begin{proof}[Proof of Proposition \ref{prop:FT-layer-wise},]
+Given $p_k $ being the density of $x(t)$ at $t = k h$, recall that $T$ is the solution map from $x(t)$ to $x(t+h)$.
+We denote $\rho_t:= p_k$, and $\rho_{t+h} := T_\# p_k$. By definition,
+\begin{equation}\label{eq:KL-pf-1}
+{\rm KL}(  T_\# p_k || p_Z)
+= \E_{x\sim \rho_{t+h}} (  \log {\rho}_{t+h}(x)  -   \log p_Z(x) ).
+\end{equation}
+Because $p_Z \propto e^{-V}$, $V(x)= {|x|^{2}}/{2}$, 
+we have $ \log p_Z (x)= -V (x)+ c_1$ for some constant $c_1$. 
+Thus
+\begin{equation}\label{eq:KL-pf-2}
+\E_{ x \sim \rho_{t+h}} \log p_Z(x) = 
+\E_{x(t) \sim \rho_t} \log p_Z (x(t+h)) =  c_1 - \E_{x(t) \sim \rho_t}  V( x(t+h)).
+\end{equation}
+To compute the first term in \eqref{eq:KL-pf-1}, note that
+\begin{equation}\label{eq:entropy-rhot+h}
+\E_{x \sim \rho_{t+h}} \log   \rho_{t+h}(x) 
+ =  \E_{x(t) \sim \rho_{t}} \log   \rho_{t+h}(x (t+h)),
+\end{equation}
+and by the expression {(called ``instantaneous change-of-variable formula'' in normalizing flow literature \citep{chen2018neural},
+which we derive directly below)}
+\begin{equation}\label{eq:ddtlogrho(x(t),t)}
+{\frac{d}{dt}} \log \rho( x(t), t) = - \nabla \cdot {\bf f}( x(t), t), 
+\end{equation}
+we have that for each value of $x(t)$,
+\begin{align*}
+\log \rho_{t+h}(x (t+h))= 
+\log\rho(x(t+h),t+h) & =\log \rho(x(t),t) - \int_{t}^{t+h}\nabla\cdot\mathbf{f}(x (s),s)ds.
+\end{align*}
+Inserting back to \eqref{eq:entropy-rhot+h}, we have
+\[
+\E_{x \sim \rho_{t+h}} \log   \rho_{t+h}(x) 
+ =  \E_{x(t) \sim \rho_{t}}  \log \rho_t(x(t)) 
+  -  \E_{x(t) \sim \rho_{t}}  \int_{t}^{t+h}\nabla\cdot\mathbf{f}(x (s),s)ds).
+\]
+The first term is determined by $\rho_t = p_k$, 
+and thus is a constant $c_2$ independent from  ${\bf f}(x ,t)$ on $t \in [kh, (k+1) h]$.
+Together with \eqref{eq:KL-pf-2}, we have shown that 
+\[
+\text{r.h.s. of \eqref{eq:KL-pf-1}}
+=c_2 -  \E_{x(t) \sim \rho_{t}}  \int_{t}^{t+h}\nabla\cdot\mathbf{f}(x (s),s)ds)
+ - c_1 + \E_{x(t) \sim \rho_t}  V( x(t+h)),
+\]
+which proves \eqref{eq:FT-layer-wise}.
+
+{
+Derivation of \eqref{eq:ddtlogrho(x(t),t)}:
+by chain rule,
+\begin{align*}
+{\frac{d}{dt}} \log \rho( x(t), t)
+& = \frac{ \nabla \rho(x(t),t) \cdot \dot{x}(t)
++ \partial_t \rho(x(t),t)}{\rho( x(t), t)} \\
+& = 
+\left. \frac{ \nabla \rho  \cdot {\bf f}
+ - \nabla \cdot( \rho  {\bf f} ) } 
+ {\rho } \right|_{(x(t),t)} 
+ \quad \text{(by \eqref{eq:ode-Xt}  and \eqref{eq:Liouville})}\\
+ & = - \nabla \cdot {\bf f} (x(t),t).
+\end{align*}
+}
+\end{proof}
+
+
+
+
+
+\section{Technical details of Section \ref{sec:algo}}
+\label{app:detail-algo}
+
+
+To train the proposed \JKO{} model by Algorithm \ref{block_training}, one needs to specify a sequence of $t_k$, where the $k$-th JKO block integrates from $t_{k-1}$ to $t_{k}$, starting from $t_0=0$. Denote by $h_k:=t_{k+1}-t_k$ the step-size for $k$-th step. 
+
+
+
+\subsection{Initial choice of $t_k$ in Algorithm \ref{block_training}}\label{append:tk}
+
+
+We first initialize the choice by the following scheme
+\begin{equation}\label{eq:def-hk-init}
+    h_k = \min \{  \rho^{k} h_0, h_{\rm max} \}, 
+    \quad k= 0, 1, \cdots  
+\end{equation}
+where the base stepsize $h_0$,
+the multiplying factor $\rho \ge 1$,
+and the maximum stepsize  $h_{\rm max} \ge h_0$ 
+are three hyper-parameters to be specified by the user.
+When $\rho = 1$, the sequence of $h_k$ in \eqref{eq:def-hk-init} corresponds to constant stepsize $h_k \equiv h_0$.
+
+Applying Algorithm \ref{block_training} with the initial choice of $t_k$ gives $L$ trained residual blocks of the neural ODE model, where $L$ is to be determined by the stopping criterion in Section \ref{sec:layer_wise}.  
+The model is further improved by the two additional techniques in Section \ref{sec:traj_prob_comp}, which will adaptively specify the stepsize $h_k$ and we explain in detail below. 
+
+
+\revold{
+\subsection{Hutchinson trace 
+via finite difference}\label{app:finite-diff}
+
+
+We propose a finite-difference estimator of $\nabla \cdot {\bf f}(x,t) = \text{Tr}(J_{{\bf f}}(x))$, where $J_{{\bf f}}(x))$ is the Jacobian of $\bf f$ at $x$. This is based on the Hutchinson trace estimator \citep{Hutchinson1989ASE}, which states that $\text{Tr}(J_{{\bf f}}(x)) = \E_{p(\epsilon)} \left[ \epsilon^T J_{{\bf f}}(x) \epsilon\right]$. Here, $p(\epsilon)$ is a distribution in $\R^d$ satisfying $\E[\epsilon]=0$ and $\text{Cov}(\epsilon)=I$ (e.g., a standard Gaussian). Existing CNF works estimate the expectation by sampling $\epsilon \sim p(\epsilon)$ and computing the vector-Jacobian product $J_{{\bf f}}(x) \epsilon$ using reverse-mode automatic differentiation. The product $J_{{\bf f}}(x) \epsilon$ can be computed for approximately the same cost as evaluating $\bf f$ \citep{FFJORD}.
+
+Now, given a fixed $\epsilon$, 
+we have $J_{{\bf f}}(x) \epsilon = \lim_{\sigma \rightarrow 0} \frac{{\bf f}(x+\sigma\epsilon)-{\bf f}(x)}{\sigma}$,
+which is the directional derivative of ${\bf f}$ along the direction $\epsilon$. Thus, given a fixed small $\sigma > 0$, we propose the following finite-difference estimator of $\nabla \cdot {\bf f}(x,t)$:
+\begin{equation}\label{eq:finite_diff}
+    \nabla \cdot {\bf f}(x,t) \approx \E_{p(\epsilon)} \left[ \epsilon^T \frac{{\bf f}(x+\sigma\epsilon)-{\bf f}(x)}{\sigma}\right].
+\end{equation}
+The finite-difference approximation of $J_{{\bf f}}(x) \epsilon$ requires only one additional function evaluation of ${\bf f}$ at $x+\sigma \epsilon$ and avoids the computation of automatic differentiation. 
+We empirically found that training with \eqref{eq:finite_diff} on high-dimensional examples (e.g., $d>100$ as in image examples) can be approximately 1.5$\sim$2 times faster than existing CNF approaches relying on reverse-mode automatic differentiation.
+% 
+In all experiments, we let $\sigma=\sigma_0/\sqrt{d}$ with $\sigma_0=0.02$.
+}
+
+
+
+
+\subsection{
+Trajectory improvement illustrated in vector space}\label{app:traj_comp_detail}
+
+
+Section \ref{sec:traj_prob_comp} introduces two techniques to improve the computation of a gradient descent trajectory represented by discrete points. For illustrative purposes, we introduce the two techniques when the gradient system is in a vector space equipped with Euclidean metric. 
+The \JKO{} training applies the same technique in the gradient system
+equipped with the Wasserstein-2 metric. 
+
+
+Let the space be $\R^d$, and $F:\R^d \to \R $ be a differential landscape. Given a sequence of positive stepsize $h_k$, 
+one can compute a sequence of representative points $x_k$ which discretizes the gradient descent trajectory of minimizing $F$ (towards a local minimum $x^*$). Specifically, we have
+\begin{equation}\label{eq:vspace_opt}
+    \xt{k+1} = \arg\min_x F(x)+\frac{1}{2h_k} \|x-\xt{k}\|_2^2,
+\end{equation}
+starting from some fixed $x_0$. 
+
+
+
+
+\subsubsection{Trajectory reparameterization}\label{sec:reparam_details}
+
+Starting from an initial sequence of step-size $\{ h_k\}_{k=1}^L$ as in Section \ref{append:tk},
+the reparameterization technique implements an iterative scheme to update the sequence of $h_k$ adaptively.
+We call the $j$-th iteration `Iter-$j$', and denote the sequence by $\{ h_k^{(j)}\}_{k=1}^L$. 
+The corresponding solution points $x_k$ by solving \eqref{eq:vspace_opt} with $ h_k^{(j)}$ are denoted as $x_k^{(j)}$.
+In addition to the constant $h_{\max}$, we need another algorithmic parameter $\eta \in (0,1)$, and we set $\eta = 0.3$ for the vector-space example in computation. 
+
+
+We always have $\xt{0}^{(j)} = x_0$  for all `Iter-$j$'.
+In the $j$-th iteration of the parametrization, we compute the following
+\begin{enumerate}
+    \item Compute the {\it arclength} as 
+    \begin{equation}\label{eq:def-Skj-arclength}
+        S_k^{(j)}:=\|\xt{k-1}^{(j)}-\xt{k}^{(j)}\|_2,
+        \quad k = 1, \cdots, L.
+    \end{equation}
+
+
+   \item  
+    Compute the average arclength 
+    \[\bar{S}:=\sum_{k=1}^{L} S_k^{(j)}/L.
+    \]
+    
+    \item Update the stepsize for $k=1,\ldots, L$ as
+    \[
+    h_k^{(j+1)}:={\min\{h_k^{(j)}+\eta (\bar{S}  h_k^{(j)}/S_k^{(j)}-h_k^{(j)}), h_{\max}\}} 
+    \]
+    
+    \item 
+    Solve \eqref{eq:vspace_opt} using $h_k^{(j+1)}$ to obtain $x_k^{(j+1)}$.
+\end{enumerate}
+
+We terminate the iteration when the arclength $\{S_k^{(j)}\}$ are approximately equal.
+An illustration is given as Iter-12 in the upper panel of Figure \ref{fig_reparam_muller}.
+After the reparameterization iterations, we solve an additional $x_{L+1}$ by minimizing $F(x)$ starting from $x_L$. 
+This corresponds to optimizing the ``free-block'' in Algorithm \ref{block_training}. 
+
+
+\subsubsection{ Progressive refinement}
+
+The scheme can be computed using a positive integer refinement factor. For simplicity, we use factor 2 throughout this work. 
+
+Given a sequence of $\{ h_k \}_{k=1}^L$ and the representative points $\{x_k\}_{k=1}^{L}$,
+the refinement scheme computes a refined trajectory having $k=1,\cdots, 2L$:
+
+\begin{enumerate}
+    \item 
+    Compute the refined stepsizes as
+    \[
+    \tilde{h}_{2k-1} = \tilde{h}_{2k} = h_k/2,
+    \quad k=1,\dots, L
+    \]
+    \item 
+    Compute the representative points $\tilde{x}_k$ by solving \eqref{eq:vspace_opt} using $\tilde{h}_{k}$,
+    possibly warm-starting by $\tilde{x}_{2k} = {x}_{k}$
+    and $\tilde{x}_{2k-1} = ({x}_{k}+x_{k-1})/2$.
+\end{enumerate} 
+
+We then apply the trajectory reparameterization iterations as in Section \ref{sec:reparam_details} to the refined trajectory till convergence,
+and the free-block ending point is also recomputed.
+An illustration is given as r-Iter-10 in the upper panel of Figure \ref{fig_reparam_muller}.
+
+
+
+
+
+\subsection{Trajectory improvement in probability space}
+
+We apply the two techniques to solve the JKO step \eqref{eq:loss-block-k},
+which is the counterpart of \eqref{eq:vspace_opt}
+as a gradient descent scheme with proximal steps.
+The representative points $x_k$ are replaced with transported distributions $p_k$ which form a sequence of points in $\calP$,
+and the optimization is over the parametrization of $p_k$ induced by the neural network flow mapping consisting of the first $k$ residual blocks. 
+
+It remains to define the arclength in \eqref{eq:def-Skj-arclength} to implement the two techniques. 
+Because we equip $\calP$ with the Wasserstein-2 metric, we compute (omitting the iteration index $j$ in the notation)
+\begin{equation}\label{eq:def-Sk-jko}
+    S_k 
+= W_2(p_{k-1}, p_k)
+= (\E_{x \sim p_{k-1}} \| x-T_k(x)\|^2 )^{1/2},
+\end{equation}
+where the transport mapping $T_k(x) =x+ \int_{t_{k-1}}^{t_k} f_{\theta_k}(x(s),s)ds$ and can be computed from the $k$-th block. In practice, the expectation $\E_{x \sim p_{k-1}}$ in \eqref{eq:def-Sk-jko} is computed by a finite-sample average on the training set. 
+
+At last, the optimal warm-start of $p_k$ in the refinement is implemented by inheriting the parameters $\theta_k$ of the trained blocks.
+
+\begin{figure}[!b]
+    \centering
+    \includegraphics[width=\textwidth]{vector_space_reparam_and_refine.png}
+    \caption{The upper panel shows the arc lengths and the mean and standard deviation of arc lengths over 12 reparameterization iterations, one refinement, and an additional 10 reparameterization iterations. The lower panel visualizes the trajectory consisting of 17 solution points at ``r-Iter-10'', where the free point as the 17-th point computes the approximate minimum by $x_{17}=x_{L+1}=[-1.911, 0.105]$.}
+    \label{fig_reparam_muller}
+\end{figure}
+
+
+
+
+
+
+
+
+
+\section{Experimental details}
+
+
+\subsection{Quantitative evaluation metrics}\label{sec:metrics}
+
+Besides visual comparison, we adopt two quantitative metrics to evaluate the performance of generative models,
+the negative log-likelihood (NLL) metric \cite{FFJORD}
+and  the maximum mean discrepancy (MMD) \citep{Gretton2012AKT} metric. 
+
+
+\subsubsection{NLL metric} \label{sec:NLL}
+
+Our computation of the NLL metric follows the standard procedure for neural ODE normalizing flow models \cite{chen2018neural,FFJORD},
+where the evolution of density $\rho ( x(t) )$ can be computed via integrating $\nabla \cdot {\bf f}(x(t),t)$ over time due to the instantaneous change-of-variable formula \eqref{eq:ddtlogrho(x(t),t)}. 
+
+Specifically, our model flows from $t_0 = 0$ to $t_{L+1} = T$, where $x(0) \sim p_0$ the data distribution,
+and we train the flow model to make $x(T)$ follow a normal density $q$. The model density at data sample $x$ is expressed as $\rho(x,0) =  (T_{\theta}^{-1} )_\# q (x)$ where $T_{\theta}^{-1}$ is the inverse model  flow mapping from $x(T)$ to $x(0)$. Thus the model log-likelihood can be expressed as 
+\[
+\log \rho (x(0), 0)
+= \log q( x(T), T) + \int_0^T \nabla \cdot {\bf f}(x(s),s) ds.
+\]
+In practice, our trained flow model has $L$ blocks where each block $f_{\theta_k}$ represents ${\bf f}(x,t)$ on $[t_{k-1},t_{k})$
+and is parametrized by $\theta_k$.
+The log-likelihood at test sample $x$ is then computed by
+\begin{equation}\label{eq:NLL_simplified}
+{\rm LL}(x)
+= 
+    -\frac{1}{2}(\|x(t_{L+1})\|^2_2+d\log(2\pi)) + \sum_{k=1}^{L+1} \int_{t_{k-1}}^{t_k} \nabla \cdot f_{\theta_k}(x(s),s)ds,
+\end{equation}
+where 
+\[
+x(t_k)=x(t_{k-1})+\int_{t_{k-1}}^{t_k} f_{\theta_k}(x(s),s)ds
+\]
+starting from $x(0) = x$. 
+Both the integration of $f_{\theta_k}$ and $\nabla \cdot f_{\theta_k}$ are computed using the numerical scheme of neural ODE. 
+We report NLL in the natural unit of information (i.e., $\log$ with base $e$, known as ``nats'') in all our experiments.
+
+
+
+\subsubsection{MMD metrics}\label{sec:MMD_metrics}
+
+
+Note that the normalizing flow models use NLL (on training 
+set) as the training objective. 
+In contrast, the MMD metric is an impartial evaluation metric as it is not used to train \JKO{} or any competing methods.
+Given two set of data samples $\boldsymbol{X}:=\{x_i\}_{i=1}^N$ and $\boldsymbol{\tilde{X}}:=\{\tilde{x}_j\}_{j=1}^M$ and a kernel function $k(x,\tilde{x})$, the (squared) kernel MMD \citep{Gretton2012AKT} is defined as 
+\begin{equation}\label{MMD}
+    \text{MMD}(\boldsymbol{X},\boldsymbol{\tilde{X}}):=\frac{1}{N^2}\sum_{i=1}^N \sum_{j=1}^N k(x_i,x_j) + \frac{1}{M^2}\sum_{i=1}^M \sum_{j=1}^M k(\tilde{x}_i,\tilde{x}_j)
+    - \frac{2}{NM}\sum_{i=1}^N \sum_{j=1}^M k(x_i,\tilde{x}_j), 
+\end{equation}
+When a generative model is trained, 
+we generate $M$ i.i.d. data samples by the model to construct the set $\boldsymbol{\tilde{X}}$,
+and we form the set $\boldsymbol{X}$ using $N$ true data samples (from the test set). 
+MMD metrics with other choices of kernels are possible \cite{gretton2012optimal,sutherland2017generative,schrab2023MMD}. 
+In all experiments here, we use the Gaussian kernel 
+$k(x,\tilde{x}) =\exp \{-\|x-\tilde{x}\|^2/2h^2\}$ to stay consistent with reported baselines from \citep{OT-Flow}, where $h > 0$ is the bandwidth parameter.
+We use three ways of setting the bandwidth parameter $h$:
+\begin{itemize}
+    \item Constant bandwidth: $h = h_c =1$.
+    The resulting MMD is denoted as `MMD-1'. 
+    
+    \item Median bandwidth \citep{Gretton2012AKT}:
+    let $h = h_m$ be the median of $\|x_i-x_j\|$ for all distinct $i$ and $j$.
+    The median distance is computed from the dataset $X$. The resulting MMD is denoted as `MMD-m'.
+    
+    \item Custom bandwidth: on certain datasets when we can use prior knowledge to decide on the bandwidth, we will custom the choice of $h$ (typically smaller than the median distance, due to that theoretically smaller bandwidth may lead to a more powerful MMD test to distinguish the difference in the underlying distributions) while ensuring that we use large enough $M$ and $N$ to compute the MMD metric. 
+    We call the metric `MMD-c'. 
+\end{itemize}
+
+\revold{On all datasets, 
+we use at most $N=10K$ test samples as $\bf{X}$,
+and for each trained model, 
+we generate $M=10K$ test samples to form the dataset $\bf{\tilde{X}}$ to compute the MMD value defined as in \eqref{MMD}.}
+Note that the MMD metric as a measure of distance between two distributions is significant when above a test threshold $\tau$, which is defined as the upper ($1-\alpha$)-quantile of the distribution of the MMD statistic under the null hypothesis
+(i.e., when dataset $\bf{X}$ and $\bf{\tilde{X}}$ observe the same distribution). 
+The scalar $\alpha$ is the controlled Type-I error (known as the test level), which is set to be 0.05.
+\revold{
+To obtain the test threshold $\tau$ for the MMD, we adopt the bootstrap procedure \cite{arcones1992bootstrap,Gretton2012AKT}
+and compute $\tau$ as the empirical ($1-\alpha$)-quantile of the simulated null distribution of the MMD from the pool of samples formed by the union of $\bf{X}$ and $\bf{\tilde{X}}$,
+where the set $\bf{\tilde{X}}$ is generated by the trained \JKO{} model. 
+We use 1000 times of bootstrap in all experiments.}
+In our usage of evaluating generative models, the threshold $\tau$ can be viewed as a baseline of the MMD metric, that is, when the computed MMD values are above $\tau$, then the smaller the MMD value the better the generative performance; when the computed MMD value is below $\tau$, it means that with respect to the current MMD metric, the trained model generates a data distribution that is as good as the true distribution. 
+
+
+\subsection{Detail setup and additional results}\label{sec:additional_results}
+
+
+All experiments are conducted using PyTorch \citep{NEURIPS2019_9015} and PyTorch Geometric \citep{Fey/Lenssen/2019}. 
+The optimizer is Adam \citep{Kingma2015AdamAM} with learning rates to be specified in each example. We use the neural-ODE
+integrator \citep[adjoint method]{FFJORD} on all examples.
+
+
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}{0.49\textwidth}
+    \includegraphics[width=\textwidth]{img_rose_Prune_and_refine_5phases_eta=075.png}
+    \subcaption{Per-block $W_2^2$
+    over reparameterization iterations.}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+    \includegraphics[width=\textwidth]{Img_rose_true_vs_gen_together.png}
+    \subcaption{Results at initial training (middle) and Iter 3 (right). MMD and NLL values are shown in the title.}
+    \end{minipage}
+    \caption{
+    Same plots as in Figure \ref{fig_MINIBOONE_sub_reparam} for Rose data.
+    We observe improved generative quality on the leaves of the rose after reparameterization iterations}
+    \label{fig_rose_sub_reparam}
+\end{figure}
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}{0.49\textwidth}
+    \includegraphics[width=\textwidth]{img_tree_Prune_and_refine_5phases_eta=05.png}
+    \subcaption{
+    Per-block $W_2^2$
+    over reparameterization iterations and refinement 
+    (`r-Iter 1' means one reparameterization iteration after refinement).}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+    \includegraphics[width=\textwidth]{Img_tree_true_vs_gen_together.png}
+    \subcaption{Results at Iter 4  (middle) and r-Iter 1 (right). 
+    MMD and NLL values are shown in the title.}
+    \end{minipage}
+    \caption{
+    Same plots as in Figure \ref{fig_MINIBOONE_sub_reparam} for Fractal tree data.
+    We observe improved generative quality on the edges of the tree after refinement.
+    }
+    \label{fig_tree_sub_reparam}
+\end{figure}
+
+
+
+\subsubsection{Two-dimensional toy data}\label{app:2d_toy}
+
+\noindent
+\textit{Training and test data: }
+    We generate \revold{8K} test samples for each dataset,
+    and for the training split,
+    \begin{itemize}
+        \item For Rose (Figure \ref{fig_rose_full_data} and \ref{fig_rose_sub_reparam}) and Checkerboard and Olympic rings (Figure \ref{fig_rose_full_data}), we re-sample 10K training samples every epoch, for a total of 100 epochs per block. The batch size is 500.
+        \item For Fractal tree (Figure \ref{fig_rose_full_data} and \ref{fig_tree_sub_reparam}), we use a fixed training data of 200K samples, for a total of 50 epochs per block. The batch size is 2000.
+    \end{itemize}
+
+\noindent
+\textit{Choice of $h_k$:} The initial schedule is by setting $h_0=0.75, \rho=1.2$. We set $h_{\max}=5$ for rose, checkerboard, and Olympic rings, and $h_{\max}=3$ for fractal tree. For reparametrization and refinement, we use $\eta=0.5$ in the reparameterization iterations for all examples.
+\begin{itemize}
+    \item For Rose, 3 reparameterization moving iteration, no refinement. 
+    \item For Checkerboard and Olympic rings, 4 reparameterization moving iteration, no refinement. 
+    \item For Fractal tree, 4 reparameterization moving iteration, one refinement, and an additional reparameterization moving iteration.
+\end{itemize}
+\noindent
+\textit{MMD metric:} We use custom kernel bandwidth $h = 0.1 h_m$ where $h_m$ is the median distance of dataset $\bf{X}$ with $N=\revold{8K}$ (from true data distribution).
+From trained generative model, we generate $M=\revold{10K}$ test samples as $\bf{\tilde{X}}$.
+
+
+\vspace{5pt}
+\noindent
+\textit{Network and activation:} Fully-connected residual blocks with two hidden layers. We use the softplus activation ($\beta=20$) with 128 hidden dimensions. Before refinement, we train 9 residual blocks for rose, checkerboard, and Olympic rings, and train 6 residual blocks for fractal trees. The learning rate is 5e-3.
+
+\vspace{5pt}
+\noindent 
+\textit{Additional results:} Figure \ref{fig_rose_sub_reparam} and \ref{fig_tree_sub_reparam} illustrates the benefits of reparameterization and refinement. Specifically, the details of the generated rose around portions of leaves and of the generated tree around the smallest edges are clearer using these techniques. In terms of quantitative metrics, the NLL is also smaller, even though the MMD metric indicates there is no statistical difference between the ground truth and generated samples. 
+
+
+
+%
+\begin{table}[!t]
+\begin{center}
+\bgroup
+\caption{\label{tab_high_dim_appendix}
+\revold{
+Complete results on real tabular datasets to augment Table \ref{tab_high_dim} under the fixed-budget setting. 
+$L$ denotes to the number of residual blocks used in each dataset; for comparison, the free block in \JKO{} is not used. 
+For fair comparison across models, the number of batches indicates how many batches pass through all residual blocks. }
+}
+\def\arraystretch{1}%
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{lllccccrrc}
+    \hline
+    \multirow{2}{*}{Data Set}&\multirow{2}{*}{Model}&\multirow{2}{*}{\# Param} & \multicolumn{4}{c}{Training} & \multicolumn{3}{c}{Testing} \\
+    \cmidrule(lr){4-7} 
+    \cmidrule(lr){8-10}
+    & & & Time (h) & \# Batches & Time/Batches (s) & Batch size &  MMD-m & MMD-1  & NLL \\
+    \hline
+    \multirow{8}{*}{\makecell[l]{\textbf{{POWER}} \\ $d=6$}} 
+    
+    &  &  &     &   &     &     & 
+    \makecell[r]{\textbf{$\tau$: 1.73e-4}} &     \makecell[r]{\textbf{$\tau$: 2.90e-4}}             \\
+  &   \JKO{} &  76K, L=4 & 0.07 & 0.76K & 3.51e-1 & 10000 & 9.86e-5 & 2.40e-4 & -0.12 \\
+  &  OT-Flow &  76K & 0.36 & 7.58K & 1.71e-1 & 10000 & 7.58e-4 & 5.35e-4 &  0.32 \\
+  &   FFJORD &  76K, L=4  & 0.67 & 7.58K & 3.18e-1 & 10000 & 9.89e-4 & 1.16e-3 &  0.63 \\
+  &     IGNN & 304K, L=16 & 0.29 & 7.58K & 1.38e-1 & 10000 & 1.93e-3 & 1.59e-3 &  0.95 \\
+  &  IResNet & 304K, L=16 & 0.41 & 7.58K & 1.95e-1 & 10000 & 3.92e-3 & 2.43e-2 &  3.37 \\
+  & ScoreSDE &  76K & 0.06 & 7.58K & 2.85e-2 & 10000 & 9.12e-4 & 6.08e-3 &  3.41 \\
+  & ScoreSDE &  76K & 0.60 & 75.80K & 2.85e-2 & 10000 & 7.12e-4 & 5.04e-3 &  3.33 \\
+  \cmidrule(lr){2-10} 
+  &   \JKO{} &  57K, L=3 & 0.05 & 0.76K & 2.63e-1 & 10000 & 3.86e-4 & 7.20e-4 & -0.06 \\
+    \hline
+    \multirow{8}{*}{\makecell[l]{\textbf{GAS} \\ $d=8$}}  &  &  &     &   &     &     & 
+    \makecell[r]{\textbf{$\tau$: 1.85e-4}} &     \makecell[r]{\textbf{$\tau$: 2.73e-4}}       \\
+  &   \JKO{} &  76K, L=4 & 0.07 & 0.76K & 3.32e-1 & 5000 & 1.52e-4 & 5.00e-4 & -7.65 \\
+  &  OT-Flow &  76K & 0.23 & 7.60K & 1.09e-1 & 5000 & 1.99e-4 & 5.16e-4 & -6.04 \\
+  &   FFJORD &  76K, L=4 & 0.65 & 7.60K & 3.08e-1 & 5000 & 1.87e-3 & 3.28e-3 & -2.65 \\
+  &     IGNN & 304K, L=16 & 0.34 & 7.60K & 1.61e-1 & 5000 & 6.74e-3 & 1.43e-2 & -1.65 \\
+  &  IResNet & 304K, L=16 & 0.46 & 7.60K & 2.18e-1 & 5000 & 3.20e-3 & 2.73e-2 & -1.17 \\
+  & ScoreSDE &  76K & 0.03 & 7.60K & 1.42e-2 & 5000 & 1.05e-3 & 8.36e-4 & -3.69 \\
+  & ScoreSDE &  76K & 0.30 & 76.00K & 1.42e-2 & 5000 & 2.23e-4 & 3.38e-4 & -5.58 \\
+  \cmidrule(lr){2-10} 
+  &   \JKO{} &  95K, L=5 & 0.09 & 0.76K & 4.15e-1 & 5000 & 1.51e-4 & 3.77e-4 & -7.80 \\
+    \hline
+    \multirow{8}{*}{\makecell[l]{\textbf{MINIBOONE} \\ $d=43$}} &  &  &     &   &     &     & 
+    \makecell[r]{\textbf{$\tau$: 2.46e-4}} &     \makecell[r]{\textbf{$\tau$: 3.75e-4}}       \\
+  &   \JKO{} & 112K, L=4 & 0.03 & 0.34K & 3.61e-1 & 2000 & 9.66e-4 & 3.79e-4 & 12.55 \\
+  &  OT-Flow & 112K & 0.21 & 3.39K & 2.23e-1 & 2000 & 6.58e-4 & 3.79e-4 & 11.44 \\
+  &   FFJORD & 112K, L=4 & 0.28 & 3.39K & 2.97e-1 & 2000 & 3.51e-3 & 4.12e-4 & 23.77 \\
+  &     IGNN & 448K, L=16 & 0.63 & 3.39K & 6.69e-1 & 2000 & 1.21e-2 & 4.01e-4 & 26.45 \\
+  &  IResNet & 448K, L=16 & 0.71 & 3.39K & 7.54e-1 & 2000 & 2.13e-3 & 4.16e-4 & 22.36 \\
+  & ScoreSDE & 112K & 0.01 & 3.39K & 6.37e-3 & 2000 & 5.86e-1 & 4.33e-4 & 27.38 \\
+  & ScoreSDE & 112K & 0.10 & 33.90K & 6.37e-3 & 2000 & 4.17e-3 & 3.87e-4 & 20.70 \\
+    \hline
+    \multirow{9}{*}{\makecell[l]{\textbf{BSDS300}\\ $d=63$}} &  &  &     &   &     &     & 
+    \makecell[r]{\textbf{$\tau$: 1.38e-4}} &     \makecell[r]{\textbf{$\tau$: 1.01e-4}}            \\
+  &   \JKO{} & 396K, L=4 & 0.05 &  1.03K & 1.85e-1 & 1000 & 2.24e-4 & 1.91e-4 & -153.82 \\
+  &  OT-Flow & 396K & 0.62 & 10.29K & 2.17e-1 & 1000 & 5.43e-1 & 6.49e-1 & -104.62 \\
+  &   FFJORD & 396K, L=4 & 0.54 & 10.29K & 1.89e-1 & 1000 & 5.60e-1 & 6.76e-1 &  -37.80 \\
+  &     IGNN & 990K, L=10 & 1.71 & 10.29K & 5.98e-1 & 1000 & 5.64e-1 & 6.86e-1 &  -37.68 \\
+  &  IResNet & 990K, L=10 & 2.05 & 10.29K & 7.17e-1 & 1000 & 5.50e-1 & 5.50e-1 &  -33.11 \\
+  & ScoreSDE & 396K & 0.01 & 10.29K & 3.50e-3 & 1000 & 5.61e-1 & 6.60e-1 &   -7.55 \\
+  & ScoreSDE & 396K & 0.10 & 102.90K & 3.50e-3 & 1000 & 5.61e-1 & 6.62e-1 &   -7.31 \\
+ \cmidrule(lr){2-10} 
+  &   \JKO{} & 396K, L=4 & 0.08 &  1.03K & 2.76e-1 & 5000 & 1.41e-4 & 8.83e-5 & -156.68 \\
+    \hline
+\end{tabular}
+}
+\vspace{-0.015in}
+\egroup
+\end{center}
+\end{table}
+
+\subsubsection{Tabular datasets}\label{sec:real_data}
+
+\noindent
+\textit{Training and test data: }The four high-dimensional real datasets (POWER, GAS, MINIBOONE, BSDS300) come from the University of California Irvine (UCI) machine learning data repository, and we follow the pre-processing procedures of \citep{papamakarios2017masked}. Regarding data sizes,
+\begin{itemize}
+    \item POWER: 1.85M training sample and 205K test sample. 
+    \item GAS: 1M training sample, 100K test sample.
+    \item MINIBOONE: 32K training sample, 3.6K test sample.
+    \item BSDS300: 1.05M training sample, 250K test sample.
+\end{itemize}
+
+\noindent
+\textit{Choice of $h_k$:}  The initial schedule is by setting $h_0=1, \rho=1, h_{\max}=3$. For reparametrization and refinement, we use $\eta=0.5$ in the reparameterization iterations for all datasets. 
+
+
+\vspace{5pt}
+\noindent
+\textit{MMD metric:}
+\revold{When the test data from the MINIBOONE dataset is less than 10K in size, we use all the test sets as $\bf{X}$ and $N$ is the size of the test data. When the test data from all three other datasets has more than 10K samples, we randomly select $N=10K$ samples from the entire test data,}
+and the same random test subset is used to evaluate all models. 
+We use the median distance kernel bandwidth and generate $M=10K$ test samples from each model to form $\bf{\tilde{X}}$.
+
+\vspace{5pt}
+\noindent
+\textit{Network and activation:} We use the softplus activation for all networks. Regarding the design of residual blocks, we use fully-connected residual blocks with two hidden layers. On POWER, GAS, and MINIBOONE, we use 128 hidden nodes, and on BSDS300, we use 256 hidden nodes. The number of residual blocks for four tabular datasets is described in Tables \ref{tab_high_dim_appendix} and \ref{tab_high_dim_appendix_2}. Regarding learning rate, it is 1e-3 on POWER, 2e-3 on GAS, 5e-3 on MINIBOONE, and 1.75e-3 on BSDS300.
+
+%
+\begin{table}[!t]
+\begin{center}
+\bgroup
+\caption{
+\revold{
+The OT-Flow and FFJORD baselines marked with  $^*$ are from the original papers \citep{OT-Flow} and \citep{FFJORD}. 
+The results of  \JKO{} are obtained after applying the reparameterization technique.} 
+}
+\label{tab_high_dim_appendix_2}
+\def\arraystretch{1}
+\resizebox{0.55\textwidth}{!}{
+\begin{tabular}{lllccc}
+    \hline
+    Data Set & Model & \# Param & \multicolumn{2}{c}{Training} & Testing \\
+    & & & \# Batches & Batch size &  NLL\\
+    \hline
+    \multirow{3}{*}{\makecell[l]{\textbf{{POWER}} \\ $d=6$}} & \JKO{} & 95K, L=5  & 6.08K  & 10000  & -0.40 \\
+  & OT-Flow$^*$
+  &  18K  & 22K& 10000 & -0.30\\
+  & FFJORD$^*$
+  &  43K, L=5  & -  & 10000  & -0.46 \\
+    \hline
+    \multirow{3}{*}{\makecell[l]{\textbf{GAS} \\ $d=8$}} & \JKO{} & 114K, L=6 & 6.08K & 5000 & -9.43 \\
+  & OT-Flow$^*$
+  &  127K & 52K & 2000  & -9.20\\
+  & FFJORD$^*$
+  &  279K, L=5 & - & 1000 & -8.59\\
+    \hline
+    \multirow{3}{*}{\makecell[l]{\textbf{MINIBOONE}\\ $d=43$}} & \JKO{} & 112K, L=4 & 2.72K & 2000 & 10.55 \\
+  & OT-Flow$^*$
+  &  78K & 7K &  2000 & 10.55\\
+  & FFJORD$^*$ 
+  &  821K, L=1 & - & 1000 & 10.43 \\
+    \hline
+    \multirow{3}{*}{\makecell[l]{\textbf{BSDS300}\\ $d=63$}} & \JKO{} & 495K, L=5 &  2.06K & 5000 & -157.75 \\
+  & OT-Flow$^*$
+  &  297K &  37K & 300 & -154.20\\
+  & FFJORD$^*$
+  &  6.7M, L=2 & - & 10000 & -157.40\\
+    \hline
+\end{tabular}
+}
+\vspace{-0.015in}
+\egroup
+\end{center}
+\end{table}
+
+%
+\begin{table}[!b]
+\begin{center}
+\caption{
+NLL per noise scheduler and $\bar{\beta}_{\max}$ combination of ScoreSDE on MINIBOONE. The three settings ``linear, constant, quadratic'' follow the DDPM suggestion \citep{ho2020denoising}. The mean and standard deviation are computed over three replicas of the trained model.
+}
+\label{tab_noise_schedule}
+\def\arraystretch{1}
+\resizebox{0.75\textwidth}{!}{
+\begin{tabular}{lccccc}
+    \hline
+    Noise scheduler \textbackslash \ $\bar{\beta}_{\max}$ & 1 & 5 & 10 & 15 & 20 \\
+    \hline
+    Linear     & 24.51 (0.24)  & 18.73 (0.64)  & 20.28 (0.38)  & 26.76 (1.77)  & 26.83 (1.23)  \\
+    Constant   & 25.47 (0.25)  & 30.37 (0.84)  & 37.73 (0.98)  & 40.47 (1.27)  & 45.32 (0.40)  \\
+    Quadratic  & 27.19 (0.14)  & 17.45 (0.17)  & 18.48 (0.38)  & 18.90 (0.48)  & 21.35 (0.60)  \\
+    \hline
+\end{tabular}
+}
+\end{center}
+\end{table}
+
+\vspace{5pt}
+\noindent 
+\textit{Additional results:}
+%
+For experiments under the fixed-budget setting, 
+Table \ref{tab_high_dim_appendix} shows the complete results of \JKO{} against competitors on tabular datasets.
+%
+In the extra lines in the table,
+we show the result of \JKO{} with $L=3$ for POWER
+and $L=5$ for GAS, as these numbers of $L$ are determined by the termination criterion in Algorithm \ref{block_training}.
+(The main lines show the results with $L=4$ so that our model has the same capacity as the alternatives.)
+BSDS300 has an extra line for \JKO{} trained with batch sizes 5000,
+which improves over the result with batch size 1000.
+%
+For ScoreSDE, we use the implementation in \citep{huang2021variational}, which, during training, maximizes the evidence lower bound (ELBO) as an equivalent objective to the score-matching loss.
+%
+Although ScoreSDE is the fastest, its performance, even under 100 times more mini-batch stochastic gradient descent steps than JKO-iFlow, is still worse than \JKO{} in terms of both MMD-m and NLL.
+
+%
+To visualize the generative performance, scatter plots of the generated samples by \JKO{} and competitors on these tabular datasets are shown in Figure \ref{pca_projection} after projected to 2 dimensions (determined by principal components computed from true data test samples). The plots show a closer match between those from \JKO{} with the ground truth in distribution.
+%
+For experiments allowing more expensive models and longer training time, Table \ref{tab_high_dim_appendix_2} shows the results of \JKO{} after additional training of trajectory reparametrization
+in comparison with other baselines cited from the original papers.
+We run 7 reparameterization iterations on POWER, GAS, and MINIBOONE and 1 reparameterization iteration on BSDS300. A free block is used on POWER, GAS, and BSDS300.
+
+To ensure a fair comparison against diffusion models, we perform additional experiments using different noise schedulers $\beta(t)$ and $\bar{\beta}_{\max}$ in ScoreSDE on MINIBOONE, following the noise scheduler suggestions in DDPM \citep{ho2020denoising}. Note that DDPM can be viewed as a discrete-time version of the variance-preserving ScoreSDE model.
+As shown in Table \ref{tab_noise_schedule}, the performance of ScoreSDE is indeed sensitive to the noise schedule. However, the best NLL of ScoreSDE 17.45 from the table is still noticeably higher than the NLL of 12.55 obtained by \JKO{} on MINIBOONE in Table \ref{tab_high_dim_appendix}, and \JKO{} is trained using ten times less number of batches.
+% 
+\revold{To improve the performance of ScoreSDE on this example, we use ScoreSDE without restrictions on modeling and computation. Specifically, we consider a larger network following the setup in \citep{albergo2023building}, where the network has 4 hidden layers with 512 hidden nodes per layer and consists of 831K parameters in total. We then train this larger model for 100K batches using ScoreSDE with various noise schedulers, choosing noise schedulers that performed best based on results in Table \ref{tab_noise_schedule}. From the results reported in Table \ref{tab_fair_diffusion}, we see that the testing NLL by ScoreSDE can be as low as 10.47, which is among the state-of-the-art values reported in Table \ref{tab_high_dim_appendix_2}. Nevertheless, we want to highlight that the proposed \JKO{} can obtain competitive results (i.e., 10.55 in Table \ref{tab_high_dim_appendix_2}) with much smaller models: each \JKO{} block has only 2 hidden layers with 128 hidden nodes per layer, and we trained 4 blocks that contain 112K parameters in total. We also trained \JKO{} for only 2.72K batches, rather than the 100K batches we used for ScoreSDE.}
+
+%
+\begin{table}[!t]
+\begin{center}
+\caption{\revold{Testing NLL per noise scheduler and $\bar{\beta}_{\max}$ combination of ScoreSDE on MINIBOONE, using a larger network with longer training. The table format is identical to that of Table \ref{tab_noise_schedule}.
+}}
+\label{tab_fair_diffusion}
+\def\arraystretch{1}
+\revold{
+\resizebox{0.57\textwidth}{!}{
+\begin{tabular}{lccc}
+    \hline
+    Noise scheduler \textbackslash \ $\bar{\beta}_{\max}$ & 5 & 10 & 15\\
+    \hline
+    Linear     & 11.33 (0.44)  & 10.84 (1.17)  & 10.47 (0.13)  \\
+    Quadratic  & 12.88 (0.40)  & 11.11 (0.24)  & 11.05 (0.49)  \\
+    \hline
+\end{tabular}
+}}
+\end{center}
+\end{table}
+
+
+% PCA plots
+\begin{figure}[!t]
+    \centering
+    \vspace{0.2in}
+    % Power
+    \begin{minipage}{0.335\textwidth}
+        \includegraphics[width=\linewidth]{power_PCA_2D_compare.png}
+        \subcaption{Power}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+    \vspace{-0.2in}
+    \includegraphics[width=\linewidth]{power_PCA_2D_compare_OTFlow.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{power_PCA_2D_compare_FFJORD.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{power_PCA_2D_compare_IGNN.png}
+    \end{minipage}
+    \begin{minipage}{0.16\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{power_PCA_2D_compare_ScoreSDE.png}
+    \end{minipage}
+
+    % Gas
+    \begin{minipage}{0.34\textwidth}
+        \includegraphics[width=\linewidth]{gas_PCA_2D_compare.png}
+        \subcaption{Gas}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{gas_PCA_2D_compare_OTFlow.png}
+    \end{minipage}
+    \begin{minipage}{0.16\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{gas_PCA_2D_compare_FFJORD.png}
+    \end{minipage}
+    \begin{minipage}{0.16\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{gas_PCA_2D_compare_IGNN.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{gas_PCA_2D_compare_ScoreSDE.png}
+    \end{minipage}
+    
+    % MINIBOONE
+    \begin{minipage}{0.335\textwidth}
+        \includegraphics[width=\linewidth]{MINIBOONE_PCA_2D_compare.png}
+        \subcaption{MINIBOONE}
+    \end{minipage}
+    \begin{minipage}{0.16\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{MINIBOONE_PCA_2D_compare_OTFlow.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{MINIBOONE_PCA_2D_compare_FFJORD.png}
+    \end{minipage}
+    \begin{minipage}{0.16\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{MINIBOONE_PCA_2D_compare_IResNet.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{MINIBOONE_PCA_2D_compare_ScoreSDE.png}
+    \end{minipage}
+    
+    % BSDS300
+    \begin{minipage}{0.325\textwidth}
+        \includegraphics[width=\linewidth]{bsds300_PCA_2D_compare.png}
+        \subcaption{BSDS300}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{bsds300_PCA_2D_compare_OTFlow.png}
+    \end{minipage}
+    \begin{minipage}{0.15\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{bsds300_PCA_2D_compare_FFJORD.png}
+    \end{minipage}
+    \begin{minipage}{0.15\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{bsds300_PCA_2D_compare_IGNN.png}
+    \end{minipage}
+    \begin{minipage}{0.155\textwidth}
+        \vspace{-0.2in}\includegraphics[width=\linewidth]{bsds300_PCA_2D_compare_ScoreSDE.png}
+    \end{minipage}
+    
+    \caption{Generative quality on tabular datasets via PCA projection {of generated samples}. The generative quality in general aligns with the quantitative metrics in Table \ref{tab_high_dim} and \ref{tab_high_dim_appendix}.}
+    \label{pca_projection}
+\end{figure}
+
+\revold{
+\subsubsection{Image generation with pre-trained variational auto-encoder}
+
+ 
+We perform image generation on MNIST \citep{deng2012mnist}, CIFAR10 \citep{krizhevsky2009learning}, and Imagenet-32 \citep{deng2009imagenet} datasets. We do so in the latent space of a pre-trained VAE, where we discuss the details below.
+
+\vspace{0.1in}
+\noindent \textit{VAE as data pre-processing:}
+We train deep VAEs in an adversarial manner following \citep{esser2021taming}, and use pre-trained VAEs to pre-process the input images $X$. Specifically, the encoder $\mathcal{E}: X \rightarrow (\mu(X), \Sigma(X))$ of the VAE maps a RGB-image $X$ to parameters of a multivariate Gaussian distribution $\calN(\mu(X), \Sigma(X))$ in a lower dimension $\tilde{d}$. Then, given any random latent code $\tilde{X} \sim \calN(\mu(X), \Sigma(X))$, the decoder $\mathcal{D}: \tilde{X} \rightarrow \hat{X}$ of the VAE is trained so that $X\approx \hat{X}$ for the reconstructed image $\hat{X}=\mathcal{D}(\tilde{X}).$ On MNIST, we let the latent-space dimension $\tilde{d}=20$, and on CIFAR10 and ImageNet32, we let the latent-space dimension $\tilde{d}=192$. There are 5.6M parameters in the VAE encoder and 8.25M parameters in the VAE decoder.
+% 
+Given a trained VAE, we then train the \JKO{} model $T_{\theta}$ to transport invertibly between the distribution of random latent codes $\tilde{X}$ defined over all training images $X$ and the standard multivariate Gaussian distribution in $\R^{\tilde{d}}$. 
+
+\vspace{0.1in}
+\noindent \textit{Training and test data:} Training data: 60K images in MNIST, 50K images in CIFAR10, and 1.28M images in Imagenet-32. Test data: 10K images in MNIST and CIFAR10, and 50K images in Imagenet-32.
+
+
+\vspace{0.1in}
+\noindent \textit{Choice of $h_k$:} 
+on MNIST, we specify $\{h_0=1, \rho=1, h_{\max}=1\}$.
+% 
+on CIFAR10, we specify $\{h_0=1, \rho=1, h_{\max}=1\}$.
+%
+On Imagenet-32, we specify $\{h_0=1, \rho=1.1, h_{\max}=\infty\}$.
+% 
+We train $L=6$ blocks on MNIST, and we train $L=8$ blocks on CIFAR10 and Imagenet-32. On CIFAR10 and Imagenet-32, we also scale $h_k=T \cdot h_k/\sum_j h_j$ so $\sum_k h_k = T$. We let $T=0.8$ on CIFAR10 and $T=0.4$ on Imagenet-32.
+
+% CIFAR10 & Imagenet-32 uncurated
+\begin{figure}[!t]
+    \centering
+    \begin{minipage}{\linewidth}
+        \includegraphics[width=\linewidth]{CIFAR10_uncurated.png}
+        \subcaption{Generated CIFAR10 images}
+    \end{minipage}
+    \begin{minipage}{\linewidth}
+        \includegraphics[width=\linewidth]{ImageNet_uncurated.png}
+        \subcaption{Generated Imagenet-32 images}
+    \end{minipage}
+    \caption{Uncurated generated samples of CIFAR10 and Imagenet-32 by \JKO{} in latent space.}
+    \label{fig:img_uncurated}
+\end{figure}
+\vspace{0.1in}
+\noindent \textit{Network architecture:} 
+We use the softplus activation with $\beta=20$ for all hidden layers.
+%
+On MNIST, we use fully connected residual blocks with three hidden layers at 256 hidden nodes.
+%
+On CIFAR10 and Imagenet-32, we parametrize each ${\bf f}_{\theta_b}$ as  a concatenation of convolution layers and transposed convolution layers. Specifically:
+\begin{itemize}
+    \item CIFAR10: convolution layers have channels \texttt{3-64-128-256-256} with kernel size 3 and strides \texttt{1-1-2-1}. Transposed convolution layers have channels \texttt{256-256-128-64-3} with kernel size \texttt{3-4-3-3} and strides \texttt{1-2-1-1}. Total 2.1M parameters.
+    \item Imagenet-32: convolution layers have channels \texttt{3-64-128-256-512} with kernel size 3 and strides \texttt{1-1-2-1}. Transposed convolution layers have channels \texttt{512-256-128-64-3} with kernel size \texttt{3-4-3-3} and strides \texttt{1-2-1-1}. Total 3.3M parameters.
+\end{itemize}
+We remark that because inputs into the \JKO{} blocks are latent-space codes that have much lower dimensions than the original image, our \JKO{} blocks are simpler and lighter in design than models in previous NeuralODE \citep{FFJORD,finlay2020train} and diffusion model works \citep{ho2020denoising,song2021score,boffi2023probability}. For instance, the DDPM model \citep{ho2020denoising} on CIFAR10 has 35.7M parameters with more sophisticated model designs.
+
+
+\vspace{0.1in}
+\noindent \textit{Training specifics:} 
+On MNIST, we fix the batch size to be 2000 during training, and we train 15K batches per \JKO{} block. We fix the learning rate to be 1e-3.
+
+% 
+On CIFAR10 and Imagenet-32, we fix the batch size to be 512 during training, and we train 75K batches per \JKO{} block. The time per batch is 0.18 seconds on Imagenet-32 and 0.15 seconds on CIFA10. The total time on Imagenet-32 is 30 hours and on CIFAR10 is 24 hours.
+% 
+When training the blocks, the initial learning rate $\texttt{lr0}$ is decreased by a constant factor of 0.9 every 2500 batches. We let $\texttt{lr0}$ be 1e-3 when training the first 5 blocks on Imagenet-32 and decrease it to be 8e-4 on blocks 6-8. We let $\texttt{lr0}$ be 1e-3 when training the first 2 blocks on CIFAR10 and decrease it to be 7.5e-4 on the rest 6 blocks. Additionally, we use gradient clipping of max norm 1 after collecting gradients on each mini-batch.
+
+
+\vspace{0.1in}
+\noindent \textit{Additional results:} We perform the following steps to curate generated samples for CIFAR10 and Imagenet-32, which are shown in Figure \ref{fig:mnist-cifar-imagenet}, 
+%
+we first train an image classifier (i.e., VGG-16 \citep{Simonyan15}) on the training data.
+%
+Then, we generate a large number of uncurated images (200K for Imagenet-32 and 20K for CIFAR10), classify them using the pre-trained classifier, and sort them based on top-1 predicted probability. 
+%
+Upon sorting the top 20K images for Imagenet-32 and the top 750 images for CIFAR10, we manually select the images that most resemble the given predicted class. 
+% 
+Figure \ref{fig:img_uncurated} further shows uncurated images on CIFAR10 and Imagenet-32 by the same \JKO{} model after training. 
+
+
+
+
+}
+
+
+
+
+\subsubsection{Conditional generation}\label{append_cond_gen}
+
+%
+\begin{figure}[!t]
+\vspace{0.15in}
+    \begin{minipage}{0.35\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{_true_vs_gen.png}
+        \subcaption{Two-circles data (unconditional)}
+        \label{circle}
+    \end{minipage}
+    \hspace{0.05in}
+    \begin{minipage}{0.63\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{two_moon_true_vs_gen.png}
+        \subcaption{Two-moons data (conditional)}
+        \label{fig_cond_gen_toy}
+    \end{minipage}
+    \caption{
+    Unconditional and conditional generation on simulated toy datasets by \JKO{}. We color samples in (b) by the class label $Y$, taking binary values. 
+    In both (a) and (b), the generated samples are close to the true samples in distribution. 
+    In (b), the pushforward distribution by \JKO{}, denoted as $\hat{H}|Y$, is also close to the target Gaussian mixture distribution $H|Y$.
+    }
+    \label{fig_2d_full_data_append}
+\end{figure}
+
+
+To modify the \JKO{} to apply to the conditional generation task, 
+we follow the framework in \cite{xu2022invertible},
+which trains a single flow mapping from $X$ to $H$ that pushes to match each component of the distribution associated with a distinct output label value $Y=k$, $k=1,\cdots, K$. 
+Specifically, for a data-label pair $\{X_i, Y_i\}$, consider the continuous ODE trajectory $x(t)$ starting from $x(0) = X_i$, the per-sample training objective is by changing the term $V( x(t_{k+1}))$ in \eqref{eq:loss-block-k} to be $V_{Y_i}( x(t_{k+1}) )$, where $V_{k}(\cdot)$ is the potential of the Gaussian mixture component $H| Y=k$. Because the Gaussian mixture is parameterized by mean vectors (the covariance is isotropic with fixed variance) \citep{xu2022invertible}, the expression of $V_{k}(\cdot)$ is a quadratic function with explicit expression. 
+
+
+
+\vspace{5pt}
+\noindent
+\textit{Training and test data: }
+\begin{itemize}
+    \item For the simulated two-moon data, we re-sample 5K training samples every epoch, for a total of 40 epochs per block. The batch size is 1000. 
+
+
+    \item The solar dataset is retrieved from the National Solar Radiation Database (NSRDB), following the data pre-processing in \citep{xu2022invertible}. The dataset has a 1K training samples and a 1K test samples. The batch size is 500, and each block is trained for 50 epochs.
+    
+    
+\end{itemize}
+
+
+\vspace{5pt}
+\noindent
+\textit{Choice of $h_k$:} 
+For both datasets, 
+$h_0=1, \rho=1, h_{\max}=3$. The reparameterization and refinement techniques are not used. 
+
+
+\vspace{5pt}
+\noindent
+\textit{MMD metric:} 
+The MMD values are computed for each specific value of $Y$ (across all graph nodes).
+When $Y$ is fixed, we retrieve test samples from true data, denoted as $\boldsymbol X|Y$,
+and generate model distribution samples, denoted as $\boldsymbol{\tilde{X}}|Y$, and then compute the MMD values the same as in the unconditional case. \revold{Due to the relatively small sample size of $\boldsymbol X|Y$ (679 and 144 respectively), we report the average values of MMD-m and threshold $\tau$ over 50 replicas. In each replica, we subsample 90\% observations of $\boldsymbol X|Y$ and generate $M=2000$ samples to form $\boldsymbol{\tilde{X}}|Y$.}
+For the results in Figure \ref{cond_gen_solar}, 
+for the $Y$ in plots (a)(b), $N=612$ samples are randomly sampled from $\boldsymbol{X}|Y$ in each replica,
+and the standard deviation of MMD-m values is less than the 2e-3 level.
+For the $Y$ in plots (c)(d), $N=130$ samples are randomly sampled from $\boldsymbol{X}|Y$ in each replica,
+and the standard deviation of MMD-m values is less than the 5e-3 level.
+The median distance kernel bandwidth \revold{computed on the entire $\boldsymbol{X}|Y$} is used in computing the MMD values. 
+
+\vspace{5pt}
+\noindent
+\textit{Network and activation:} Regarding design of residual blocks, 
+\begin{itemize}
+    \item On two-moon data, we use fully-connected residual blocks with two hidden layers under 128 hidden nodes. The activation is Tanh. We train four residual blocks. The learning rate is 5e-3.
+    \item On solar data, we follow the same design of residual blocks as \citep{xu2022invertible}. More precisely, each residual block contains one Chebnet \citep{Chebnet} layer with degree 3, followed by two fully-connected layers with 64 hidden nodes. The activation is ELU. We train 11 residual blocks. The learning rate is 5e-3.
+\end{itemize}
+
+
+\end{document}

@@ -1,0 +1,312 @@
+%\SL{------ Working Sections -----}
+
+
+\section{Revisiting Machine Unlearning and Evaluation}
+\label{sec: primer_MU}
+
+
+
+\iffalse 
+In this section, we begin by formulating the problem of {\MU} (machine unlearning) and     reviewing  unlearning methods regarded as baselines in this work. Next, we  revisit how the
+%provide a holistic understanding of 
+unlearning performance can be assessed using diverse and    complementary  metrics.
+\fi 
+
+
+\noindent \textbf{Problem setup.}
+MU aims to remove ({or} scrub) the influence of some targeted training data on a trained ML model \cite{cao2015towards,bourtoule2021machine}. 
+\iffalse 
+%trained over the entire training set. 
+This problem was  raised for protecting data privacy 
+%the     private data information contained in the training set 
+\citep{cao2015towards,bourtoule2021machine}, in particular in coming forth with legislation like  General Data Protection Regulation (GDPR) \cite{hoofnagle2019european} and  California Consumer Privacy Act (CCPA) \cite{pardau2018california}. It can also be viewed as a method of understanding dataset influence
+%\PR{dataset influence?}
+in model training
+%analysis method to understand the dataset 
+\cite{koh2017understanding}. 
+\fi 
+%We elaborate on its mathematical formulation below. 
+%of {\MU} below.
+%of the MU problem is illustrated below.
+Let $\mathcal{D} = \{\mathbf z_i \}_{i=1}^N$ be a (training) dataset of $N$  data points, with label information encoded for supervised learning. $\Df \subseteq \mathcal D$ represents  a subset whose influence we want to scrub, termed
+%. We term  $\Df $ 
+the \textbf{forgetting dataset}.
+%typically with a  less number of data points than  $\mathcal D$, 
+%\textit{e.g.}, the set of data points  in  a single class with sensitive data content to be scrubbed. 
+Accordingly, the complement of $\Df$ is the \textbf{remaining dataset}, \textit{i.e.}, $\Dr = \mathcal D \setminus \mathcal{D}_{\mathrm{f}}$.
+We denote by $\btheta$ the model parameters, and $\thetafull$   the \textbf{original  model} trained    on the entire training set  $\mathcal D$ using \textit{e.g.}, empirical risk minimization (ERM). Similarly, we denote by $\thetaunl$  an \textbf{unlearned model}, obtained by a scrubbing algorithm, after    removing the influence of $\Df$ from the  trained model $\thetafull$. The \textbf{problem of MU} is to find an accurate and efficient  scrubbing mechanism  to generate  $\thetaunl$   from  $\thetafull$. 
+In existing studies \cite{golatkar2020eternal,graves2021amnesiac,bourtoule2021machine}, the choice of the forgetting dataset $\Df$ specifies different unlearning scenarios. 
+There exist two main categories. 
+{First}, \textit{class-wise forgetting} \cite{golatkar2020eternal,graves2021amnesiac} refers to  unlearning $\Df$ consisting of training data points of an entire class. 
+% Second, \textit{random data forgetting (per class)} \cite{golatkar2020eternal} refers to unlearning $\Df$   given by a subset of data points randomly selected from a single class, \textit{e.g.}, the basic backdoor data poisoning setup in \SL{\cite{gu2017badnets,liu2022backdoor}}. 
+Second, \textit{random data forgetting} corresponds to unlearning $\Df$  given by a  subset of random data drawn from all classes.
+%\JH{delete random data forgetting (one class)}
+
+
+
+% {\color{cyan}
+% \noindent \textbf{Different unlearning scenarios.}
+% There are various unlearning scenarios in the machine unlearning area. Here we summarize them into three main categories based on how the forgetting dataset is selected. 
+
+% \ding{70} \textit{Class-wise forgetting} \cite{golatkar2020eternal,graves2021amnesiac}
+% The forgetting dataset $D_f$ contains one class.
+
+
+% \ding{70} \textit{Random data forgetting (per-class)} \cite{golatkar2020eternal}
+% $D_f$ only contains a subset of data points from a single class. 
+
+
+
+% \ding{70} \textit{Random data forgetting (all-class)} \cite{bourtoule2021machine}
+% $D_f$ contains data points randomly selected from all classes.
+%}
+%given $\Df$ and $\mathcal D$. 
+% \PS{redundant sentences}
+%
+% We express the above unlearning process  as
+% $
+%  \thetaunl  \overset{\mathrm{MU}}{\longleftarrow} S( \thetafull, \Df, \mathcal D )
+% $.
+% \begin{align}
+%     \thetaunl  \overset{\mathrm{MU}}{\longleftarrow} S( \thetafull, \Df, \mathcal D ).
+% \end{align}
+%
+
+\noindent \textbf{Exact and approximate MU methods.} The \textit{exact unlearning}  method refers to 
+%the ground-truth scrubbing strategy of 
+\textit{retraining} the model parameters  from \textit{scratch} over the remaining dataset $\Dr$. 
+%We call this exact method   \textbf{\retrain} and denote the resulting unlearned model by $\thetaEU$.
+Although retraining from scratch (that we term  \textbf{\retrain})
+is optimal for MU, it entails a large computational overhead, particularly for DNN training. This problem is alleviated by \textit{approximate unlearning}, an easy-to-compute proxy for {\retrain}, which has received growing attention.
+%For ease of presentation, the model parameters of using approximate unlearning is denoted by  
+Yet,   the boosted computation efficiency   comes at the cost of  MU's  efficacy. %Thus, the development of effective   approximate unlearning methods is now a major research focus. 
+We next review some commonly-used approximate unlearning methods that we improve in the sequel by leveraging sparsity; see a summary in  \textbf{Tab.\,\ref{tab: summary_MU_methods_metrics}}. 
+
+%\PS{$\thetafull$ is fixed but $\thetaunl$ is method dependent. So, should we differentiate different $\thetaunl$'s in the following description, e.g., $\thetaunl^{\text{FT}}$, $\thetaunl^{\text{GA}}$, $\thetaunl^{\text{FF}}$, etc. to avoid confusion.}
+
+
+%will serve as our baselines.\PR{``... methods we will improve in the sequel by leveraging sparsity.''}
+
+%$\bhq$
+
+\input{texs/tabs/summary_MU_methods_metrics}
+\noindent\ding{70} \textit{Fine-tuning (\textbf{\FT})} \cite{golatkar2020eternal,warnecke2021machine}:  
+Different from    {\retrain}, {\FT} fine-tunes the   pre-trained  model   $\thetafull$ on {$\Dr$} using a few training epochs to obtain ${\thetaunl}$. The rationale is that fine-tuning on {$\Dr$} initiates the catastrophic forgetting in  the model over {$\Df$} as is common in continual learning \cite{parisi2019continual}. 
+
+\noindent\ding{70} \textit{Gradient ascent (\textbf{\GA})} \cite{graves2021amnesiac,thudi2021unrolling}:
+{\GA} reverses the model training on  %the forgetting dataset 
+$\Df$ by adding the corresponding gradients    back to  $\thetafull$, \textit{i.e.}, moving $\thetafull$  in the direction of increasing  loss for   data points to be scrubbed. 
+%The unlearning error of using GA was also approximated and bounded  by \citet{thudi2021unrolling} in the scenario of unlearning a single data point.  
+
+%  is the opposite of gradient de- scent performed to train the model normally.
+% we fine-tune on D by moving in the direction of increasing loss for samples in Df , which is equivalent to using a negative gradient for the samples to forget. This aims to damage features predicting Df correctly. 
+
+
+\noindent \ding{70} \textit{Fisher forgetting (\textbf{\FF})}  \cite{golatkar2020eternal,becker2022evaluating}:
+{\FF} adopts  an  additive Gaussian noise  to `perturb'   $\thetafull$ towards   exact unlearning.
+%model from {\retrain}.
+%\PS{But how do we know the model from \retrain?} 
+Here the Gaussian distribution has zero mean  and covariance determined by  the $4$th root of Fisher Information matrix with respect to (w.r.t.) $\thetafull$ on   $\Dr$.
+%We note that the computation of the Fisher Information matrix could lower the  efficiency of {\FF} on GPUs
+We note that the computation of the Fisher Information matrix exhibits lower parallel efficiency in contrast to other unlearning methods, resulting in higher computational time when executed on GPUs; see
+\citet{golatkar2020eternal} for implementation details. %\SL{Why is slow?}
+
+
+\noindent \ding{70} \textit{Influence unlearning (\textbf{\IU})} \cite{koh2017understanding,izzo2021approximate}:
+{\IU} leverages the influence function approach \cite{cook1982residuals} to characterize the change in  $\thetafull$  if a training point is removed from the training loss. {\IU} estimates the change in model parameters from $\thetafull$ to $\thetaunl$, \textit{i.e.}, $\thetaunl - \thetafull$.  {{\IU} also relates to an important line of research in MU, known as $\epsilon$-$\delta$ forgetting \cite{wang2022federated,guo2019certified,xu2023machine}. However, it typically requires additional model and training assumptions \cite{guo2019certified}. 
+%the application of $\epsilon$-$\delta$ forgetting is limited to linear finetuning of Deep Learning (DL) models \cite{guo2019certified}. Furthermore, it necessitates alterations to the model training pipeline \cite{guo2019certified}. Such constraints are not congruent with our objective of efficiently approximating unlearning on pre-trained DL models. Given these inherent limitations and misalignment with our goals, we have chosen not to compare methods from the $\epsilon$-$\delta$ forgetting domain in our paper. 
+}
+%as derived in Proposition\,\ref{prop: IU}.
+
+We next take a step further to revisit the {\IU} method and re-derive its formula (\textbf{Prop.\,\ref{prop: IU}}), with the aim of enhancing the effectiveness of existing  solutions proposed in the previous research.
+
+\iffalse
+Specifically, let us consider a \textit{weighted} ERM training, yielding   the optimization problem $\btheta(\mathbf w) = \argmin_{\btheta} L(\mathbf w, \btheta)$, where $L(\mathbf w, \btheta) = \sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]$. 
+%\PS{We can change $\ell_i$ to $\ell$, since the dependence on $i$ is already present in $\mathbf z_i$} 
+Here
+%we explicitly express the learned model as a function of the data influence weights $\mathbf w$,  
+$\ell_i (\btheta, \mathbf z_i)$ is the training loss of $\btheta$  on the data point $\mathbf z_i$,   $w_i \in [0,1]$ is the influence weight associated with $\mathbf z_i$, and $\mathbf 1^T \mathbf w = 1$.
+%$L(\mathbf w, \btheta) = \sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]$, where $\btheta$ is the variable of model parameters,  $\ell_i (\btheta, \mathbf z_i)$ is the training loss of $\btheta$  on the data point $\mathbf z_i$,   $w_i \in [0,1]$ is the influence weight associated with $\mathbf z_i$ during training, and $\mathbf 1^T \mathbf w = 1$.
+Based on the above, the non-scrubbed (original) model  is   given by $\thetafull = \btheta(\mathbf 1/N)$,  and the exactly unlearned model by {\retrain} is  $\thetaunl = \btheta(\mathbf{1}_{\Dr}/\mathrm{card}(\Dr))$, 
+% $\thetaunl = \argmin_{\btheta} L(\mathbf{1}_{\Dr}/\mathrm{card}(\Dr), \btheta)$, 
+where $\mathbf{1}_{\Dr}\in\mathbb \{ 0,1\}^N$  is the binary vector whose $i$th element is $1$ if the $i$th data point belongs to $\Dr$ and $0$ otherwise, and $\mathrm{card}(\Dr)$ is the cardinality of $\Dr$.   {\IU} then  estimates the change in model parameters from $\thetafull$ to $\thetaunl$, \textit{i.e.}, $\thetaunl - \thetafull$, as derived in Proposition\,\ref{prop: IU}.
+%\PS{Do we want to keep this result here, given that this section is more of an overview, and this is our proof?}
+
+% $L(\mathbf w, \btheta) = \sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]$, where $\btheta$ is the variable of model parameters,  $\ell_i (\btheta, \mathbf z_i)$ is the training loss of $\btheta$  on the data point $\mathbf z_i$,   $w_i \in [0,1]$ is the influence weight associated with $\mathbf z_i$ during training, and $\mathbf 1^T \mathbf w = 1$. Based on the above, the model trained on the full dataset is   given by $\thetafull = \argmin_{\btheta} L( \mathbf 1/N, \btheta)$, and {\retrain} yields 
+% $\thetaunl = \argmin_{\btheta} L(\mathbf{1}_{\Dr}/\mathrm{card}(\Dr), \btheta)$, where $\mathbf{1}_{\Dr}\in\mathbb \{ 0,1\}^N$  is the (element-wise) binary vector whose $i$th element is $1$ if the $i$th data point belongs to $\Dr$ and $0$ otherwise, and $\mathrm{card}(\Dr)$ denotes the cardinality of $\Dr$. The {\IU} method aims to estimate the change in model parameters from $\thetafull$ to $\thetaunl$, \textit{i.e.}, $\Delta = \thetaunl - \thetafull$. We show the estimator of $\Delta$ of using {\IU} in Proposition\,\ref{prop: IU}.
+\fi
+
+
+\begin{myprop}
+\label{prop: IU}
+Given the weighted ERM training $\btheta(\mathbf w) = \argmin_{\btheta}
+L(\mathbf w,\btheta)
+%\sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]
+$ where $L(\mathbf w,\btheta) = \sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]$, 
+$w_i \in [0,1]$ is the influence weight associated with the data point $\mathbf z_i$ and $\mathbf 1^T \mathbf w = 1$, 
+%\revision{let $L(\mathbf w,\btheta) = \sum_{i=1}^N [w_i \ell_i (\btheta, \mathbf z_i)]$} for convenience,  
+the  model update from   $\thetafull$  to $\btheta(\mathbf w)$ yields %\YL{anyway we can explain briefly the "approximation" power? it seems weird to use the approximation without explaining in a proposition..}
+% \vspace*{-5mm}
+{\small\begin{align}
+   \hspace*{-2mm} \Delta(\mathbf w) \Def   \btheta(\mathbf w) - \thetafull \approx  \mathbf H^{-1} {\color{black}{  \nabla_{\btheta} L( \mathbf 1/N - \mathbf w, \thetafull)  }},  
+  \hspace*{-2mm}
+  \label{eq: Delta_IU}
+\end{align}}%
+where $\mathbf 1$ is the $N$-dimensional vector of all ones, {$\mathbf w=\mathbf{1}/N$ signifies the uniform weights used by ERM}, $\mathbf H^{-1} $ is the inverse of the Hessian    $\nabla^2_{\btheta,\btheta} L(\mathbf 1/N,  \thetafull)$ evaluated at $ \thetafull$, and $\nabla_{\btheta} L$ is the gradient of $L$. When scrubbing $\Df$, the unlearned model is given by
+$\thetaunl = \thetafull + \Delta(\mathbf{w}_\mathrm{MU})$. Here  
+%$\mathbf w_{\mathrm{MU}} = \mathbf{1}_{\Dr}/\mathrm{card}(\Dr)$,
+$\mathbf w_{\mathrm{MU}} \in [0, 1]^{N}$ with entries $w_{\mathrm{MU},i} = \mathbb{I}_{\Dr } (i) / |\Dr|$ signifying the data influence weights for {\MU}, %$\Dr = \mathcal D \setminus \mathcal{D}_{\mathrm{f}}$, 
+$\mathbb{I}_{\Dr } (i) $ is the indicator function with value 1 if $i \in \Dr $ and 0 otherwise, and $|\Dr|$ is the cardinality of $\Dr$.
+\end{myprop}
+% {\scriptsize \textcolor{red}{PS: $\mathbf w$ should be $N$-dimensional, so I guess $\mathbf w_{\mathrm{MU}}$ should be $N$-dimensional with $w_{\mathrm{MU}} (i) = 0$ if $i \in \mathcal{D}_{\mathrm{f}}$ and $w_{\mathrm{MU}} (i) = 1/|\mathcal{D}_{\mathrm{r}}|$ else. Also, if you're using ``card'' for cardinality, mention this explicitly.}}
+%
+%\vspace*{-0.5mm}
+\textbf{Proof}: We derive \eqref{eq: Delta_IU}  using an implicit gradient approach;
+%Different from  existing proofs in \cite{koh2017understanding,izzo2021approximate,warnecke2021machine}, we derive \eqref{eq: Delta_IU} from a bi-level optimization viewpoint; 
+see Appendix\,\ref{appendix: IU}.
+% \SL{[@Jinghan, @Jiancheng; add proof details using our current notations in Appendix.]}
+\hfill $\square$
+%\vspace*{-1.8mm}
+%\end{myprop}
+
+
+%\SL{[Missing remark on computing of  inverse Hessian-gradient product. ]}
+
+It is worth noting that we have taken into consideration the weight normalization effect $\mathbf 1^T \mathbf w =1$ 
+ in  \eqref{eq: Delta_IU}. This is   different from  existing work like \citet[Sec.\,3]{izzo2021approximate} using Boolean or unbounded weights. In practice, we found that {\IU} with  weight normalization can improve the unlearning performance. 
+Furthermore, 
+to update the model influence given by \eqref{eq: Delta_IU}, one needs to acquire the second-order information in the form of  inverse-Hessian gradient product. Yet, the exact computation is prohibitively expensive. To overcome this issue, we use the first-order WoodFisher approximation \cite{singh2020woodfisher} to estimate  the inverse-Hessian gradient product. 
+%of high accuracy.
+
+\noindent \textbf{Towards a `full-stack' {\MU} evaluation.}
+Existing work   has assessed  {\MU} performance from different aspects \cite{thudi2021unrolling,golatkar2020eternal,graves2021amnesiac}. 
+%\revision{In particular, Golatkar\citep{golatkar2020eternal} proposed `read-out' function to assess the performance of machine unlearning.} 
+%,  such as the Euclidean distance between an unlearned model $\thetaunl$  and the exactly unlearned model \cite{thudi2021unrolling},  the accuracy of   $\thetaunl$ on  $\Df$ \cite{golatkar2020eternal}, and membership inference of $\thetaunl$ on  $\Df$ \cite{graves2021amnesiac}. 
+Yet, a single  performance metric may provide   a limited %\PS{``limited'', ``incomplete''?}
+view of {\MU} \cite{thudi2022necessity}. 
+\iffalse 
+For example, it was shown in \cite{thudi2022necessity} that the unlearning error in the parameter space (given by the Euclidean distance between an unlearned model and retrained one) could give us a false sense of successful unlearning since it might be possible to   unlearn without modifying the model at all \YL{i think the above sentence is confusing: is it true that you can unlearn without modifying the model? that sounds unlikely..or did you mean that minimizing the unlearning error defined above can return an unmodified model }. 
+\fi 
+%which leads to a large Euclidean  distance from the exactly unlearned model.
+%Thus,  precisely evaluating the performance of {\MU}   remains a challenge. 
+By carefully reviewing the prior art, we focus on the following empirical metrics (summarized in  Tab.\,\ref{tab: summary_MU_methods_metrics}).
+
+\noindent \ding{70} \textit{Unlearning accuracy (\textbf{\UA})}: 
+% Given by the  accuracy  of an unlearned model $\thetaunl$  on the forgetting dataset $\Df$ (denoted by $\mathrm{Acc}_{\Df} (\thetaunl)$), 
+We define $\mathrm{\UA}(\thetaunl) = 1-\mathrm{Acc}_{\Df} (\thetaunl)$ to characterize the \textit{efficacy} of {\MU} in the accuracy dimension, where $\mathrm{Acc}_{\Df} (\thetaunl)$ is the  accuracy  of $\thetaunl$ on the forgetting dataset  $\Df$ \cite{golatkar2020eternal,graves2021amnesiac}.
+It is important to note that a more favorable {\UA}   for an approximate unlearning method should   \textbf{reduce its performance disparity  with  the gold-standard retrained model (\retrain)}; a higher value is not necessarily better. This principle also extends to other evaluation metrics.
+
+%Note that a better {\UA}  for   an approximate unlearning method signifies a smaller gap with {\UA} of  the gold-standard retrained model ({\retrain}). This also applies to other metrics.
+
+
+% Since $\thetaunl$ is expected  to scrub  the influence of $\Df$ in $\thetafull$, we expect $\mathrm{Acc}_{\Df}(\thetaunl) < \mathrm{Acc}_{\Df}(\thetafull) \Rightarrow \mathrm{\UA}(\thetaunl) > \mathrm{\UA}(\thetafull)$.   
+%$\mathrm{Acc}_{\Df} (\thetaunl)$ should be \textit{lower} than the accuracy of the unlearned model $\thetafull$ on $\Df$, yielding $\mathrm{\UA}(\thetaunl) > \mathrm{\UA}(\thetafull)$.
+
+\noindent \ding{70} \textit{Membership inference attack (MIA)  on  $\Df$ (\textbf{\MIAF})}:   This is another metric   to assess the \textit{efficacy} of unlearning.
+It is achieved by applying the   confidence-based MIA predictor \cite{song2019privacy,yeom2018privacy} to the unlearned model ($\thetaunl$) on the forgetting dataset ($\Df$). The MIA success rate can then indicate how many samples in $\Df$ can be correctly predicted as forgetting (\textit{i.e.}, non-training) samples of $\thetaunl$.
+ A \textit{higher} {\MIAF}   implies    less information about   $\Df$     in $\thetaunl$; see Appendix\,\ref{appendix: metric settings} for more details.
+
+
+
+
+
+% achieved by   MIA %(against $\thetaunl$) 
+% to determine whether or not a data point in $\Df$ belongs to the training set of  $\thetaunl$ \cite{wu2022puma,chen2021machine}. A \textit{higher} {\MIAF}   implies that  less information about   $\Df$ contained in $\thetaunl$.
+% \JC{For detailed formulations of {\MIAF}, please refer to Appendix\,\ref{appendix: metric settings}.}
+
+
+%\SL{[refer to appendix for detailed formulations.]}
+
+%\PS{All other metrics are accuracy or efficiency. However, it's not clear from the name \textbf{\MIAF} what it is. Can we call it ``MIA efficacy''?}
+
+
+\iffalse 
+It is also worth noting that one can similarly define {\MIAR}, given by   the MIA rate on the remaining dataset $\Dr$.  However, different from {\MIAF}, {\MIAR}  characterizes the   \textit{privacy}   of $\thetaunl$ about $\Dr$. A \textit{lower} {\MIAR} rate implies less information leakage from   $\thetaunl$ on $\Dr$.
+\fi 
+
+%$\mathrm{\UA}(\thetaunl)$ should be  higher than $\mathrm{Acc}_{\Df} (\thetafull)$
+
+%The scrubbed model should contain as little information as possible about the target data
+
+
+\noindent \ding{70} \textit{Remaining accuracy (\textbf{\RA})}:   This refers to 
+the accuracy of {$\thetaunl$} on $\Dr$, which reflects the \textit{fidelity} of    {\MU} 
+ \cite{becker2022evaluating}, {\textit{i.e.}, training data information}  should be  preserved from {$\thetafull$} to {$\thetaunl$}. 
+
+%It is desired to preserve this accuracy after {\MU} 
+%the fidelity of    {\MU} on  $\Dr$, \textit{i.e.}, 
+%is preserved after {\MU}.
+%\cite{becker2022evaluating}.
+
+\noindent \ding{70} \textit{Testing accuracy (\textbf{\TA})}:  This measures the \textit{generalization} ability of {$\thetaunl$} on  a testing dataset rather than $\Df$ and $\Dr$. {{\TA} is evaluated on the whole test dataset, except for class-wise forgetting, in which testing data points belonging to the forgetting class are not in the testing scope. 
+%By contrast, testing accuracy (TA) is evaluated on testing points from all non-forgetting classes in the class-wise forgetting scenario. 
+}
+
+
+%\ding{176} \textit{Membership inference attack rate on  $\Dr$ (\textbf{MIA}-$\Dr$)}:   
+
+
+\noindent \ding{70} \textit{Run-time efficiency (\textbf{\RTE})}:  This measures the computation efficiency of an {\MU} method.  For example,
+if we regard the run-time cost of  {\retrain} as the baseline, the computation acceleration gained by different approximate unlearning methods is summarized in Tab.\,\ref{tab: summary_MU_methods_metrics}.
+
+%Note that the  run-time cost of  {\retrain}  provides the upper bound of the computation complexity in the algorithm design of {\MU}.
+
+
+
+%Table\,\ref{tab: summary_MU_methods_metrics} summarizes the {\MU} methods and metrics that we reviewed. 
+\iffalse 
+Since the best unlearning efficacy  is achieved by {\retrain}, our aim in the next section is to reduce the gap between  approximate unlearning and {\retrain}. 
+%while maintaining the former's run-time efficiency.
+\fi 
+% \SL{[@Jinghan @Jiancheng, please add a well-organized table here. You can get some inspiration \href{https://openreview.net/pdf?id=MjsDeTcDEy}{Table 1}.]}
+
+
+% \begin{table}[t]
+%         \centering
+%          \caption{\footnotesize{Summary of 4 existing machine unlearning methods considered in this work. We also listed five evaluation metrics to evaluate machine unlearning performance. The Symbol `\textcolor{black}{\ding{51}}' denotes the metric used in the representative works. The number in {\RTE} demonstrates the relative time cost compared to retrain method.  \SL{[no need to specify venue, replacing it with Representative work. add more refs? and add `our work'? \SL{Concern on complexities?}]}}  }
+%         \label{tab: summary_MU_methods_metrics}
+%         \resizebox{0.45\textwidth}{!}{
+%         \begin{tabular}{c|ccccc|c}
+%         \toprule
+%         Unlearning &  \multicolumn{5}{c|}{Evluation metrics} & \multirow{2}{*}{Representative work}\\
+%         Methods &  \UA& \MIAF & \RA & \TA & \RTE & \\
+%         \midrule
+%         FT & \textcolor{black}{\ding{51}} & & \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 1.00& \cite{golatkar2020eternal,warnecke2021machine}  \\
+%         GA &  \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 0.07 &  \cite{graves2021amnesiac,thudi2021unrolling} \\
+%         FF & \textcolor{black}{\ding{51}} & & \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 0.92& \cite{golatkar2020eternal,becker2022evaluating}   \\
+%         \IU &  & & & & 0.08 & \cite{koh2017understanding,izzo2021approximate}\\
+%         \midrule
+%         Ours & \textcolor{black}{\ding{51}} & \textcolor{black}{\ding{51}}&\textcolor{black}{\ding{51}} & \textcolor{black}{\ding{51}}& 0.07 & This Work \\
+%         \bottomrule
+%         \end{tabular}}
+% \end{table}
+
+
+% \begin{table}[htb]
+%         \centering
+%          \caption{\footnotesize{Summary of approximate unlearning methods considered in this work. 
+%          %We also listed five evaluation metrics to evaluate machine unlearning performance. 
+%          The marker `\textcolor{black}{\ding{51}}' denotes the metric used in the corresponding references. The number in {\RTE} demonstrates the   run-time improvement compared to {\retrain}.  
+%         % \SL{[no need to specify venue, replacing it with Representative work. add more refs? and add `our work'? \SL{Concern on complexities?}]}
+%          } 
+%          }
+%         \label{tab: summary_MU_methods_metrics}
+%         \resizebox{0.45\textwidth}{!}{
+%         \begin{tabular}{c|ccccc|c}
+%         \toprule
+%         Unlearning &  \multicolumn{5}{c|}{Evluation metrics} & \multirow{2}{*}{Difficulty for parameter tuning}\\
+%         Methods &  \UA& \MIAF & \RA & \TA & \RTE & \\
+%         \midrule
+%         FT & \textcolor{black}{\ding{51}} & & \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 0.07$\times$ & Easy to tune the learning rate (1)   \\
+%         GA &  \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 0.02$\times$ &  Sensitive to the learning rate (3) \\
+%         FF & \textcolor{black}{\ding{51}} & & \textcolor{black}{\ding{51}}& \textcolor{black}{\ding{51}}& 0.92$\times$ & Sensitive to fisher information coefficient. (4)   \\
+%         \IU &  & & & & 0.08$\times$ & Sensitive to parameters for hessian approximation (2) \\
+%         \midrule
+%         Ours & \textcolor{black}{\ding{51}} & \textcolor{black}{\ding{51}}&\textcolor{black}{\ding{51}} & \textcolor{black}{\ding{51}}& 0.07$\times$ & Unlearning Methods Agnostic  \\
+%         \bottomrule
+%         \end{tabular}}
+% \end{table}
+
+
+
+

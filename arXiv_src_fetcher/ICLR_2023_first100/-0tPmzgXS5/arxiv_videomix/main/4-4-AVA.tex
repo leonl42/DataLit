@@ -1,0 +1,33 @@
+
+\subsection{AVA Action Detection}
+\label{section:experiments:ava}
+
+Kinetics pretraining is a widely-used practice for many video recognition tasks \cite{gu2018ava,sun2018actor,feichtenhofer2019slowfast}. 
+We validate whether VideoMix pretrained models bring better performance on the downstream task of detecting actions in videos. 
+
+\paragraph{Dataset.}
+AVA v2.2 dataset~\cite{gu2018ava} consists of 235 training and 64 validation videos of human actions in videos. 
+Each video is 15 minutes long, and the action locations are densely annotated as bounding boxes in space and time.
+We follow the protocol in~\cite{gu2018ava} to train and evaluate the detection of 60 human action classes.
+We use the mean average precision (mAP) metric to measure the performance of video action detection using a frame-level intersection-over-union (IoU) threshold $0.5$.
+
+\paragraph{Detection framework.}
+Our detector is based on the Faster R-CNN~\cite{ren2015faster} architecture, which is modified as in~\cite{feichtenhofer2019slowfast} to adapt to the video action detection task.
+The spatial stride of the final convolutional block is reduced from $2$ to $1$ to increase the feature map size. The 2D RoIAlign layer~\cite{he2017mask} is replaced by the 3D RoIAlign. 
+SlowOnly-50 ($8\times8$) and SlowFast-50 ($8\times8$) have been used as the backbone network for the detection framework. 
+We use the human bounding box proposals provided by~\cite{feichtenhofer2019slowfast} computed by an off-the-shelf human detector fine-tuned on AVA persons. 
+
+\paragraph{Training and inference.}
+
+We initialize two detectors with the weights pretrained on Kinetics-400 with or without VidoeMix. We apply the same fine-tuning strategy afterwards to separate the effect of VideoMix on pretraining. 
+We train detectors for $20$ epochs using the SGD optimizer with initial learning rate $0.1$ decayed by factor $0.1$ at $10$ and $15$ epoch.
+The spatial dimension of the shorter side is resized to 256 pixels while maintaining the aspect ratio. 
+$64$ consecutive frames are extracted for training.
+Further details are in Appendix~\ref{appendix:ava}. 
+
+\input{arxiv_videomix/main/tables/ava}
+
+\paragraph{Results.}
+Table~\ref{table:experiment:ava} shows the performances of our detector on the AVA benchmark. 
+Pretraining the detector with VideoMix improves the performance of SlowOnly-50 and SlowFast-50 to $\mathbf{20.4}$ ($+\mathbf{1.3}$) and $\mathbf{24.9}$ ($+\mathbf{1.7}$) mAP, respectively. Switching the pretrained weights to the VideoMix version introduces the gain in detection performance for free. 
+The weights will be published in the future.

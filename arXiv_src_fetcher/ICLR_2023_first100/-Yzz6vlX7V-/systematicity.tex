@@ -1,0 +1,45 @@
+\subsection{Systematicity}
+\label{subsec:systematicity}
+
+One of the most commonly tested properties of compositional generalisation is \textbf{systematicity} -- the ability to understand novel combinations made up from known components \citep[most famously,][]{lake2018generalization}.
+In natural data, the number of potential recombinations to consider is infinite.
+We chose to focus on recombinations in two sentence-level context-free rules: \texttt{S\;$\rightarrow$\;NP\;VP} and \texttt{S\;$\rightarrow$\;S\;CONJ\;S}.
+
+\subsubsection{Experiments}
+\paragraph{Test design}
+\label{subsec:systematicity_test_design}
+The first setup, \texttt{S\;$\rightarrow$\;NP\;VP}, concerns recombinations of noun and verb phrases.
+We extract translations for input sentences from the templates from \S\ref{sec:data}, as well as versions of them with the (1) noun (NP $\rightarrow$ NP') or (2) verb phrase (VP $\rightarrow$ VP') adapted.
+In (1), a noun from the NP in the subject position is replaced with a different noun while preserving number agreement with the VP.
+In (2), a noun in the VP is replaced.
+NP $\rightarrow$ NP' is applied to both synthetic and semi-natural data; VP $\rightarrow$ VP' only to synthetic data.
+We use 500 samples per template per condition per data type.
+
+The second setup, \texttt{S\;$\rightarrow$\;S\;CONJ\;S}, involves phrases concatenated using \exa{and}, and tests whether the translation of the second sentence is dependent on the first sentence.
+We concatenate two sentences ($\text{S}_1$ and $\text{S}_2$) from different templates, and we consider again two different conditions.
+First, in condition $\text{S}_1\rightarrow\text{S}^\prime_1$, we make a minimal change to $\text{S}_1$ yielding $\text{S}^\prime_1$ by changing the noun in its verb phrase.
+In $\text{S}_1\rightarrow\text{S}_3$, instead, we replace $\text{S}_1$ with a sentence $\text{S}_3$ that is sampled from a template different from $\text{S}_1$.
+We compare the translation of $\text{S}_2$ in all conditions.
+For consistency, the first conjunct is always sampled from the synthetic data templates. 
+The second conjunct is sampled from synthetic data, semi-natural data, or from natural sentences sampled from \textsc{OPUS} with similar lengths and word-frequencies as the semi-natural inputs.
+We use 500 samples per template per condition per data type.
+Figure~\ref{fig:systematicity_explanation} provides an illustration of the different setups experimented with.
+
+\paragraph{Evaluation}
+In artificial domains, systematicity is evaluated by leaving out combinations of `known components' from the training data and using them for testing purposes.
+The necessary familiarity of the components (the fact that they are `known') is ensured by high training accuracies, and systematicity is quantified by measuring the test set accuracy.
+If the training data is a natural corpus and the model is evaluated with a measure like BLEU in MT, this strategy is not available.
+We observe that being systematic requires being consistent in the interpretation assigned to a (sub)expression across contexts, both in artificial and natural domains.
+Here, we, therefore, focus on \textbf{consistency} rather than accuracy, allowing us to employ a model-driven approach that evaluates the model's systematicity as the consistency of the translations when presenting words or phrases in multiple contexts.
+
+We measure consistency as the equality of two translations after accounting for anticipated changes.
+For instance, in the \texttt{S\;$\rightarrow$\;NP\;VP} setup, two translations are consistent if they differ in one word only, after accounting for determiner changes in Dutch (\exa{de} vs\ \exa{het}).
+In the evaluation of \texttt{S\;$\rightarrow$\;S\;CONJ\;S}, we measure the consistency of the translations of the second conjunct.
+
+\subsubsection{Results}
+Figure~\ref{fig:systematicity} shows the results for the \texttt{S\;$\rightarrow$\;NP\;VP} and \texttt{S\;$\rightarrow$\;S\;CONJ\;S} setups (numbers available in Appendix~\ref{ap:systematicity}).
+The average performance for the natural data closely resembles the performance on \textit{semi-}natural data, suggesting that the increased degree of control did not severely impact the results obtained using this generated data.\footnote{In our manual analysis (\S\ref{sec:manual_analysis}), however, we did observe a slightly different distribution of changes between these setups.}
+In general, the consistency scores are low, illustrating that models are prone to changing their translation of a (sub)sentence after small (unrelated) adaptations to the input.
+It hardly matters whether that change occurs in the sentence itself (\texttt{S\;$\rightarrow$\;NP\;VP}), or in the other conjunct (\texttt{S\;$\rightarrow$} \texttt{S\;CONJ\;S}), suggesting that the processing of the models is not local as assumed in strong compositionality.
+Models trained on more data seem more locally compositional, a somewhat contradictory solution to achieving compositionality, which, after all, is assumed to underlie the ability to generalise usage from \emph{few} examples \citep{lake2019human}.
+This trend is also at odds with the hypothesis that inconsistencies are a consequence of the natural variation of language, which models trained on \emph{more} data are expected to better capture.

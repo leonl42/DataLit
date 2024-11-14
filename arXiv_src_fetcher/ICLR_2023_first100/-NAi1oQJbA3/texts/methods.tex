@@ -1,0 +1,50 @@
+% In this section, we discuss the detailed implementation about the techniques we study for the above questions.
+
+\begin{figure}
+\captionof{figure}{Fertility score of the bilingual tokenizers (left: Hungarian, right: Thai) with different number of tokens replaced by new language. The red lines represent the original GPT-2 tokenizer (50k vocabulary), while the green lines represent the tokenizer trained purely on the new language. Every tokenizer has the same total vocabulary size. The number of replaced tokens are in 10$^3$ scale.}\label{fig:fertility}
+\vspace{-0.2cm}
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\input{plots/fertility_hu.tikz}
+\vspace{-0.3cm}
+\caption{Hungarian Tokenizer}
+\end{subfigure}
+\hspace{0.2cm}
+\begin{subfigure}[b]{0.48\textwidth}
+\input{plots/fertility_th.tikz}
+\vspace{-0.3cm}
+\caption{Thai Tokenizer}
+\end{subfigure}
+
+\vspace{-1.0cm}
+\end{figure}
+
+\subsection{Improving Tokenizer Efficiency} \label{token replacement}
+To adapt an existing tokenizer to a new language, tokens from the low resource language can be added to the existing tokenizer's vocabulary to improve its fertility. Fertility is defined as the average number of tokens per word \cite{acs2019}, and details about how we calculated it can be found in appendix \ref{tokenizer fertility}. In our work, instead of extending the tokenizer's vocabulary, we replace the least frequent tokens from it with tokens from the new language. This way, we keep the model capability the same by controlling the vocabulary and embedding table size. In particular, we train a BPE tokenizer on the new language with vocabulary size $k$ and check the number of overlapping tokens $o$ with the original tokenizer. Then we replace the least important $k-o$ non-overlapping tokens from the original tokenizer with the new ones. We also reinitialize the corresponding embeddings in the model. For more details see appendix \ref{token details}.
+
+As shown in figure \ref{fig:fertility}, as the number of replaced tokens $k$ increases, the fertility of the tokenizer approaches the monolingual tokenizer fertility on the new language, with minimal regressions on the English fertility. 
+We choose to replace around 5000 tokens, which is only 10\% of the overall vocabulary, because it improves the fertility by 42\% on Hungarian and 73\% on Thai. Note that 50\% fertility drop entails two times faster training and inference.
+% inference and 2 times more context consumed in each training step. 
+In addition, replacing more tokens beyond 5000 provides diminishing returns on the fertility, while also increases the difficulty of model adaptation due to having more randomly re-initialized token embeddings.
+
+% the fertility improvement shows diminishing returns as we replace more tokens. 
+% Besides, it can minimizing the number of token embeddings to re-initialized in the model to make model adaptation easier. 
+
+% This is expected as most of the English tokens remain unchanged and the fertility on the new language drops quickly as tokens added in. 
+
+% The two possibilities are listed below. This paper uses option 1 from below, because it does not change the model architecture, and provides a great general method for adding languages to a tokenizer without increasing the vocabulary or model size. 
+% \begin{enumerate}
+% \item Replace the $k$ least commonly used tokens from the English tokenizer with $k$ of the new language's tokens, and place the new language's merges rules at the beginning of the merges file. Randomize the embeddings of the newly added tokens.
+% \item Extend the vocabulary of the tokenizer to add new tokens for the low resource language and extend model architecture (embedding table) with random values.
+% \end{enumerate}
+% As $k$ (the number of new language tokens replacing the original ones) increases in the figure below, the fertility of the tokenizer approaches the monolingual tokenizer fertility, while minimizing the regressions of the English fertility. This method also ensure that most of the English tokens remain unchanged, so pretrained English checkpoints can be easily adapted to use this tokenizer without changing most of the embeddings. In our experiments we selected a merged tokenizer with $k=4000$ for Hungarian and $k=5000$ for Thai. This is because there are diminishing returns for merging more tokens and it is important to minimize the number of embeddings that have to be re-initialized in the model. The Hungarian tokenizer was trained on 6.5 gigabytes of the Hungarian Webcorpus 2.0 \cite{Nemeskey:2020}, and the Thai tokenizer was trained on 9.1 gigabytes of text from Mc4 \cite{xue-etal-2021-mt5}, Oscar \cite{abadji2022cleaner} and CCNet \cite{wenzek2019ccnet}.
+
+
+
+\subsection{Training Data Mixtures}
+Training data for both pretraining and finetuning are prepared following the details in Section \ref{sec:experiments}. Once the datasets are prepared for both languages, we shuffle them at sample level, so that every batch contains text from both languages during training. Note that in our experiments, we do not make any further transformations to either the model or the datasets, after the data is prepared on each side, so that our study is orthogonal and complementary to existing proposed methods \cite{cahyawijaya2023instructalign, pfeiffer-etal-2020-mad, liu2022few, yong2023bloom1, ye2023language} focusing on training paradigm studies. 
+
+
+% When adapting a language model to an unseen language, section \ref{pretraining_data_mixture} shows that mixing English with the new language will minimize the models regressions on English evaluation tasks. Additionally, section \ref{pretraining_data_mixture} has the surprising finding that mixing in English data improves the evaluation benchmarks on the new language, even though the model is seeing fewer tokens from the new language. This demonstrates that mixing English and with the new language during adaptation is beneficial, and that a 13B model has the capacity to be bi-lingual, with helpful language transfer from English to new languages.
+
+% During the instruction tuning and supervised fine-tuning stages of training, it would be ideal to exclusively utilize English data since there is generally a shortage of naturally written instruction tuning data in most other languages. Section \ref{it_data_mixture} shows that training on only English Instruction tuning data will cause the catastrophic forgetting of the on the language introduced during adaptation. In order to avoid this, section \ref{it_data_mixture} shows that a small quantity of translated instruction data in the new language mixed with a large amount of English data, can be enough to avert catastrophic forgetting.

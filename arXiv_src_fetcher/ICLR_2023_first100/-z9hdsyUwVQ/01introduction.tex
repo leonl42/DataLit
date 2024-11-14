@@ -1,0 +1,86 @@
+\section{Introduction}
+Reinforcement Learning (RL) has achieved great success in the fields of both science and engineering, see for example~\cite{ref-AlphaTensor,ref-AlphaFold,robot3,ref-AlphaGo}. As the fundamental model for RL, Markov Decision Process (MDP) can be represented as a tuple $\calM(\calS, \calA, P, r, \gamma)$, where $\calS$ is the state space and $\calA$ is the action space, 
+ $P(s'|s,a)$ is the transition probability  from state $s$ to state $s'$ under action $a$, $r: \calS \times \calA\rightarrow \mathbb{R}$ is the reward function, and $\gamma \in [0,1)$ is the discounted factor.
+In this paper, we focus on the finite MDP setting, i.e., $|\calS|<\infty$ and $|\calA|<\infty$, and also assume $r\in[0,1]$ for simplicity. %Choosing action $a$ in state $s$, an immediate reward $r(s,a)$ is received and state $s$ is transferred to $s^\prime$ according to the transition probability $P(s^\prime | s,a)$. The probability distribution of the initial state $s_0$ is denoted as $\mu$ and $\gamma \in [0,1)$ is the discounted factor. We also define 
+%$\tilde{\mu}:=\underset{s\in \mathcal{S}}{\min}\,\,\mu \left( s \right)$ for ease of notation.  In each step under state $s_t$, an action $a_t$ is selected according to probability $\pi(a_t|s_t)$, where $\pi$ is known as the policy. By denoting $\Delta(\calA)$ as the probability complex over $\calA$, i.e.
+Letting
+\begin{align*}
+    \Delta(\calA) = \Big\{ \theta \in \mathbb{R}^{|\calA|}|~ \theta_i \geq 0, \; \sum_{i=1}^{|\calA|} \theta_i = 1 \Big\},
+\end{align*}
+we can define the set of all admissible policies for MDP as,
+\begin{align*}
+    \Pi := \left\{ \pi=(\pi(\cdot|s))_{s\in\calS} \; \big| \; \pi(\cdot|s) \in \Delta(\calA) \; \mbox{for all } s\in\calS \right\}.
+\end{align*}
+Given policy $\pi\in\Pi$, the value function $V^\pi(s)$ is defined as the average discounted cumulative reward over the random trajectory starting from $s$ and induced by $\pi$,
+\begin{align*}
+V^{\pi}\left( s \right) :=\mathbb{E}\left[ \sum_{t=0}^{\infty}{\gamma ^t}r\left( s_t,a_t \right) |s_0=s,\,\pi \right].\numberthis\label{eq:state-value}
+\end{align*}
+The overall goal of RL is to seek an optimal policy to maximize the state values, which can be expressed as 
+\begin{align*}
+    \max_{\pi\in\Pi} \; V^\pi(\mu) =  \mathbb{E}_{s\sim\mu}\left[V^\pi(s)\right],
+\end{align*}
+where $\mu\in\Delta(\mathcal{S})$ denotes the initial state distribution.
+
+Policy optimization refers to a family of effective methods for solving challenging RL problems. In contrast to value-based methods such as value iteration and policy iteration, policy optimization methods conduct direct search in the policy space through the parameterization of policies.  More precisely, given a parameterized policy class $\{\pi_\theta: \R^d \to \Pi\}$, the state value in \eqref{eq:state-value} becomes a function of the parameters, denoted $V^{\pi_\theta}(\mu)$. Thus, the problem of seeking an optimal policy over the parameterized policy class turns to be a finite dimensional optimization problem, and different kinds of optimization methods can be applied to solve this problem. Maybe the simplest one among them is the policy gradient method \cite{Williams1992,suttonRL},
+\begin{align*}
+\theta^+ \gets \theta +\eta\, \nabla _{\theta}V^{\pi_\theta}\left( \mu \right),\numberthis\label{eq:policy-optimization}
+\end{align*}
+where $\nabla _{\theta}V^{\pi_\theta}\left( \mu \right)$ is the policy gradient of $V^{\pi_\theta}(\mu)$. Different parameterization methods lead to different policy gradient methods, for instance projected policy gradient (PPG) under the simplex or direct parameterization and softmax policy gradient (PG) under the softmax parameterization. More details will be given in later sections. Natural policy gradient (NPG, \cite{kakade2002npg}) is an important variant of policy gradient methods, which searches along a preconditioned policy gradient direction based on the Fisher information matrix.
+Other important variants of policy optimization methods include  trust region policy optimization (TRPO)  \cite{schulman2015trust} and  proximal policy optimization
+(PPO)  \cite{schulman2017proximal}, which are closely related to NPG.
+
+Exploration versus  exploitation is an important paradigm in RL. Entropy regularization can be introduced to enhance the exploration ability of policies in policy optimization.
+In this case, the entropy regularized state value is given by
+\begin{align*}
+V^\pi_\tau(s) & = \mathbb{E}_\tau\left[\sum_{t=0}^\infty \gamma^t\left({r(s_t,a_t)-\tau \log \pi(a_t|s_t)}\right)|s_0=s,\pi\right]\\
+&= \mathbb{E}_\tau\left[\sum_{t=0}^\infty \gamma^t\left(r(s_t,a_t)+\tau \mathcal{H}(\pi(\cdot|s_t)\right)|s_0=s,\pi\right],
+\end{align*}
+where $\tau>0$ is the regularization parameter and $\mathcal{H}(p)=-\sum_ap_a\log p_a$ is the entropy of a probability distribution. Intuitively, larger entropy represents more possibilities. The policy gradient method for the entropy regularized policy optimization problem
+\begin{align*}
+    \max_{\pi\in\Pi}\;V^\pi_\tau(\mu) = \mathbb{E}_{s\sim\mu}\left[V^\pi_\tau(s)\right],
+\end{align*}
+is overall similar to that in \eqref{eq:policy-optimization}, but with $\nabla _{\theta}V^{\pi_\theta}\left( \mu \right)$ being replaced by $\nabla _{\theta}V^{\pi_\theta}_\tau\left( \mu \right)$. 
+Moreover, NPG can be similarly developed for the entropy regularized scenario.
+%%%%%%%%%%%
+\subsection{Related Work}
+The convergence analyses of policy optimization methods have received a lot of attention recently under various settings, for example from the tabular MDP setting to the setting that incorporates function approximations, from the setting where exact gradient information is assumed to the setting that involves sample-based estimators. An exhaustive review about this is beyond the scope of this paper. Thus, we mainly focus on the convergence results of  different exact policy gradients in the tabular setting, which are mostly related to our work.
+
+Under the simplex or direct policy parameterization, the $O(1/\sqrt{k})$ sublinear convergence has been established in \cite{Agarwal_Kakade_Lee_Mahajan_2019, bhabdari2024or} for projected policy gradient (PPG) with constant step size, which has been improved to $O(1/k)$ subsequently in \cite{Xiao_2022, Zhang_Koppel_Bedi_Szepesvari_Wang_2020}. Note that the results in \cite{Agarwal_Kakade_Lee_Mahajan_2019, bhabdari2024or,Xiao_2022, Zhang_Koppel_Bedi_Szepesvari_Wang_2020} all require the step size to be sufficiently small so that the smooth property of the value function can be used in the optimization analysis framework. In contrast, an approach by bounding the improvement of PPG at each state through the maximum improvement (or the improvement of PI at each state) is developed in \cite{ppgliu} and the $O(1/k)$ sublinear convergence of PPG is established for any constant step size. Moreover, it is further shown that in \cite{ppgliu} that PPG can find an optimal policy in a finite number of iterations.
+
+For exact policy gradient methods under softmax parameterization, the global convergence of softmax PG is established in \cite{Agarwal_Kakade_Lee_Mahajan_2019} provided the step size $\eta$ satisfies $\eta\leq 1/L$, where $L$ is the smoothness constant of the value function. By utilizing the gradient dominant property of the value function, the $O(1/k)$ sublinear convergence of softmax PG is established in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020}. In addition, it is shown in \cite{mei2021normalized} that  softmax PG can also achieve linear convergence using the adaptive step sizes based on the
+geometric information.
+In the presence of regularization, it is shown in \cite{Agarwal_Kakade_Lee_Mahajan_2019} that softmax PG with log barrier regularization attain an $O(1/\sqrt{k})$ convergence rate, while the linear convergence is established for softmax PG under entropy regularization (simply referred to as entropy softmax PG later) in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020}. 
+
+The $O(1/\sqrt{k})$ convergence rate of NPG under softmax parameterization is obtained in \cite{shani2020trpo}, and this rate has been improved to $O(1/k)$ in \cite{Agarwal_Kakade_Lee_Mahajan_2019}. The fast local linear convergence rate of softmax NPG is established in \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021} based on the contraction of the non-optimal probability measure at each state. For softmax NPG with entropy regularization (simply referred to as entropy softmax NPG later), the linear convergence is established in \cite{Cen_Cheng_Chen_Wei_Chi_2022} by expressing the update into a form for which the $\gamma$-contraction property of the Bellman operator can be used. This result has been extended to more general regularizers in \cite{Zhan_Cen_Huang_Chen_Lee_Chi_2021}. Note that softmax NPG can be cast as a special policy mirror descent (PMD) method with KL divergence, and the convergence of PMD with and without regularizers has also been studied. The $O(1/k)$ sublinear convergence of PMD is established in \cite{Xiao_2022} for any constant step size which generalizes the analysis in \cite{Agarwal_Kakade_Lee_Mahajan_2019} for softmax NPG based on the three-point lemma.  
+In \cite{Xiao_2022}, the linear convergence is also provided for the non-adaptive geometrically increasing step sizes. The $\gamma$-rate convergence of PMD under the adaptive step sizes is established in \cite{Johnson_Pike-Burke_Rebeschini_2023}. The analyses in \cite{Xiao_2022} have been extended to the log-linear policy and the more general function approximation scenario in \cite{Yuan_Du_Gower_Lazaric_Xiao_2022, yuan2023general}.
+The convergence of PMD with general convex and strongly convex regularizers is studied in \cite{Lan_2021} and it is shown that PMD with strongly convex regularizer can achieve a linear convergence. By adopting a homotopic technique using diminishing regularization combined with increasing step sizes, the linear convergence of PMD with entropy regularization is established in \cite{Li_Zhao_Lan_2022}.
+%%%%%%%%%%%
+\subsection{Main Contributions}
+Despite the recent intensive investigations, there are still a few important issues to be addressed on the convergence of the very basic policy optimization methods, including projected policy gradient (PPG), softmax PG and NPG in the both the non-entropy and entropy cases.
+A thorough treatment will be  given towards this line of research in this paper. The main contributions are summarized as follows:
+\begin{itemize}
+    \item \textbf{Global linear convergence of PPG.} Further to the sublinear convergence of PPG in \cite{ppgliu}, we extend the analysis therein to  establish the linear convergence of PPG for any constant step size despite the highly non-convexity of the RL problem, see Theorem~\ref{thm:PPG-linear}. Moreover,  a simple non-adaptive increasing step size is proposed to further improve the linear convergence rate of PPG, see Theorem~\ref{thm:PPG-linear-adaptive}.
+    \item \textbf{Sublinear convergence of softmax PG for a full range of step sizes.} 
+    As stated earlier, the sublinear convergence of softmax PG has been established in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020} for small constant step size. The analysis therein follows an optimization analysis framework and thus requires the step size to be overall smaller than the reciprocal of the smoothness constant of $V^{\pi_\theta}(\mu)$. In contrast, a new elementary analysis technique has been developed to break the step size restriction so that the sublinear convergence can be established for any constant step size $\eta>0$, see Theorem~\ref{thm:softmaxPG-sublinear}.
+    A new sublinear lower bound is also established which demonstrates that softmax PG converges at most sublinearly for any $\eta>0$, see Theorem~\ref{thm:softmaxPG-sublinear-lowers}. {Moreover, a simple adaptive step size  is proposed in Theorem~\ref{thm:softmaxPG-linear} such that softmax PG can achieve linear convergence with better parameter dependency than the one in \cite{mei2021normalized}.}
+    \item \textbf{Global linear convergence of softmax NPG for constant step size.}
+    In addition to the existing sublinear convergence \cite{Agarwal_Kakade_Lee_Mahajan_2019} and local linear convergence \cite{Xiao_2022} of softmax NPG with constant step size, we show that a global linear convergence can also be established for it, see Theorem~\ref{thm:softmaxNPG-global-linear}.  In addition, a local linear convergence lower bound is also established for general MDP which matches the fast local linear convergence upper bound established in \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021}.
+    \item \textbf{Global linear convergence of entropy softmax PG for a wider range of step sizes.}  Utilizing an analysis technique that is similar to that for softmax PG, the global linear convergence of entropy softmax PG is established for a wider range of step sizes than that in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020}, also with improved convergence result, see Theorem~\ref{thm:entropyPG-linear}.
+    \item \textbf{New local quadratic convergence rate of soft PI and tight local linear convergence rate of entropy softmax NPG.}
+    Soft PI can be viewed as the limit of entropy softmax NPG as the step size approaches infinity. A new local quadratic convergence rate in  the  form of $\gamma^{\displaystyle 2^{ k-k_0}}$ has been established, see Theorem~\ref{thm:softPI-quadratic}. Compared with the result in \cite{Cen_Cheng_Chen_Wei_Chi_2022}, our result only essentially relies on the discount factor $\gamma$ and does not require an additional assumption on the stationary distribution under the optimal policy. As mentioned earlier, the global linear convergence of entropy softmax NPG has also been established in \cite{Cen_Cheng_Chen_Wei_Chi_2022}. However, as $\eta\rightarrow\infty$, the limit of the rate is a fixed constant, which cannot reflect the fact that entropy softmax NPG should converge faster (locally) as $\eta$ becomes larger since the algorithm tends to be soft PI and the latter one enjoys a local quadratic convergence rate. Motivated by this observation, a local linear convergence rate in the form of $\left(\frac{1}{(\eta\tau+1)^2}\right)^{k-k_0}$ is established. It is meanwhile shown that this rate is indeed tight.
+
+\end{itemize}
+%{\color{red}(add some words about the overall proof idea?)}
+Overall, our analyses are elementary and a key ingredient is  essentially about bounding the state-wise improvement, expressed in terms of the Bellman operator as $\mathcal{T}^{k+1}V^k(s)-V^k(s)$ for the non-entropy case and as $\mathcal{T}_\tau^{k+1}V_\tau^k(s)-V_\tau^k(s)$ for the entropy case, directly based on the update rules of the corresponding policy gradient methods. Roughly speaking,
+\begin{itemize}
+    \item for PPG, we use the existing bound of $\mathcal{T}^{k+1}V^k(s)-V^k(s)$ based on the maximum improvement $\max_aA^k(s,a)$ (established in \cite{ppgliu}) to further establish the global linear convergence result, where $A^k(s,a)$ is the advantage function at the $k$-th iteration;
+    \item for softmax PG,  a bound of $\mathcal{T}^{k+1}V^k(s)-V^k(s)$ is established through $\max_a|\pi^{k}(a|s)A^k(s,a)|$;
+    \item for softmax NPG, two different bounds of $\mathcal{T}^{k+1}V^k(s)-V^k(s)$ are established through $\max_aA^k(s,a)$ and $\sum_a\pi^{k,*}A^k(s,a)$, respectively, where $\pi^{k,*}$ is a particular optimal policy chosen at the $k$-th iteration;
+    \item for entropy softmax PG, a bound of $\mathcal{T}_\tau^{k+1}V_\tau^k(s)-V_\tau^k(s)$ is established through $\max_a |\pi^k(a|s)A^k_\tau(s,a)|$, where $A^k_\tau(s,a)$ is the advantage function defined for the entropy case;
+    \item for entropy softmax NPG,  a bound of $\mathcal{T}_\tau^{k+1}V_\tau^k(s)-V_\tau^k(s)$ is established through $\mathrm{KL}(\pi^{k+1}(\cdot|s)\, \| \, \pi^k(\cdot|s))$.
+\end{itemize}
+%%%%%%%%%%%
+\subsection{Outline of This Paper}
+%In this section, we will give an overview of existing analysis for the non-entropy case in a general framework. Some of the results can be easily extended to handle the entropy case, and those needed will be pointed out in Section~\ref{sec:entropy} when we discuss the convergence of entropy regularized PG and NPG methods. {\color{red}(move to organization)}
+The rest of this paper is organized as follows. In Section~\ref{sec:overview} we present a general analysis framework for the policy gradient methods in the non-entropy case, which will be used in the subsequent sections. Some of the results can be easily extended to handle the entropy case, and those needed will be mentioned later in Section~\ref{sec:entropy}. The new convergence results for PPG, softmax PG and softmax NPG are presented in Sections~\ref{sec:ppg}, \ref{sec:softmaxPG}, and \ref{sec:softmaxNpg}, respectively. The discussion of softmax PG and softmax NPG in the entropy regularized case 
+is provided in Section~\ref{sec:entropy}. This paper is concluded with a few future directions in Section~\ref{sec:conclusion}.

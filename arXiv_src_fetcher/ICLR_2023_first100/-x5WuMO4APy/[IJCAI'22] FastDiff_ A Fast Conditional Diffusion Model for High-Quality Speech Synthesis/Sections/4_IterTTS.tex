@@ -1,0 +1,52 @@
+
+\subsection{FastDiff-TTS} \label{FastDiff_TTS}
+Existing text-to-speech methods usually adopt a two-stage pipeline: 1) A text-to-spectrogram generation module (a.k.a. acoustic model) aims to generate prosodic attributes according to variance prediction; 2) A conditional waveform generation module (a.k.a. vocoder) adds the phase information and synthesizes a detailed waveform. To further simplify the text-to-speech synthesis pipeline, we propose a fully end-to-end model FastDiff-TTS, which does not require intermediate features or specialized loss functions. FastDiff-TTS is designed to be a fully differentiable and efficient architecture that directly produces waveforms from contexts (e.g. phonemes) without needing to generate acoustic features (e.g., Mel-spectrograms) explicitly. 
+
+\begin{algorithm}[ht]
+    \centering
+    \caption{Training refinement network $\theta$}\label{alg: training}
+    \begin{algorithmic}[1]
+     \STATE \textbf{Input}:  Pre-defined noise schedule $\beta$
+    \REPEAT 
+    \STATE Sample $\vx_{0} \sim q_{data}$, $\rvepsilon\sim\gN(\vzero,\mI)$, and $t\sim\mathrm{Unif}(\{1,\cdots,T\})$
+    \STATE $\vx_t = \alpha_{t} \vx_{0}+ \sqrt{1-\alpha_{t}^2} \rvepsilon$
+    \STATE Take gradient descent steps on $\nabla_{\theta}\left\|\rvepsilon-\rvepsilon_{\theta}\left(\vx_t|c, t\right)\right\|_{2}^{2}$ 
+    \UNTIL{refinement model $\theta$ converged}
+  
+    \end{algorithmic}
+    \end{algorithm}
+
+    % \vspace{-6mm}
+    \begin{algorithm}[ht]
+        \centering
+        \caption{Training noise predictor $\phi$}\label{alg: training_noise}
+        \begin{algorithmic}[1]
+        \STATE \textbf{Input}: Pre-defined discrete $\beta$, trained refinement network $\theta$, hyperparameter $\tau$.
+        \REPEAT 
+        \STATE Sample $\vx_{0} \sim q_{data}$, $\rvepsilon\sim\gN(\vzero,\mI)$, and $t\sim\mathrm{Unif}(\{\tau,\cdots,T-\tau\})$
+        \STATE $\vx_t = \alpha_{t} \vx_{0}+ \sqrt{1-\alpha_{t}^2} \rvepsilon$
+        \STATE $\hat{\beta}_{t}=\min \left\{1-\alpha_{t}^2, 1-\frac{\alpha_{t+\tau}^{2}}{\alpha_{t}^{2}}\right\} \phi(\vx_{t})$
+        \STATE Take gradient descent steps on $\nabla_{\phi}\left\{\frac{\delta_{t}^{2}}{2\left(\delta_{t}^{2}-\hat{\beta}_{t}\right)}\left\|\epsilon-\frac{\hat{\beta}_{t}}{\delta_{t}^{2}} \epsilon_{\theta}\left(\boldsymbol{x}_{t}|c, t\right)\right\|_{2}^{2}\right\}$ 
+        \UNTIL{noise predictor $\phi$ converged}
+        \end{algorithmic}
+        \end{algorithm}
+        % \vspace{-6mm}
+\begin{algorithm}[ht]
+    \centering
+    \caption{Sampling}\label{alg: sampling}
+    \begin{algorithmic}[1]
+     \STATE \textbf{Input}: Searched $\hat{\beta}$ in noise scheduling process.
+    \STATE Compute discrete steps $T_m$ sequences via schedule alignment in Section~\ref{schedule}.
+    \STATE Sample $\vx_{T_m} \sim \gN(\vzero,\mI)$
+    \FOR{$t=T_m,\cdots,1$}
+    \STATE Sample $\vx_{t-1}\sim p_{\theta}(\vx_{t-1}|\vx_t;\hat{\beta})$
+    \ENDFOR
+    \RETURN $\vx_0$
+    \end{algorithmic}
+    \end{algorithm}
+    
+\subsubsection{Architecture}
+The architecture design of FastDiff-TTS refers to a convectional non-autoregressive text-to-speech model -- FastSpeech 2~\cite{ren2020fastspeech} as the backbone. The architecture of FastDiff-TTS is illustrated in Figure~\ref{fig:arch}(d). In FastDiff-TTS, the encoder first converts the phoneme embedding sequence into the phoneme hidden sequence. Then, the duration predictor expands the encoder output to match the length of the desired waveform output. Given the aligned sequence, the variance adaptor adds pitch information into the hidden sequence. Note that it is difficult to use the full audio corresponding to the full text sequence for training due to the typically high sampling rate for high-fidelity waveform (i.e., 24,000 samples per second) and the limited GPU memory. Therefore, we sample a small segment to synthesize the waveform before passing to the FastDiff model. Finally, the FastDiff model decodes the adapted hidden sequence into a speech waveform as in the vocoder task.
+
+\subsubsection{Training Loss}
+FastDiff-TTS does not require specialized loss functions and adversarial training to improve sample quality as suggested by the previous works~\cite{ren2020fastspeech,donahue2020end,kim2021conditional}. This, to a large extend, simplifies the text-to-speech generation. The final training loss consists of the following terms: 1) a duration prediction loss $L_\text{dur}$: the mean squared error between the predicted and the ground-truth word-level duration in log-scale, 2) a diffusion loss $L_\text{diff}$: the mean squared error between the estimated and gaussian noise, and 3) a pitch reconstruction loss $L_\text{pitch}$: the mean squared error between the predicted and the ground-truth pitch sequences. We empirically found that the pitch reconstruction loss $L_\text{pitch}$ is helpful for handling the one-to-many mapping issue in text-to-speech generation. 

@@ -1,0 +1,67 @@
+\vspace{-0.4cm}
+\section{Benign Adversarial Training for Memorizing Benign Atypical Samples}
+\vspace{-0.2cm}
+Based on previous discussions, the effect of atypical samples in adversarial training can be briefly summarized as: 
+\textbf{(a)} They can benefit the models' clean accuracy (especially on atypical samples), but hardly improve their robustness. \textbf{(b)} They hurt the performance of typical samples. 
+In this section, we ask the question: \textit{Can we eliminate the negative influence from fitting atypical samples during adversarial training?} Admittedly, strategies for adversarial training to stop at early epoch~\cite{rice2020overfitting} is potential to achieve this goal. As shown in Fig.~\ref{fig:hurt1}, the typical samples' performance decreases only after the epoch $100$, which is when the model begins to fit more atypical samples. Stopping at such epoch $100$ can effectively prevent the future performance degradation.
+However, it is still unclear how to properly identify such an epoch in general scenarios.
+Moreover, the early-stop mechanism tends to ignore all atypical samples and significantly limits the model's ability to handle test atypical samples, especially on complex datasets such as CIFAR100 and ImageNet with large fractions of atypical samples.
+
+In this section, we propose a novel algorithm \textit{Benign Adversarial Training (BAT)}. It is composed of two major components: \textbf{(i) \textit{Reweighting}} to mitigate the impact from those poisoning atypical samples;
+\textbf{(ii) \textit{Discrimination Loss}} to further protect the performance on typical samples. Combining these two components, BAT can maintain the performance of typical samples, but still preserve the ability to fit those ``useful''' atypical samples. 
+Although BAT can hardly improve the overall robustness compared to adversarial training~\cite{madry2017towards} (when it achieves highest robustness), BAT can present the comparable robustness and higher overall clean accuracy. Compared to~\cite{madry2017towards}, BAT enjoys better clean vs. adversarial accuracy trade-off. More results and discussions can be found in the experiment section. Next, we detail these two components of BAT.
+
+\vspace{-0.2cm}
+\subsection{Reweighting \& Poisoning Score} Following PGD adversarial training~\cite{madry2017towards}, BAT starts by fitting manually generated adversarial examples using Projected Gradient Descent (PGD). 
+During the training process, in order to identify which samples can poison or degrade the model's performance, we define the ``\textit{poisoning score}'' for each training (adversarial) sample $x_i^\text{adv}$ as:
+\begin{align}\label{eq:poisoning_score}
+    \textbf{q}(x_i^\text{adv}) = \max_{t\neq y}{F_t(x_i^\text{adv})}
+\end{align}
+which is the model $F$'s largest prediction score (after softmax) to a wrong class $t$ other than the true class $y$.  A high poisoning score suggests that the current model predicts the sample $x^\text{adv}$ to be a wrong class with high confidence. 
+Note that the atypical samples are usually fitted into the model later than typical samples. Under a model with a few atypical samples fitted, if there is an atypical sample $x_i^\text{adv}$ with high $\textbf{q}(x_i^\text{adv})$, $x_i^\text{adv}$ is very likely to be close to the distribution of a wrong class instead of its true class. In Fig.~\ref{fig:atypical_samples}, we present  several atypical (adversarial) samples with  poisoning scores larger than 0.8. These samples present semantic features which are very similar to the wrong class that the model predicts. Therefore, fitting these atypical samples could cause the model to learn mixed concepts of features and degrades the model performance.
+
+%\jt{not clear why: A larger $\alpha$ will give weights for those highly ``poisoning'' samples.} \\
+\looseness=-1
+During the training process, we desire that  the model should mitigate the influence from the atypical samples with large poisoning scores, but still learn other ``useful /benign'' atypical samples. Thus, we design a cost-sensitive reweighting strategy which downweights the cost of atypical samples with large poisoning scores. In particular, we specify the weight value $w_i$ for each training sample $x_i^\text{adv}$ as:
+%\jt{is this condition complete?? it seems to me that it is not complete: $\argmax_t F_t(x_i^\text{adv})\neq y$}
+\begin{align}\label{eq:reweight}
+w_i = 
+\begin{cases}
+\exp (-\alpha \cdot \textbf{q}(x_i^\text{adv}))  & \text{~~~if~~~} \text{mem}(x_i)>\sigma \text{~~and~~} \argmax_t F_t(x_i^\text{adv})\neq y\\
+1 &\text{~~ Otherwise.}
+\end{cases}
+\end{align}
+where $\alpha\in\R^+$ and $\sigma$ control the size of the reweighted atypical set. Since the function $\exp(-\alpha(\cdot))$ is decreasing and ranges from 1 to 0, the samples with large poisoning scores will be assigned with small weights close to 0.
+%\jt{$alpha>0$ not clear why: A larger $\alpha$ will give weights for those highly ``poisoning'' samples.} 
+Thus, in the reweighting algorithm, we train the model to find optimal model $F_\text{rw}$ by assigning the weight vector $w$:
+\begin{align}
+    F_\text{rw} = \argmin_F  \frac{1}{\sum_i w_i }\sum_i \left[w_i \cdot \mathcal{L}(F(x_i^\text{adv}), y_i)\right]
+\end{align}
+In the training process, those (adversarial) training samples with large poisoning scores are assigned with small weights and correspondingly their influence will be largely mitigated.
+
+
+\subsection{Discrimination Loss.}
+Even though the reweighting method discussed above can help mitigate the impact from those ``poisoning'' atypical samples, we observe that the model's performance (especially on the typical samples) is still inevitably decreasing with training goes. For example, as shown in Fig.~\ref{fig:hurt}, even we exclude all atypical samples in CIFAR100 dataset, the typical samples' clean and adversarial accuracy still slightly drop. Fortunately, motivated from the discussions in Section~\ref{sec:pre2}, the performance of the typical samples is strongly related to the distance of the representation vectors of different classes. It means the smaller representation distance among different classes, the poorer discrimination the model has to distinguish different classes. 
+Thus, to further preserve the model's performance on typical samples, we introduce \textit{Discrimination Loss} to regularize the feature space discrimination for typical samples among different classes:
+\begin{align}
+\label{eq:dl}
+\begin{split}
+\mathcal{L}_{DL} (F) = &
+\underset{{\{(x_k, y_k)\}^K_{k=1}}}{
+\underset{(x_i,y_i), (x_j, y_j)} {\E}  }
+\left[- \log ~~\frac{e^{h(x_i^\text{adv}) \cdot h(x_j^\text{adv}) / \tau}}{ \sum_{k=1}^K  e^{h(x_i^\text{adv}) \cdot h(x_k^\text{adv}) / \tau}} \right].\\
+\text{where~~~}  & y_i= y_j; \text{~~~} y_k\neq y_i, \text{~}\forall k=1,2,...K \\
+&\text{mem}(x_i), \text{mem}(x_j), \text{mem}(x_k) < \sigma\\
+\end{split}
+\end{align}
+Specifically, $h(\cdot)$ is the model $F$'s pen-ultimate layer's output representation; $\tau\in\R^+$ is the temperature value and $K\in \mathbb{Z}^+$ is a fixed number of the samples that randomly chosen with different labels with $y_i$\footnotemark.
+Intuitively, constraining the \textit{Discrimination Loss} imposes the model to output similar representations for the typical sample pairs $(x_i^\text{adv}, x_j^\text{adv})$ in the same class, and distinct representations for $(x_i^\text{adv}, x_k^\text{adv})$ from different classes. Similar approaches have been widely used in
+representation learning, such as Triplet Loss~\cite{schroff2015facenet} and contrastive learning methods~\cite{chen2020simple}, which stress the good property of DNNs' representation space.
+With the Discrimination Loss incorporated, the final objective of BAT is formulated as:
+\begin{align}
+    F_\text{bat} =\argmin_F  \left(\frac{1}{\sum_i w_i }\sum_i \left[w_i \cdot \mathcal{L}(F(x_i^\text{adv}), y_i)\right] + \beta\cdot\mathcal{L}_{DL}(F) \right)
+\end{align}
+where $\beta>0$ that controls the intensity of Discrimination Loss.
+The algorithm scheme of Benign Adversarial Training is presented in Appendix~\ref{app:algorithm}.
+
+\footnotetext{In practice, under training algorithms using mini-batches, the set $\{x_k\}^K_{k=1}$ can be replaced by all (typical) samples in the mini-batch, with different labels from $y_i$.}

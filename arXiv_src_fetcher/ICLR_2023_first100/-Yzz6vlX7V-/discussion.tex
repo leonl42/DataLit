@@ -1,0 +1,43 @@
+\section{Discussion}\label{sec:discussion}
+
+Whether neural networks can generalise compositionally is often studied using artificial tasks that assume strictly \emph{local} interpretations of compositionality.
+We argued that such interpretations exclude large parts of language and that to move towards human-like productive usage of language, tests are needed that assess how compositional models trained on \emph{natural data} are.\footnote{\citet{dupoux2018cognitive} makes a similar point for models of language acquisition, providing several concrete examples where using less than fully complex data proved problematic.}
+We laid out reformulations of three compositional generalisation tests -- systematicity, substitutivity and overgeneralisation -- for NMT models trained on natural corpora, and assessed models trained on different amounts of data.
+Our work provides an empirical contribution but also highlights vital hurdles to overcome when considering what it means for models of natural language to be compositional.
+Below, we reflect on these hurdles and our results.
+
+\paragraph{The proxy-to-meaning problem}
+Compositionality is a property of the mapping between the form and meaning of an expression.
+Since translation is a \emph{meaning-preserving} mapping from form in one language to form in another, it is an attractive task to evaluate compositionality: the translation of its sentence can be seen as a proxy to its meaning.
+However, while expressions are assumed to have only one meaning, translation is a \emph{many-to-many} mapping: the same sentence can have multiple correct translations.
+This does not only complicate evaluation -- MT systems are typically evaluated with BLEU because accuracy is not a suitable option -- it also raises questions about how compositional the desired behaviour of an MT model should be.
+On the one hand, one could argue that for optimal generalisation, robustness, and accountability, we like models to behave systematically and consistently: we expect the translations of expressions to be independent of unrelated contextual changes that do not affect their meaning (e.g.\ swapping out a synonym in a nearby sentence).
+Additionally, model performance could be improved if small changes do not introduce errors in unrelated parts of the translation.
+On the other hand, non-compositional behaviour is not always incorrect -- it is one of the main arguments in our plea to test compositionality `in the wild' -- and we observe that indeed, not all non-compositional changes alter the correctness of the resulting translations.
+Changing a translation from ``atleet'' (``athlete'') to ``sporter'' (``sportsman'') based on an unrelated word somewhat far away may not be (locally) compositional, but is it a problem?
+And how do we separate such `harmful' mistakes from helpful ones?
+
+\paragraph{The locality problem}
+Inextricably linked to the proxy-to-meaning problem is the locality problem.
+In our tests we see that \emph{small, local source changes} elicit \emph{global changes in translations}.
+For instance, in our systematicity tests, changing one noun in a sentence elicited changes in the translation of a sentence that it was conjoined with.
+In our substitutivity test, even synonyms that merely differed in spelling (e.g. ``doughnut'' and ``donut'') elicited changes to the remainder of the sentence.
+This counters the idea of compositionality as a means of productively reusing language: if a phrase's translation depends on (unrelated) context that is not in its direct vicinity, this suggests that more evidence is required to acquire the translation of this phrase.
+
+Tests involving synthetic data present the models with sentences in which maximally local behaviour is possible, and we argue that it is, therefore, also desirable.
+Our experiments show that even in such setups, models do not translate in a local fashion: with varying degrees of correctness, they frequently change their translation when we slightly adapt the input.
+On the one hand, this well-known \emph{volatility} \citep[see also][]{fadaee2020unreasonable} might be essential for coping with ambiguities for which meanings are context-dependent.
+On the other hand, our manual analysis shows that the observed non-compositional behaviour does not reflect the incorporation of necessary contextual information and that oftentimes it is even altering the correctness of the translations.
+Furthermore, this erratic behaviour highlights a lack of default reasoning, which can, in some cases, be problematic or even harmful, especially if faithfulness \citep{parthasarathi2021sometimes} or consistency is important.
+
+In linguistics, it has been discussed how to extend the syntax and semantics such that `problem cases’ can be a part of a compositional language \citep{westerstaahl2002compositionality,pagin2010compositionality}.
+In such formalisations, global information is used to disambiguate the problem cases, while other parts of the language are still treated locally.
+In our models, global behaviour appears in situations where a local treatment would be perfectly suitable and where there is no clear evidence for ambiguity.
+We follow \citet{baggio2021compositionality} in suggesting that we should learn from strategies employed by humans, who can assign compositional interpretations to expressions but can for some inputs also derive non-compositional meanings.
+For \textit{human-like} linguistic generalisation, it is vital to investigate how models can represent both these types of processing, providing a locally compositional treatment when possible and deviating from that when needed.
+
+\paragraph{Conclusion}
+In conclusion, with this work, we contribute to the question of how compositional models trained on \emph{natural} data are, and we argue that MT is a suitable and relevant testing ground to ask this question.
+Focusing on the balance between \emph{local} and \emph{global} forms of compositionality, we formulate three different compositionality tests and discuss the issues and considerations that come up when considering compositionality in the context of natural data.
+Our tests indicate that models show both local and global processing, but not necessarily for the right samples.
+Furthermore, they underscore the difficulty of separating helpful and harmful types of non-compositionality, stressing the need to rethink the evaluation of compositionality using natural language, where composing meaning is not as straightforward as doing the math.

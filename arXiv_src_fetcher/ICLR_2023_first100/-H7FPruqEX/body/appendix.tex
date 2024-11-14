@@ -1,0 +1,1372 @@
+
+% \setcounter{lemma}{0}
+%     \renewcommand{\thelemma}{\Alph{section}\arabic{lemma}}
+    
+\begin{comment}
+\end{comment}
+
+{\colorred 
+\section{Compatible Value Function}
+\label{app:comp_v}
+
+The original policy gradient with compatible value function is stated as follow. 
+\begin{theorem}
+[\cite{sutton1999policy}]
+Let $Q_w$ be a state-action function with parameter $w$ and $\pi_\theta$ be a policy function with parameter $\theta$. 
+If $Q_w$ satisfies $\mathbb{E}_{\pi} [(Q^\pi - Q_w) \nabla_w Q_w] = 0$ and 
+$\nabla_w Q_w = \nabla_\theta \log \pi_\theta,$
+then $$\nabla_\theta \mathcal{J} = \mathbb{E}_\pi [Q_w \nabla_\theta \log \pi_\theta].$$
+\label{thm:pg_fa}
+\end{theorem}
+If we let $w = \theta$ in Theorem \ref{thm:pg_fa}, where $Q_w$ and $\pi_\theta$ share parameters, we have the following theorem. 
+\begin{theorem}
+Let $Q_\theta$ be a state-action function with parameter $\theta$ and $\pi_\theta$ be a policy function with parameter $\theta$. 
+If $Q_\theta$ satisfies $\mathbb{E}_{\pi} [(Q^\pi - Q_\theta) \nabla_\theta Q_\theta] = 0$ and 
+$\nabla_\theta Q_\theta = \nabla_\theta \log \pi_\theta,$
+then $$\nabla_\theta \mathcal{J} = \mathbb{E}_\pi [Q_\theta \nabla_\theta \log \pi_\theta].$$
+\label{thm:pg_fa2}
+\end{theorem}
+Define 
+$$\chi \overset{def}{=} \mathbb{E}_\pi [\cos <\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta>].$$
+We show that $\chi = 1$ is the necessary condition for the compatible condition $\nabla_\theta Q_\theta = \nabla_\theta \log \pi_\theta$. 
+\begin{theorem}
+i) If $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$ for all states, then $\chi = 1$.
+
+ii) If $\chi = 1$, then $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$ for all states. 
+\label{thm:connect_cond}
+\end{theorem}
+By Theorem \ref{thm:connect_cond}, $\chi = 1$ is equivalent to $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$, and $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$ is the necessary condition for $\nabla_\theta Q_\theta = \nabla_\theta \log \pi_\theta$, hence $\chi = 1$ is the necessary condition for $\nabla_\theta Q_\theta = \nabla_\theta \log \pi_\theta$.
+\begin{proof}
+i) Since $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$, we have $<\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta> = 0$. 
+By definition of $\chi$, we have 
+$$\chi = \mathbb{E}_\pi [\cos <\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta>] = \mathbb{E}_\pi [1] = 1.$$
+
+ii) Since $\chi \leq 1$ and $\cos(x)$ is monotonic decreasing as $x$ goes from $0$ to $\pi$, the equality $\chi = 1$ only holds when all states satisfy $\cos <\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta> = 0$, which means $\nabla_\theta Q_\theta \propto \nabla_\theta \log \pi_\theta$. 
+\end{proof}
+}
+
+% $$
+% \begin{aligned}
+%     logp &= variable((3, 3, 4)) \\
+%     q &= variable((3, 3, 4)) \\
+%     alpha &= 0.3 \\
+%     \pi &= softmax(alpha * logp + (1.0 - alpha) * q) \\
+% \end{aligned}
+% $$
+\clearpage
+
+\section{Gradients Between Policy Improvement and Policy Evaluation}
+\label{app:mtv}
+
+\begin{table}[hb!]
+    \centering
+    \scalebox{0.90}{
+    \begin{math}
+        \begin{array}{c|c|c|c}
+    \toprule
+     & \text{Function Approximation} & \text{Train Gradients} & \text{Cosine of Interested Angles} \\
+    \midrule
+    
+    \text{PPO} & (V, logit) = (V_\theta, logit_\theta) & 0.5 \nabla L_V + \nabla \mathcal{J} & %\cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\ 
+    & \pi = \text{softmax}(logit) & & \\
+    
+    \midrule
+    
+    \text{PPO ver.1} & (Q, logit) = (Q_\theta, logit_\theta), & 0.5 \nabla L_V + \nabla \mathcal{J} & \cos<\nabla L_Q, \nabla \mathcal{J}>%\cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & \pi = \text{softmax}(logit) & & \cos<\nabla Q, \nabla \log \pi> \\
+    & V = sg(\pi)\cdot Q & & %\cos<\nabla L_V, \nabla L_Q> 
+    \\
+    % & & &  \\
+    
+    \midrule
+    
+    \text{PPO ver.2} & (Q, logit) = (Q_\theta, logit_\theta), & 0.5 \nabla L_V + \nabla L_Q + \nabla \mathcal{J} & \cos<\nabla L_Q, \nabla \mathcal{J}> %\cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & pi = \text{softmax}(logit) & & \cos<\nabla Q, \nabla \log \pi> \\
+    & V = sg(\pi)\cdot Q & & %\cos<\nabla L_V, \nabla L_Q> 
+    \\
+    % & & &  \\
+    
+    \midrule
+    
+    \text{PPO+CASA} & (V, A) = (V_\theta, A_\theta), & 0.5 \nabla L_V + \nabla L_Q + \nabla \mathcal{J} & \cos<\nabla L_Q, \nabla \mathcal{J}> %\cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & \pi = \text{softmax}(A/\tau), & & \cos<\nabla Q, \nabla \log \pi> \\
+    & \Bar{A} = A - sg(\pi) \cdot A & & %\cos<\nabla L_V, \nabla L_Q> 
+    \\
+    & Q = \Bar{A} + sg(V) & &  \\
+    
+    \bottomrule 
+    \end{array}
+    \end{math}
+    }
+    
+    \caption{PPO is the original PPO. PPO ver.1 and PPO ver.2 are adapted versions to calculate $\nabla L_Q$. PPO+CASA is applying CASA on PPO, which is described in Sec. \ref{sec:on_ppo_and_r2d2}.}
+    \label{tab:ppo_mtv}
+\end{table}
+
+\begin{table}[ht!]
+    \centering
+    \scalebox{0.90}{
+    \begin{math}
+        \begin{array}{c|c|c|c}
+    \toprule
+     & \text{Function Approximation} & \text{Train Gradients} & \text{Cosine of Interested Angles} \\
+    \midrule
+    
+    \text{R2D2} & (V, A) = (V_\theta, A_\theta) & \nabla L_Q & \cos<\nabla L_Q, \nabla \mathcal{J}>  %\cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & Q = A + V & & \\
+    & \pi = \text{softmax}(A / \tau) & & %\cos<\nabla L_V, \nabla L_Q> 
+    \\
+    % & & &  \\ % <\nabla Q, \nabla \log \pi>
+
+    \midrule
+    
+    \text{R2D2 ver.1} & (V, A) = (V_\theta, A_\theta) & 0.5 \nabla L_V + \nabla L_Q & \cos<\nabla L_Q, \nabla \mathcal{J}>  % \cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & Q = A + V & & % \cos<\nabla L_Q, \nabla \mathcal{J}> 
+    \\
+    & \pi = \text{softmax}(A / \tau) & & % \cos<\nabla L_V, \nabla L_Q> 
+    \\
+    % & & &  \\ % \cos<\nabla Q, \nabla \log \pi>
+
+    \midrule
+    
+    \text{R2D2+CASA} & (V, A) = (V_\theta, A_\theta), & 0.5 \nabla L_V + \nabla L_Q + \nabla \mathcal{J} & \cos<\nabla L_Q, \nabla \mathcal{J}>  % \cos<\nabla L_V, \nabla \mathcal{J}> 
+    \\
+    & \pi = \text{softmax}(A/\tau),  & & %\cos<\nabla L_Q, \nabla \mathcal{J}> 
+    \\
+    & \Bar{A} = A - sg(\pi) \cdot A & & % \cos<\nabla L_V, \nabla L_Q> 
+    \\
+    & Q = \Bar{A} + sg(V) & &  \\ %\cos<\nabla Q, \nabla \log \pi>
+    \bottomrule 
+    \end{array}
+    \end{math}
+     }
+    \caption{R2D2 is the original R2D2. R2D2 ver.1 is adapted version to include $\nabla L_V$ for training. R2D2+CASA is applying CASA on R2D2, which is described in Sec. \ref{sec:on_ppo_and_r2d2}.}
+    \label{tab:r2d2_mtv}
+\end{table}
+
+To understand the behavior of 
+{\colorred $$
+    \beta \overset{def}{=} <\mathbb{E}_\pi[(Q^\pi-Q_\theta)\nabla_\theta Q_\theta],\, \mathbb{E}_\pi[(Q^\pi-V_\theta) \nabla_\theta \log \pi_\theta]>
+$$
+}
+and 
+{\colorred 
+$$\chi \overset{def}{=} \mathbb{E}_\pi [\cos <\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta>]$$
+}
+in reinforcement learning algorithms, we choose PPO as a representative for policy-based methods and R2D2 as a representative for value-based algorithms. 
+
+Define $$L_V(\theta) = \mathbb{E}_\pi [ (V^{\pi} - V_\theta)^2 ],\  L_Q(\theta) = \mathbb{E}_\pi [ (Q^{\pi} - Q_\theta)^2 ],$$
+and $$\nabla_\theta \mathcal{J}(\theta) = \mathbb{E}_\pi \left[ (Q^{\pi}  - V_\theta ) \nabla_\theta \log \pi \right].$$
+We usually have above three kinds of loss functions in reinforcement learning, which aim to estimate the state values, state-action values and the policy. 
+We do not talk about the estimations of $V^\pi$ and $Q^\pi$ as they are estimated as their usual way of PPO's and R2D2's. 
+All hyperparameters are listed in Appendix \ref{app:hyperparameters}. 
+
+{\colorred For brevity, we write 
+$$\cos<\nabla Q, \nabla \log \pi> = \mathbb{E}_\pi [\cos <\nabla_\theta Q_\theta, \nabla_\theta \log \pi_\theta>],$$
+and
+$$
+\begin{aligned}
+    &\cos<\nabla L_Q, \nabla \mathcal{J}> = \cos<\mathbb{E}_\pi[(Q^\pi-Q_\theta)\nabla_\theta Q_\theta],\, \mathbb{E}_\pi[(Q^\pi-V_\theta) \nabla_\theta \log \pi_\theta]>, \\
+    &\cos<\nabla L_V, \nabla \mathcal{J}> = \cos<\mathbb{E}_\pi[(V^\pi-V_\theta)\nabla_\theta V_\theta],\, \mathbb{E}_\pi[(Q^\pi-V_\theta) \nabla_\theta \log \pi_\theta]>, \\
+    &\cos<\nabla L_V, \nabla L_Q> = \cos<\mathbb{E}_\pi[(V^\pi-V_\theta)\nabla_\theta V_\theta],\, \mathbb{E}_\pi[(Q^\pi-Q_\theta) \nabla_\theta Q_\theta]>. \\
+\end{aligned}
+$$}
+
+The fact that PPO only has $\nabla_\theta L_V$ and $\nabla_\theta \mathcal{J}$ and R2D2 only has $\nabla_\theta L_Q$ is the main difficulty to track $\cos(\beta)$ and $\chi$. 
+To solve the problem, we adjust PPO and R2D2 with different versions.
+
+For PPO, we displace the estimation of $V_\theta$ by $sg(\pi)\cdot Q_\theta$, where $Q_\theta$ is estimated by function approximation and $V_\theta$ is estimated by taking the expectation of $Q_\theta$.
+All versions of PPO are listed in Table \ref{tab:ppo_mtv}.
+
+For R2D2, we point out that though we apply $\epsilon$-greedy to interact with environments, $\epsilon$ is only used for exploration and the final target policy of value-based methods is simply $\arg\max Q_\theta$. 
+Because $\arg\max Q_\theta$ breaks the gradient, we use a surrogate policy to approximate the gradient of policy improvement. 
+% \haosen{potential context, the necessity of measuring the policy gradient and ``entropy'' of the Q function is that R2D2's greedy policy changes rapidly, and the rapid change give R2D2 the implicit exploration ability. \citep{policychurn} }
+Since R2D2 uses dueling structure and $\text{softmax}(A_\theta / \tau) = \text{softmax}(Q_\theta / \tau) \overset{\tau \rightarrow 0+}{\longrightarrow} \arg\max Q_\theta$, we use $\pi_{surrogate} = \text{softmax}(A_\theta / \tau)$ to calculate the policy gradient. 
+We only use $\pi_{surrogate}$ on learner to calculate the gradient, where the policy that interacts with environments is still $\epsilon$-greedy. 
+All versions of R2D2 are listed in Table \ref{tab:r2d2_mtv}.
+
+% Results are shown in Figure \ref{fig:mtv_app}.
+
+
+% \begin{figure}[hb!]
+% % \centering
+% \includegraphics[width=\linewidth]{body/app_fig/app_ppo_Breakout.pdf}
+
+% \includegraphics[width=\linewidth]{body/app_fig/app_ppo_Qbert.pdf}
+
+% \includegraphics[width=\linewidth]{body/app_fig/app_r2d2_Breakout.pdf}
+
+
+% \includegraphics[width=\linewidth]{body/app_fig/app_r2d2_Qbert.pdf}
+% \caption{Angles of Gradients and Returns of versions of PPO and R2D2 defined in Table \ref{tab:ppo_mtv} and Table \ref{tab:r2d2_mtv}.}
+% \label{fig:mtv_app}
+% \end{figure}
+
+% \clearpage
+
+% \changnan{casa summary deleted}
+% \section{CASA summary}
+% \begin{figure}[ht]
+% \centering
+% \includegraphics[width=0.4\textwidth,bb= 0 0 1800 1100]{body/figures/CASA.pdf}
+% \caption{
+% \textbf{Black} lines represent the forward process.
+% \textbf{Dotted} black lines represent the \textit{stop gradient} operator in the forward process. 
+% \textbf{Colorful} lines represent backpropagation from different loss functions. 
+% Specifically, \textbf{blue} lines represent $\mathbb{E}_\pi [(Q^\pi-V)\nabla \log \pi]$, 
+% \textbf{orange} lines represent $\mathbb{E}_\pi [(Q^\pi-Q)\nabla Q]$,
+% and \textbf{green} lines represent $\mathbb{E}_\pi [(Q^\pi-V)\nabla V]$.}
+% \label{fig:casa}
+% \end{figure}
+% \section{motivation experiments}
+
+\clearpage
+
+{\colorred \section{On Discussing Application of CASA on Continuous Action Space}
+\label{app:cts_space}
+
+As we can see CASA is only applied to discrete action space in the main context, we make a discussion on whether CASA is applicable on continuous action space. 
+For brevity, we let $\tau=1$ and write \eqref{eq:casa} as:
+\begin{equation}
+\left\{
+    \begin{aligned}
+        &\pi = \text{softmax}(A), \\
+        &\Bar{A} = A - \mathbb{E}_{\pi} [A], \\
+        &Q = \Bar{A} + sg(V).
+    \end{aligned}
+\right. 
+\end{equation}
+The difficulty comes from estimating two quantities, one is $\text{softmax}(A)$, the other is $\mathbb{E}_{\pi} [A]$. 
+This comes from the fact that discrete action space is countable so these two quantities are expressed in a closed-form, while continuous action space is uncountable so an accurate estimation of these two quantities is intractable. 
+We can surely apply Monte Carlo methods to approximate, but a more elegant close-form expression may be preferred. 
+Then this becomes another problem: \textit{how to estimate (state-action values / advantages / policy probabilities) of all actions in a continuous action space efficiently without loss of generality?}
+This is another representational design problem, which is out of scope of this paper, so we don't touch much about it. 
+But with the hope of inspiring a better solution to this problem, we provide one practical way of applying CASA on continuous action space based on kernel-based machine learning. 
+
+Let $a_0, \dots, a_k$ to be basis actions in the action space. 
+Let $A(s, a_0), \dots, A(s, a_k)$ to be advantage functions for tuples of states and basis actions. 
+They can either share parameters or be isolated. 
+Let $K(\cdot, \cdot)$ be a kernel function defined on the product of two action spaces. 
+For any $a$ in the action space, we can estimate $A(s, a)$ by a decomposition such like $$A(s, a) = \frac{1}{Z_a} (K(a_0, a) A(s, a_0) + \dots + K(a_k, a) A(s, a_k)),$$ where $Z_a = \sum_{i=0}^k K(a_i, a)$ is a normalization constant. 
+
+Since $K(\cdot, a)$ is a closed-form function of $a$, and $|\{A(s, a_0), \dots, A(s, a_k)\}|$ is finite, we can make a closed-form expression of both $\text{softmax}(A)$ and $\mathbb{E}_{\pi} [A]$. 
+Then we can apply CASA directly on this expression, with one function estimates $V$ and the other function estimates advantages of all actions in a closed-form with only state as input.  
+The policy is defined directly by $\text{softmax}$ of all advantages. 
+In details, we define
+\begin{equation}
+\left\{
+    \begin{aligned}
+        &\pi(s, a) = \exp (A(s, a)) / \int_{a} \exp (A(s, a)) da, \\
+        &\Bar{A}(s, a) = A(s, a) - \int_{a} sg(\pi(s, a)) A(s, a) da, \\
+        &Q(s, a) = \Bar{A}(s, a) + sg(V(s)).
+    \end{aligned}
+\right. 
+\end{equation}
+
+Then it satisfies the consistency of CASA on continuous action space.
+$$
+\begin{aligned}
+    \nabla \log \pi(s, a) &= \nabla A(s, a) - \frac{\nabla \int_{a} \exp (A(s, a)) da}{\int_{a} \exp (A(s, a)) da} \\
+    &= \nabla A(s, a) - \frac{ \int_{a} \exp (A(s, a)) \nabla A(s, a) da}{\int_{a} \exp (A(s, a)) da} \\
+    &= \nabla A(s, a) - \int_{a} \frac{  \exp (A(s, a)) }{\int_{a} \exp (A(s, a)) da} \nabla A(s, a) da \\
+    &= \nabla A(s, a) - \int_{a} \pi(s, a) \nabla A(s, a) da \\
+    &= \nabla \Bar{A}(s, a) = \nabla Q(s, a). 
+\end{aligned}
+$$
+}
+
+\section{DR-Trace}
+\label{app:drtrace}
+
+% One simple choice is to learn $V$ and $\pi$ by V-Trace \citep{impala} and to learn $Q$ by ReTrace \citep{retrace}. 
+% \citep{impala} shows that $V^{\Tilde{\pi}}$ estimated by V-Trace converges to $V^*$ that corresponds to some $\Tilde{\pi}_{VTrace}$.
+% Respectively, \citep{retrace} shows that $Q^{\Tilde{\pi}}$ estimated by ReTrace converges to $Q^*$ that corresponds to some $\Tilde{\pi}_{ReTrace}$.
+
+As CASA estimates $(V, Q, \pi)$, we would ask
+\textbf{i)} how to guarantee that $\Tilde{\pi}_{VTrace} = \Tilde{\pi}_{ReTrace}$, 
+\textbf{ii)} how to exploit $(V, Q, \pi)$ to make a better estimation. 
+Though we can apply V-Trace to estimate $V$ and ReTrace to estimate $Q$ with proper hyperparameters to guarantee $\Tilde{\pi}_{VTrace} = \Tilde{\pi}_{ReTrace}$, it's more reasonable to estimate $(V, Q)$ together. 
+Inspired by Doubly Robust, which is shown to maximally reduce the variance, we introduce DR-Trace, which estimates $V$ by 
+$$
+\label{eq:dr-v}
+    \begin{aligned}
+        V_{DR}^{\Tilde{\pi}} (s_t) &\overset{def}{=} \mathbb{E}_{\mu} [ 
+        V(s_t) + \sum_{k \geq 0} \gamma^k 
+     c_{[t:t+k-1]} \rho_{t+k}  \delta^{DR}_{t+k} ],  
+    \end{aligned}
+$$
+{\colorred where $\mu$ is the behavior policy}, $\delta^{DR}_t \overset{def}{=} r_t + \gamma V(s_{t+1}) - Q(s_t, a_t)$ is one-step Doubly Robust error, $\rho_t \overset{def}{=} \min\{\frac{\pi_t}{\mu_t}, \Bar{\rho} \}$ and $c_t \overset{def}{=} \min\{\frac{\pi_t}{\mu_t}, \Bar{c}\}$ are clipped per-step importance sampling, $c_{[t: t+k]} \overset{def}{=} \prod_{i=0}^{k} c_{t+i}$.
+
+With one step Bellman equation, we estimate $Q$ by
+$$
+\label{eq:dr-q}
+    \begin{aligned}
+         Q_{DR}^{\Tilde{\pi}} (s_t, a_t) 
+         &\overset{def}{=} \mathbb{E}_{s_{t+1}, r_t \sim p(\cdot, \cdot | s_t, a_t)} [  r_t + \gamma   V_{DR}^{\Tilde{\pi}} (s_{t+1}) ] 
+        \\
+        %  &=  \mathbb{E}_{\mu} [ r_t + \gamma V(s_{t + 1}) +
+        % \gamma \sum_{k \geq 0} \gamma^k 
+        % c_{[t+1:t+k]} \rho_{t+1+k}
+        % \delta^{DR}_{t+1+k} V
+        % ]
+        % \\
+        %  &= \mathbb{E}_{\mu}   [
+        % Q(s_t, a_t) + \delta_t^{DR}V + \sum_{k \geq 1}  \gamma^k
+        % c_{[t+1:t+k-1]} \rho_{t+k}
+        % \delta^{DR}_{t+k} V
+        % ],
+        % \\
+        &=  \mathbb{E}_{\mu}   [
+        Q(s_t, a_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        \delta^{DR}_{t+k}
+        ], 
+    \end{aligned}
+$$
+where $\Tilde{\rho}_{t, k} =  1_{\{k=0\}} + 1_{\{k > 0\}} \rho_{t+k}$.
+
+% Compared to \eqref{eq:dr-v}, $c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}$ in \eqref{eq:dr-q} doesn't multiply importance sampling ratio of $a_t$, which meets the same intuition as \eqref{eq:vtrace} and \eqref{eq:retrace}.\\
+\begin{theorem}
+    Define $\Bar{A} = A - \mathbb{E}_\pi[A]$, $Q = \Bar{A} + sg(V)$,
+    $$
+    \begin{aligned}
+    &\mathscr{T}(Q) \overset{def}{=} \mathbb{E}_{\mu}   [
+        Q(s_t, a_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        \delta^{DR}_{t+k}
+        ], \\
+    &\mathscr{S}(V) \overset{def}{=} \mathbb{E}_{\mu}   [
+        V(s_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t:t+k-1]} \rho_{t, k}
+        \delta^{DR}_{t+k}
+        ], \\
+    &\mathscr{U}(Q, V) = (\mathscr{T}(Q) - \mathbb{E}_\pi[Q] + \mathscr{S}(V), \mathscr{S}(V)), \\
+    &\mathscr{U}^{(n)}(Q, V) = \mathscr{U}(\mathscr{U}^{(n-1)}(Q, V)),
+    \end{aligned}
+    $$
+    then $\mathscr{U}^{(n)}(Q, V) \rightarrow (Q^{\Tilde{\pi}}, V^{\Tilde{\pi}})$ that corresponds to 
+    $$
+        \Tilde{\pi}(a|s) = \frac
+        {\min \left\{\Bar{\rho} \mu (a|s), \pi(a|s)\right\}}
+        {\sum_{b \in \mathcal{A}}\min \left\{\Bar{\rho} \mu (b|s), \pi(b|s)\right\}}.
+    $$ as $n \rightarrow +\infty$.
+\label{thm:dr}
+\end{theorem}
+\begin{proof}
+    See Appendix \ref{app:proof}, Theorem \ref{thm_app:dr}.
+\end{proof}
+Theorem \ref{thm:dr} shows that DR-Trace is a contraction mapping and $(V, Q)$ converges to $(V^{\Tilde{\pi}}, Q^{\Tilde{\pi}})$ that corresponds to 
+$$
+    \begin{aligned}
+        \Tilde{\pi}(a|s) = \frac
+        {\min \left\{\Bar{\rho} \mu (a|s), \pi(a|s)\right\}}
+        {\sum_{b \in \mathcal{A}}\min \left\{\Bar{\rho} \mu (b|s), \pi(b|s)\right\}}.
+    \end{aligned}
+$$
+
+% At training time, the policy evaluation is achieved by updating $\theta$ to minimize $l2$ losses
+% $$
+% \begin{aligned}
+%     L_V(\theta) &= \mathbb{E}_\pi [ (V_\theta(s_t) -  V_{DR}^{\Tilde{\pi}} (s_t))^2 ], \\
+%     L_Q(\theta) &= \mathbb{E}_\pi [ (Q_\theta(s_t, a_t) -  Q_{DR}^{\Tilde{\pi}} (s_t, a_t))^2 ],
+% \end{aligned}
+% $$ 
+% which gives the ascent direction of $\theta$ by
+% \begin{equation}
+% \label{eq:grad_qv}
+%     \begin{aligned}
+%         \nabla_\theta L_V(\theta)
+%         &= \mathbb{E}_\pi \left[ (V_{DR}^{\Tilde{\pi}} (s_t) - V_\theta(s_t) ) \nabla V_\theta(s_t) \right], \\
+%         \nabla_\theta L_Q(\theta)
+%         &= \mathbb{E}_\pi \left[ (Q_{DR}^{\Tilde{\pi}} (s_t, a_t) - Q_\theta(s_t, a_t)) \nabla Q_\theta(s_t, a_t) \right].
+%     \end{aligned}
+% \end{equation}
+% And we make the policy improvement by policy gradient, which gives the ascent direction of $\theta$ by 
+% \begin{equation}
+% \label{eq:grad_pi}
+% \begin{aligned}
+%     \nabla_\theta \mathcal{J}(\tau, \theta) = \mathbb{E}_\mu \left[\tau \rho_t (Q_{DR}^{\Tilde{\pi}} (s_t, a_t) - V_\theta(s_t) ) \nabla_\theta \log \pi_t \right],
+% \end{aligned}
+% \end{equation}
+% where $\mathcal{J} (\tau, \theta) = \tau \mathbb{E}_\pi [\sum \gamma^t r_t]$.
+% It takes an additional $\tau$, which frees the scale of gradient from $\tau$.
+
+% Finally, the gradient ascent direction of $\theta$ is given by
+% \begin{equation}
+%     \label{eq:grad_all}
+%     \alpha_1 \nabla_\theta L_V + \alpha_2 \nabla_\theta L_Q + \alpha_3 \nabla_\theta \mathcal{J}.
+% \end{equation}
+
+% \textbf{Full algorithm is described in Appendix \ref{app:casa}.}
+% Note that \eqref{eq:grad_all} doesn't need any entropy regularization. 
+% We will discuss why this happens in section \ref{sec:equiv} and how CASA controls the exploration in section \ref{sec:ent_control}.
+
+
+\begin{figure}[h]
+    \centering
+\includegraphics[width=\linewidth]{body/ablation/dr_ablation.pdf}
+    \caption{Ablation study for w/wo DR-Trace on Breakout, ChopperCommand and Krull.}
+    \label{fig:app_dr_trace}
+\end{figure}
+
+According to our proof, DR-Trace should work similar to V-Trace and ReTrace, as the convergence rate and the limitation are same. 
+We compare DR-Trace with V-Trace+ReTrace in Figure \ref{fig:app_dr_trace}, where we replace estimation of state values by V-Trace and estimation of state-action values by ReTrace. 
+We call V-Trace+ReTrace as No-DR-Trace for brevity. 
+No-DR-Trace performs better on Breakout and ChopperCommand, but fails to make a breakthrough on Krull. 
+Recalling the fact that Doubly Robust can maximally reduce the variance of Bellman error, No-DR-Trace is less stable but also potential to achieve a better performance. 
+A conclusion cannot be made about No-DR-Trace, as this phenomenon means that No-DR-Trace is less stable than DR-Trace, but it also holds the potential to achieve a better performance.
+
+% \clearpage
+
+
+\section{Proofs}
+\label{app:proof}
+
+\theoremstyle{plain}
+% \setcounter{Lemma}{0}
+\newtheorem{Lemma_app}{Lemma}[section]
+\newtheorem{Theorem_app}{Theorem}[section]
+\theoremstyle{definition}
+\newtheorem*{Remark_app}{Remark}
+\theoremstyle{remark}
+
+% \begin{Lemma_app}
+% Let 
+% $g \in \textbf{C}^{1}(\mathbb{R}^{n}): \mathbb{R}^{n} \to \mathbb{R}^{n}, \ f \in \textbf{C}^{1}(\mathbb{R}^{n+k}): \mathbb{R}^{n+k} \to \mathbb{R}^{n}.
+% $\\
+% If
+% $
+% \nabla_x g(x) = \nabla_x f(x, y)$, for $\forall x\in \mathbb{R}^{n}, y\in \mathbb{R}^k,
+% $
+% then $\exists$ $c \in \textbf{C}^{1}(\mathbb{R}^{k}): \mathbb{R}^{k} \to \mathbb{R}^{n}$, s.t. $f(x, y) = g(x) + c(y)$.
+% \label{lemma_app:func_sep}
+% \end{Lemma_app}
+% \begin{proof}
+
+% Let $\Tilde{f}(x, y) = f(x, y) - g(x)$.
+
+% Since $\nabla_x g(x) = \nabla_x f(x, y)$, we have 
+% $$
+% \nabla_x \Tilde{f} = 0, \ for \ \forall x\in \mathbb{R}^{n}, y\in \mathbb{R}^k.
+% $$
+
+% So $\Tilde{f}$ is a constant function w.r.t $x$, which can be denoted as $c(y) = \Tilde{f}(x, y)$.
+
+% Hence, $f(x, y) = g(x) + c(y)$.
+% \end{proof}
+
+\begin{Lemma_app}
+(i) Define $\pi = softmax(A / \tau)$, then $\nabla \log \pi = (\textbf{1} - \pi) \frac{\nabla A}{\tau}$. 
+(ii) Denote $sg$ to be stop gradient and define $\Bar{A} = A - \mathbb{E}_\pi [A]$, $Q = \Bar{A} + sg(V)$, then $\nabla Q = (\textbf{1} - \pi) \nabla A$.
+\label{lemma_app:vannila_grad}
+\end{Lemma_app}
+\begin{proof}
+
+As $Q = \Bar{A} + sg(V) = A - sg(\pi)\cdot A + sg(V)$, it's obvious that $\nabla Q = (\textbf{1} - \pi) \nabla A$.
+
+For $\log \pi$, it's a standard derivative of cross entropy, so we have $\nabla \log \pi = (\textbf{1} - \pi) \nabla (A / \tau) = (\textbf{1} - \pi) \frac{\nabla A}{\tau}$.
+\end{proof}
+
+\begin{Lemma_app}
+Define $\Bar{A}= A - \mathbb{E}_\pi[A]$, $Q = \Bar{A} + sg(V), \pi = softmax(A / \tau)$, then 
+$$
+\mathbb{E}_\pi \left[ (Q - V) \nabla \log \pi \right]
+= - \tau \nabla \textbf{H}[\pi].
+$$
+\label{lemma_app:eqiv_pg_ent}
+\end{Lemma_app}
+\begin{proof}
+Since 
+$$
+\pi = \exp(A / \tau) / Z,\ Z = \int_\mathcal{A} \exp(A / \tau),
+$$
+we have 
+$$
+A = \tau \log \pi + \tau \log Z.
+$$
+Based on the observation that $\mathbb{E}_\pi \left[ f(s) \nabla \log \pi (\cdot | s) \right] = 0$, 
+we have 
+$$\mathbb{E}_\pi \left[ \mathbb{E}_\pi[A] \cdot \nabla \log \pi \right] = 0,$$ 
+$$\mathbb{E}_\pi \left[ \log Z \cdot \nabla \log \pi \right] = 0.$$
+
+On the one hand,
+$$
+\begin{aligned}
+    \mathbb{E}_\pi \left[ (Q - V) \nabla \log \pi \right]
+    &= \mathbb{E}_\pi \left[ A \nabla \log \pi \right] 
+    - \mathbb{E}_\pi \left[ \mathbb{E}_\pi[A] \cdot \nabla \log \pi \right] \\
+    &= \tau \mathbb{E}_\pi \left[ \log \pi \nabla \log \pi \right]
+    + \tau \mathbb{E}_\pi \left[ \log Z \cdot \nabla \log \pi \right] \\
+    &= \tau \mathbb{E}_\pi \left[ \log \pi \nabla \log \pi \right].
+\end{aligned}
+$$
+
+On the other hand, 
+$$
+\begin{aligned}
+    \nabla \textbf{H} [\pi] 
+    &= - \nabla \int_\mathcal{A} \pi_i \log \pi_i \\
+    &= - \int_\mathcal{A}  \nabla \pi_i \cdot \log \pi_i - \int_\mathcal{A} \pi_i \nabla \log \pi_i  \\
+    &= - \int_\mathcal{A}  \pi_i \nabla \log \pi_i \cdot \log \pi_i - \int_\mathcal{A}  \pi_i \frac{\nabla \pi_i}{\pi_i} \\
+    &= - \mathbb{E}_\pi \left[ \log \pi \nabla \log \pi \right].
+\end{aligned}
+$$
+Hence, $
+\mathbb{E}_\pi \left[ (Q - V) \nabla \log \pi \right]
+= - \tau \nabla \textbf{H}[\pi]
+$.
+\end{proof}
+
+\begin{Theorem_app}
+    Define $\Bar{A} = A - \mathbb{E}_\pi[A]$, $Q = \Bar{A} + sg(V)$.
+    Define $$
+    \begin{aligned}
+    &\mathscr{T}(Q) \overset{def}{=} \mathbb{E}_{\mu}   [
+        Q(s_t, a_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        \delta^{DR}_{t+k}
+        ], \\
+    &\mathscr{S}(V) \overset{def}{=} \mathbb{E}_{\mu}   [
+        V(s_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t:t+k-1]} \rho_{t, k}
+        \delta^{DR}_{t+k}
+        ], \\
+    &\mathscr{U}(Q, V) = (\mathscr{T}(Q) - \mathbb{E}_\pi[Q] + \mathscr{S}(V), \mathscr{S}(V)), \\
+    &\mathscr{U}^{(n)}(Q, V) = \mathscr{U}(\mathscr{U}^{(n-1)}(Q, V)),
+    \end{aligned}
+    $$
+    then $\mathscr{U}^{(n)}(Q, V) \rightarrow (Q^{\Tilde{\pi}}, V^{\Tilde{\pi}})$ that corresponds to 
+    $$
+        \Tilde{\pi}(a|s) = \frac
+        {\min \left\{\Bar{\rho} \mu (a|s), \pi(a|s)\right\}}
+        {\sum_{b \in \mathcal{A}}\min \left\{\Bar{\rho} \mu (b|s), \pi(b|s)\right\}}.
+    $$ as $n \rightarrow +\infty$.
+\label{thm_app:dr}
+\end{Theorem_app}
+\begin{Remark_app}
+$\mathscr{T}(Q) - \mathbb{E}_\pi[Q] + \mathscr{S}(V)$ is \textbf{exactly} how $Q$ is updated at training time. 
+Since $Q = \Bar{A} + sg(V)$, if we apply gradient ascent on $Q$ and $V$ in directions $\nabla L_Q(\theta)$ and $\nabla L_V(\theta)$ respectively, change of $Q$ comes from two aspects. One comes from $\nabla L_Q(\theta)$, which changes $A$, the other comes from $\nabla L_V(\theta)$, which changes $V$. Because the gradient of $V$ is stopped when estimating $Q$, the latter is captured by "minus old baseline, add new baseline", which is $- \mathbb{E}_\pi[Q] + \mathscr{S}(V)$ in Theorem \ref{thm_app:dr}.
+\end{Remark_app}
+\begin{proof}
+ Define
+ $$
+ \begin{aligned}
+        \widetilde{\mathscr{T}}(Q) &= - \mathbb{E}_\pi[Q] + \mathscr{T}(Q), \\
+        \widetilde{\mathscr{U}}(Q, V) &= (\widetilde{\mathscr{T}}(Q), \mathscr{S}(V)), \\
+        \widetilde{\mathscr{U}}^{(n)}(Q, V) &=   \widetilde{\mathscr{U}}(\widetilde{\mathscr{U}}^{(n-1)}(Q, V)).
+ \end{aligned}
+ $$
+By Lemma \ref{lemma_app:dr_q}, $\widetilde{\mathscr{T}}^{(n)}(Q)$ converges to some $A^*$ as $n \rightarrow \infty$. This process will not influence the estimation of $V$ as the gradient of $V$ is stopped when estimating $Q$. According to the proof, $A^*$ does not depend on $V$. \\
+By Lemma \ref{lemma_app:dr_v}, $\mathscr{S}^{(n)}(V)$ converges to some $V^*$ as $n \rightarrow \infty$. \\
+Hence, we have
+$$
+\widetilde{\mathscr{U}}^{(n)}(Q, V) \rightarrow (A^*, V^*)\ \ as\ \ n \rightarrow +\infty. 
+$$
+By definition, 
+$$
+\mathscr{U}(Q, V) = (\widetilde{\mathscr{T}}(Q) + \mathscr{S}(V), \mathscr{S}(V)),
+$$
+we can regard $\widetilde{\mathscr{T}}(Q) + \mathscr{S}(V)$ as $Q$ and regard $\mathscr{S}(V)$ as $V$, then
+$$
+\begin{aligned}
+    \mathscr{U}^{(2)}(Q, V) 
+    &= \mathscr{U}(\widetilde{\mathscr{T}}(Q) + \mathscr{S}(V), \mathscr{S}(V)) \\
+    &= (\mathscr{T}(\widetilde{\mathscr{T}}(Q) + \mathscr{S}(V)) -\mathscr{S}(V) + \mathscr{S}^{(2)}(V), \mathscr{S}^{(2)}(V)) \\
+    &= (\widetilde{\mathscr{T}}^{(2)}(Q) + \mathscr{S}^{(2)}(V), \mathscr{S}^{(2)}(V)).
+\end{aligned}
+$$
+By induction, 
+$$
+\begin{aligned}
+    \mathscr{U}^{(n)}(Q, V) &= (\widetilde{\mathscr{T}}^{(n)}(Q) + \mathscr{S}^{(n)}(V), \mathscr{S}^{(n)}(V)) \\
+    &\rightarrow (A^*+V^*, V^*)\ \ as\ \ n\rightarrow + \infty.
+\end{aligned}
+$$
+Same as \citep{impala}, 
+$$
+    \Tilde{\pi}(a|s) = \frac
+    {\min \left\{\Bar{\rho} \mu (a|s), \pi(a|s)\right\}}
+    {\sum_{b \in \mathcal{A}}\min \left\{\Bar{\rho} \mu (b|s), \pi(b|s)\right\}}.
+$$ 
+is the policy s.t. the Bellman equation holds, which is 
+$$\mathbb{E}_\mu[\rho_t (r_t + \gamma V_{t+1} - V_t) | \mathscr{F}_t] = 0,$$ and $\mathscr{U}(Q^{\Tilde{\pi}}, V^{\Tilde{\pi}}) = (Q^{\Tilde{\pi}}, V^{\Tilde{\pi}})$. \\
+So we have
+$(A^*+V^*, V^*) = (Q^{\Tilde{\pi}}, V^{\Tilde{\pi}}).$
+\end{proof}
+
+\begin{Lemma_app}
+Define $\Bar{A}= A - \mathbb{E}_\pi[A]$, $Q = \Bar{A} + sg(V)$,
+then operator 
+$$
+    \mathscr{T}(Q) \overset{def}{=} \mathbb{E}_{\mu}   [
+        Q(s_t, a_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        \delta^{DR}_{t+k}
+        ]
+$$
+is a contraction mapping w.r.t. $Q$.
+\label{lemma_app:dr_q}
+\end{Lemma_app}
+\begin{Remark_app}
+Note that $\mathscr{T}(Q)$ is exactly \eqref{eq:dr-q}. 
+
+Since $Q = A + sg(V)$, the gradient of $V$ is stopped when estimating $Q$, updating $Q$ will not change $V$, which is equivalent to updating $A$.
+Without loss of generality, we assume $V$ is fixed as $V^*$ in the proof.
+\end{Remark_app}
+\begin{proof}
+
+$\Bar{A} = A - \mathbb{E}_\pi[A]$ shows $\mathbb{E}_\pi[\Bar{A}] = 0$, which guarantees that no matter how we update $A$, we always have $\mathbb{E}_\pi[Q] = V^*$.
+
+Based on above observations, define 
+$$
+    \widetilde{\mathscr{T}}(Q) \overset{def}{=} - \mathbb{E}_\pi [Q] + \mathscr{T}(Q).
+$$
+
+It's obvious that we only need to prove $\widetilde{\mathscr{T}}(Q)$ is a contraction mapping.
+
+For brevity, we denote $$Q_t = Q(s_t, a_t), A_t = A(s_t, a_t), V^*_t = V^*(s_t).$$
+
+Noticing that $\Tilde{\rho}_{t, 0} = 1$, let $\mathscr{F}$ represent filtration, we can rewrite $\widetilde{\mathscr{T}}$ as 
+\begin{equation}
+\label{eq:dr_a_2}
+\begin{aligned}
+    \widetilde{\mathscr{T}}(Q)
+    &= \mathbb{E}_{\mu}   [
+        A_t + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        \delta^{DR}_{t+k}
+        ] \\
+    &= \mathbb{E}_{\mu}   [
+        -V^*_t + \sum_{k \geq 0}  \gamma^k
+        c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}
+        r_{t+k}
+        + 
+        \sum_{k \geq 0}  \gamma^{k+1}
+        c_{[t+1:t+k-1]} \Delta_k ],
+        \\
+\end{aligned}
+\end{equation}
+where 
+\begin{equation}
+\label{eq:dr_delta}
+    \Delta_k = \mathbb{E}_{\mu}\left[\Tilde{\rho}_{t, k} V^*_{t+k+1} - c_{t+k} \Tilde{\rho}_{t, k+1} Q_{t+k+1} | \mathscr{F}_{t+k}\right].
+\end{equation}
+By definition of $Q$,
+$$
+    \mathbb{E}_{\mu}[V_{t+k+1}^*|\mathscr{F}_{t+k}] 
+    = \mathbb{E}_{\mu}[
+    \mathbb{E}_\pi[Q_{t+k+1}|\mathscr{F}_{t+k+1}]
+    |\mathscr{F}_{t+k}], \\
+    % \geq&  \mathbb{E}_{\mu}[
+    % \mathbb{E}_\mu[\Tilde{\rho}_{t, k+1} Q_{t+k+1}|\mathscr{F}_{t+k+1}]
+    % |\mathscr{F}_{t+k}], 
+$$
+we can rewrite \eqref{eq:dr_delta} as
+\begin{equation}
+\label{eq:dr_q_delta}
+\Delta_k = \mathbb{E}_{\mu}[
+(
+\Tilde{\rho}_{t, k} \frac{\pi_{t+k+1}}{\mu_{t+k+1}}- c_{t+k} \Tilde{\rho}_{t, k+1} 
+) Q_{t+k+1} | \mathscr{F}_{t+k}
+].
+\end{equation}
+For any $Q_1 = A_1 + sg(V^*)$, $Q_2 = A_2 + sg(V^*)$, since
+$$
+\mathbb{E}_{\mu}[
+(
+\Tilde{\rho}_{t, k} \frac{\pi_{t+k+1}}{\mu_{t+k+1}}- c_{t+k} \Tilde{\rho}_{t, k+1} 
+) | \mathscr{F}_{t+k}
+] \geq 0,
+$$
+by \eqref{eq:dr_a_2} \eqref{eq:dr_q_delta}, we have 
+% $$
+% || \Delta^1_k - \Delta_k^2 || \leq \mathbb{E}_{\mu}\left[
+% \left(
+% \Tilde{\rho}_{t, k} \frac{\pi_{t+k+1}}{\mu_{t+k+1}}- c_{t+k} \Tilde{\rho}_{t, k+1} 
+% \right) | \mathscr{F}_{t+k}
+% \right] ||A^1 - A_2||.
+% $$
+$$
+        || \widetilde{\mathscr{T}}(Q_1) - \widetilde{\mathscr{T}}(Q_2) || 
+        % \leq& \mathbb{E}_{\mu} \left[ \sum_{k \geq 0}  \gamma^{k+1} c_{[t+1:t+k-1]} || \Delta_k^1 - \Delta_k^2 || \right] \\
+        \leq \mathcal{C} || Q_1 - Q_2 ||,
+$$
+where 
+$$
+    \begin{aligned}
+        \mathcal{C} 
+        &= \mathbb{E}_{\mu} [ \sum_{k \geq 0}  \gamma^{k+1} c_{[t+1:t+k-1]} 
+        (
+        \Tilde{\rho}_{t, k} \frac{\pi_{t+k+1}}{\mu_{t+k+1}}- c_{t+k} \Tilde{\rho}_{t, k+1} 
+        ) ]
+        \\
+        &= \mathbb{E}_{\mu} [1 -1 + \sum_{k \geq 0}  \gamma^{k+1} c_{[t+1:t+k-1]} 
+        \left(
+        \Tilde{\rho}_{t, k} - c_{t+k} \Tilde{\rho}_{t, k+1} 
+        \right) ] 
+        \\
+        &= 1 - (1 - \gamma)  \mathbb{E}_{\mu} [\sum_{k \geq 0} \gamma^{k}c_{[t+1:t+k-1]} \Tilde{\rho}_{t, k}  ] \\
+        &\leq 1 - (1 - \gamma) < 1.
+    \end{aligned}
+$$
+Hence, $\widetilde{\mathscr{T}}(Q)$ is a contraction mapping and converges to some fixed function, which we denote as $A^*$. So $\mathscr{T}(Q)$ is also a contraction mapping and converges to $A^*+V^*$.
+\end{proof}
+
+\begin{Lemma_app}
+Define $Q = A + sg(V)$ with $\mathbb{E}_\pi [A] = 0$,
+then operator 
+$$
+    \mathscr{S}(V) \overset{def}{=} \mathbb{E}_{\mu}  [
+        V(s_t) + \sum_{k \geq 0}  \gamma^k
+        c_{[t:t+k-1]} \rho_{t, k}
+        \delta^{DR}_{t+k}
+        ]
+$$
+is a contraction mapping w.r.t. $V$.
+\label{lemma_app:dr_v}
+\end{Lemma_app}
+\begin{Remark_app}
+Note that $\mathscr{S}(V)$ is exactly \eqref{eq:dr-v}. 
+\end{Remark_app}
+\begin{proof}
+
+% Since $Q = A + sg(V)$, updating $V$ wouldn't influence $A$. WLOG, we assume $A$ is fixed as $A^*$ in Lemma \ref{lemma_app:dr_v}. \\
+Same as Lemma \ref{lemma_app:dr_q}, we can get
+$$
+    \Delta_k = \mathbb{E}_{\mu}\left[
+    \left( \rho_{t+k} - c_{t+k} \rho_{t+k+1}\right) V_{t+k+1} 
+     -  c_{t+k} \rho_{t+k+1} A^*_{t+k+1} | \mathscr{F}_{t+k}\right],
+$$
+so we have 
+$$
+    \Delta^1_k - \Delta^2_k = \mathbb{E}_{\mu}\left[ 
+    \left( \rho_{t+k} - c_{t+k} \rho_{t+k+1}\right) \cdot  
+   (V^1_{t+k+1} -  V^2_{t+k+1})
+     | \mathscr{F}_{t+k}\right].
+$$
+The remaining proof is identical to \citep{impala}'s.
+\end{proof}
+
+% \clearpage
+
+% \begin{Lemma_app}
+% Let $v \in \mathbb{R}^{|\mathcal{A}|}$ to be a vector. 
+% Define 
+% $
+%     \pi (\tau) = \exp (v / \tau) / Z,\  Z = \int_\mathcal{A}  \exp(v / \tau).
+% $
+% Let $\Omega$ to be a probability measure supported on $[K, +\infty]$,
+% then $f(\Omega) = \mathbb{E}_{\tau \sim \Omega} [\mathbb{E}_{\pi(\tau)} [v]]$ satisfies Lipschitz-1 condition with Wasserstein-1 metric.
+% \label{lemma_app:lips}
+% \end{Lemma_app}
+% \begin{proof}
+% Without loss of generality, we assume $v_1 \geq v_2 \geq ... \geq v_{|\mathcal{A}|}$.
+
+% For any $\tau \in [0, +\infty)$, since
+% $$
+% \begin{aligned}
+%     \pi (\tau) = \exp (v / \tau) / Z,\  Z = \int_\mathcal{A}  \exp(v / \tau),
+% \end{aligned}
+% $$
+% we have
+% $$
+%     v = \tau \log \pi (\tau) + \tau \log Z.
+% $$
+
+% Denote $\Tilde{v}_j = v_j / \tau$. \\
+% Since 
+% $$
+% \frac{\partial \log \pi_i}{\partial \Tilde{v}_j} = 1_{i=j} - \pi_j,
+% $$
+% we have
+% $$
+% \begin{aligned}
+%     \frac{\partial \log \pi_i}{\partial \tau} 
+%     &= \sum_j \frac{\partial \log \pi_i}{\partial \Tilde{v}_j} \cdot \frac{\partial \Tilde{v}_j}{\partial \tau} \\
+%     &= - \sum_j (1_{i=j} - \pi_j) \frac{v_j}{\tau^2} \\
+%     &= - \frac{1}{\tau^2} ( v_i - \sum_j \pi_j v_j ) \\ 
+%     &= - \frac{1}{\tau^2} \left( v_i - \mathbb{E}_\pi [v] \right). 
+% \end{aligned}
+% $$
+% Therefore, we have
+% $$
+% \begin{aligned}
+%     \frac{\partial \pi_i}{\partial \tau} 
+%     &= \pi_i \frac{\partial \log \pi_i}{\partial \tau} \\
+%     &= - \frac{\pi_i}{\tau^2} \left( v_i - \mathbb{E}_\pi [v] \right).
+% \end{aligned}
+% $$
+% Let $f(\tau) = v \cdot \pi(\tau)$, then
+% $$
+% \frac{\partial f}{\partial \tau} = - \frac{1}{\tau^2} \sum_i v_i \pi_i \left( v_i - \mathbb{E}_\pi [v] \right).
+% $$
+% Since $\sum_i \mathbb{E}_\pi [v] \pi_i \left( v_i - \mathbb{E}_\pi [v] \right) = 0$,
+% we know
+% $$
+% \begin{aligned}
+%     \frac{\partial f}{\partial \tau} 
+%     &= - \frac{1}{\tau^2} \sum_i \left( v_i - \mathbb{E}_\pi [v] \right) \pi_i \left( v_i - \mathbb{E}_\pi [v] \right) \\
+%     &= - \frac{1}{\tau^2} \sum_i \pi_i \left( v_i - \mathbb{E}_\pi [v] \right)^2 \\
+%     &= - \frac{1}{\tau^2} \textbf{Var}_\pi [v].
+% \end{aligned}
+% $$
+% It's obvious that
+% $$
+% \left| \frac{\partial f}{\partial \tau} \right| \leq \frac{1}{K^2} |v_1 - v_{|\mathcal{A}|}|^2.
+% $$
+% Hence, for any $\tau_1, \tau_2 \in [K, +\infty]$,
+% $$
+% |v \cdot \pi(\tau_1) - v \cdot \pi(\tau_2)| \leq C | \tau_1 - \tau_2|.
+% $$
+
+% Finally, for any $\gamma \in \Gamma(\Omega_1, \Omega_2)$ \footnote{$\Gamma(\Omega_1, \Omega_2)$ is the collection of all measures on $[K, +\infty] \times [K, +\infty]$ with marginals $(\Omega_1, \Omega_2)$.}, we have
+% $$
+% \begin{aligned}
+% \left| \mathbb{E}_{\tau_1 \sim \Omega_1} [v \cdot \pi (\tau_1)] - \mathbb{E}_{\tau_2 \sim \Omega_2} [v \cdot \pi (\tau_2)] \right|
+% &= \left| \int_{[K, +\infty] \times [K, +\infty]} (v \cdot \pi (\tau_1) - v \cdot \pi (\tau_2)) d \gamma (\tau_1, \tau_2) \right| \\
+% &\leq \int_{[K, +\infty] \times [K, +\infty]} |v \cdot \pi (\tau_1) - v \cdot \pi (\tau_2)| d \gamma (\tau_1, \tau_2) \\
+% &\leq C \int_{[K, +\infty] \times [K, +\infty]} |\tau_1 - \tau_2| d \gamma (\tau_1, \tau_2).
+% \end{aligned}
+% $$
+
+% Taking infimum over $\Gamma(\Omega_1, \Omega_2)$, we have
+% $$
+% \left| \mathbb{E}_{\tau_1 \sim \Omega_1} [v \cdot \pi (\tau_1)] - \mathbb{E}_{\tau_2 \sim \Omega_2} [v \cdot \pi (\tau_2)] \right|
+% \leq C W_1 (\Omega_1, \Omega_2),
+% $$
+
+% which proves that $f(\Omega) = \mathbb{E}_{\tau \sim \Omega} [\mathbb{E}_{\pi (\tau)} [v]]$ satisfies Lipschitz-1 condition with Wasserstein-1 metric.
+
+% \end{proof}
+
+\clearpage
+
+\section{Hyperparameters}
+\label{app:hyperparameters}
+
+Our python packages are shown in Table \ref{tab:package}.
+
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{l@{\hspace{.43cm}}l@{\hspace{.22cm}}}
+\toprule
+\textbf{Package} & \textbf{Version}  \\
+\midrule
+ale-py & 0.6.0.dev20200207 \\
+gym & 0.19.0 \\
+tensorflow & 1.15.2 \\
+opencv-python & 4.1.2.30 \\
+opencv-contrib-python & 4.4.0.46 \\
+\bottomrule
+\end{tabular}
+\caption{Versions for python packages among all experiments.}
+\label{tab:package}
+\end{center}
+\end{table}
+
+All experiments follow the shared hyperparameters as in Table \ref{tab:shared_hyperparameters}. 
+The specific hyperparameters for PPO, R2D2 and CASA+DR-Trace are shown in Table \ref{tab:ppo_hyperparameters}, Table \ref{tab:r2d2_hyperparameters} and Table \ref{tab:drtrace_hyperparameters}.
+The only exceptions are $V$-loss scaling, $Q$-loss scaling and $\pi$-loss scaling, which may be zero depending on some specific ablation settings. 
+We will state these three hyperparameters every time in all experiments.
+
+% \begin{multicols}{2}
+\begin{table}[H]
+\begin{center}
+\scalebox{0.95}{
+\begin{tabular}{l@{\hspace{.43cm}}l@{\hspace{.22cm}}}
+\toprule
+\textbf{Parameter} & \textbf{Value}  \\
+\midrule
+Atari Version & NoFrameskip-v4 \\
+Atari Wrapper & gym.wrappers.atari\_preprocessing \\
+Image Size & (84, 84) \\
+Grayscale & Yes \\
+Num. Action Repeats & 4 \\
+Num. Frame Stacks & 4 \\
+Action Space & Full \\
+End of Episode When Life Lost & No \\
+% Num. States & 200M \\
+Num. Environments & 160 \\
+% Reward Clip & Yes \\
+% Intrinsic Reward & No \\
+Random No-ops & 30 \\
+% Burn-in & 40 \\
+% Seq-length & 80 \\
+Burn-in Stored Recurrent State & Yes \\
+Bootstrap & Yes \\
+Optimizer & Adam Weight Decay \\
+Weight Decay Rate & 0.01 \\
+Weight Decay Schedule & Anneal linearly to 0 \\
+Learning Rate & 5e-4 \\
+Warmup Steps & 4000 \\
+Learning Rate Schedule & Anneal linearly to 0 \\
+AdamW $\beta_1$ & 0.9 \\
+AdamW $\beta_2$ & 0.98 \\
+AdamW $\epsilon$ & 1e-6 \\
+AdamW Clip Norm & 50.0 \\
+% Auxiliary Forward Dynamic Task & Yes \\
+% Auxiliary Inverse Dynamic Task & Yes \\
+Learner Push Model Every $n$ Steps & 25 \\
+Actor Pull Model Every $n$ Steps & 64 \\
+% Num. Bandits & 7 \\
+% Bandit Learning Rate & Uniform([0.05, 0.1, 0.2]) \\
+% Bandit Tiling Width & Uniform([1, 2, 3]) \\
+% Num. Bandit Candidates & 7 \\
+% Bandit Value Normalization & Yes \\
+% Bandit UCB Scaling & 1.0 \\
+% Bandit Search Range for $1 / \tau$ & [0.0, 50.0] \\
+\bottomrule
+\end{tabular}}
+\caption{Configurations for shared hyperparameters among all experiments.}
+\label{tab:shared_hyperparameters}
+\end{center}
+\end{table}
+% \end{multicols}
+
+% \section{Preprocess setting}
+% \label{app:preprocess}
+% \haosen{should we add some gym version and other details for reproducibility?}
+
+\clearpage
+
+
+
+% \begin{table}[H]
+% \begin{center}
+% \caption{Shared Hyperparameters for All Experiments.}
+% \label{tab:fixed_model_hyper-parameters_atari}
+% \resizebox{\textwidth}{!}{% <------ Don't forget this %
+%  \begin{tabular}{l l l l }
+% \toprule
+% \textbf{Parameter} & \textbf{Value} & \textbf{Parameter} & \textbf{Value}  \\
+% \midrule
+% Image Size & (84, 84) & Grayscale & Yes \\
+% Num. Action Repeats & 4 &  Num. Frame Stacks & 4 \\
+% Action Space & Full & End of Episode When Life Lost & No \\
+% Num. States & 200M & Num. Environments & 160 \\
+% Random No-ops & 30 & Burn-in & 40 \\
+% Seq-length & 80 & Burn-in Stored Recurrent State & Yes \\
+% Bootstrap & Yes & Batch size & 64 \\
+% % Entropy Regularization & No \\
+% Backbone & IMPALA,deep & LSTM Units & 256 \\
+% Optimizer & Adam Weight Decay & Weight Decay Rate & 0.01 \\
+% Weight Decay Schedule & Anneal linearly to 0 & Learning Rate & 5e-4 \\
+% Warmup Steps & 4000 & Learning Rate Schedule & Anneal linearly to 0 \\
+% AdamW $\beta_1$ & 0.9 & AdamW $\beta_2$ & 0.98 \\
+% AdamW $\epsilon$ & 1e-6 &  AdamW Clip Norm & 50.0 \\
+% % Auxiliary Forward Dynamic Task & Yes \\
+% % Auxiliary Inverse Dynamic Task & Yes \\
+% Learner Push Model Every $n$ Steps & 25 & Actor Pull Model Every $n$ Steps & 64 \\
+% % Num. Bandits & 7 \\
+% % Bandit Learning Rate & Uniform([0.05, 0.1, 0.2]) \\
+% % Bandit Tiling Width & Uniform([1, 2, 3]) \\
+% % Num. Bandit Candidates & 7 \\
+% % Bandit Value Normalization & Yes \\
+% % Bandit UCB Scaling & 1.0 \\
+% % Bandit Search Range for $1 / \tau$ & [0.0, 50.0] \\
+% \bottomrule
+% \end{tabular} 
+% }
+% \end{center}
+% \end{table}
+
+
+% \begin{multicols}{2}
+\begin{table}[H]
+\begin{center}
+\scalebox{0.85}{
+\begin{tabular}{l@{\hspace{.43cm}}l@{\hspace{.22cm}}}
+\toprule
+\textbf{Parameter} & \textbf{Value}  \\
+\midrule
+% Image Size & (84, 84) \\
+% Grayscale & Yes \\
+% Num. Action Repeats & 4 \\
+% Num. Frame Stacks & 4 \\
+% Action Space & Full \\
+% End of Episode When Life Lost & No \\
+{\colorred Num. States} & {\colorred 50M} \\
+Sample Reuse & 1 \\
+% Num. Environments & 160 \\
+Reward Shape & clip$(r, 0, 1)$ \\
+% Reward Clip & Yes \\
+% Intrinsic Reward & No \\
+% Random No-ops & 30 \\
+{\colorred Burn-in} & {\colorred 0} \\
+{\colorred Seq-length} & {\colorred 40} \\
+% Burn-in Stored Recurrent State & Yes \\
+% Bootstrap & Yes \\
+% Batch size & 64 \\
+Discount ($\gamma$) & 0.995 \\
+{\colorred Batch size} & {\colorred 8} \\
+{\colorred Backbone} & {\colorred IMPALA,shallow without LSTM} \\
+% $V$-loss Scaling ($\alpha_1$) & 0.5 \\
+% $Q$-loss Scaling ($\alpha_2$) & 1.0 \\
+% $\pi$-loss Scaling ($\alpha_3$) & 1.0 \\
+PPO clip $\epsilon$ & 0.2 \\
+GAE $\lambda$ & 0.8 \\
+Temperature ($\tau$) & 0.1 \\
+% Entropy Regularization & No \\
+% Backbone & IMPALA,deep \\
+% LSTM Units & 256 \\
+% Optimizer & Adam Weight Decay \\
+% Weight Decay Rate & 0.01 \\
+% Weight Decay Schedule & Anneal linearly to 0 \\
+% Learning Rate & 5e-4 \\
+% Warmup Steps & 4000 \\
+% Learning Rate Schedule & Anneal linearly to 0 \\
+% AdamW $\beta_1$ & 0.9 \\
+% AdamW $\beta_2$ & 0.98 \\
+% AdamW $\epsilon$ & 1e-6 \\
+% AdamW Clip Norm & 50.0 \\
+% % Auxiliary Forward Dynamic Task & Yes \\
+% % Auxiliary Inverse Dynamic Task & Yes \\
+% Learner Push Model Every $n$ Steps & 25 \\
+% Actor Pull Model Every $n$ Steps & 64 \\
+% Num. Bandits & 7 \\
+% Bandit Learning Rate & Uniform([0.05, 0.1, 0.2]) \\
+% Bandit Tiling Width & Uniform([1, 2, 3]) \\
+% Num. Bandit Candidates & 7 \\
+% Bandit Value Normalization & Yes \\
+% Bandit UCB Scaling & 1.0 \\
+% Bandit Search Range for $1 / \tau$ & [0.0, 50.0] \\
+\bottomrule
+\end{tabular}}
+\caption{Hyperparameter configurations for PPO.}
+\label{tab:ppo_hyperparameters}
+\end{center}
+\end{table}
+% \end{multicols}
+% \clearpage
+
+% \begin{multicols}{2}
+\begin{table}[H]
+\begin{center}
+\scalebox{0.85}{
+\begin{tabular}{l@{\hspace{.43cm}}l@{\hspace{.22cm}}}
+\toprule
+\textbf{Parameter} & \textbf{Value}  \\
+\midrule
+% Image Size & (84, 84) \\
+% Grayscale & Yes \\
+% Num. Action Repeats & 4 \\
+% Num. Frame Stacks & 4 \\
+% Action Space & Full \\
+% End of Episode When Life Lost & No \\
+{\colorred Num. States} & {\colorred 50M} \\
+Sample Reuse & 2 \\
+% Num. Environments & 160 \\
+Target Shape & $Q_{t}^{\Tilde{\pi}} = h(\sum_{i=0}^{n-1} \gamma^i r_{t+i} + \gamma^n h^{-1}(\text{Double}(Q_{t+n})))$ \\
+Target Shape Function $h$ & $h(x) = \text{sign}(x) \cdot (\sqrt{|x| + 1} - 1) + 10^{-3} x$ \\
+Bootstrap Length $n$ & 5 \\
+$\epsilon$-greedy & $\epsilon \sim 0.4^{\text{uniform}(1, 8)}$ \\
+PER Sample Temperature $\alpha$ & 0.9 \\
+PER Buffer Size & 400000 \\
+% Reward Clip & No \\
+% Intrinsic Reward & No \\
+% Random No-ops & 30 \\
+{\colorred Burn-in} & {\colorred 0} \\
+{\colorred Seq-length} & {\colorred 40} \\
+% Burn-in Stored Recurrent State & Yes \\
+% Bootstrap & Yes \\
+% Batch size & 64 \\
+Discount ($\gamma$) & 0.997 \\
+{\colorred Batch size} & {\colorred 8} \\
+{\colorred Backbone} & {\colorred IMPALA,shallow without LSTM} \\
+% $V$-loss Scaling ($\alpha_1$) & 0.5 \\
+% $Q$-loss Scaling ($\alpha_2$) & 1.0 \\
+% $\pi$-loss Scaling ($\alpha_3$) & 1.0 \\
+Temperature ($\tau$) & 0.1 \\
+% Entropy Regularization & No \\
+% Backbone & IMPALA,deep \\
+% LSTM Units & 256 \\
+% Optimizer & Adam Weight Decay \\
+% Weight Decay Rate & 0.01 \\
+% Weight Decay Schedule & Anneal linearly to 0 \\
+% Learning Rate & 5e-4 \\
+% Warmup Steps & 4000 \\
+% Learning Rate Schedule & Anneal linearly to 0 \\
+% AdamW $\beta_1$ & 0.9 \\
+% AdamW $\beta_2$ & 0.98 \\
+% AdamW $\epsilon$ & 1e-6 \\
+% AdamW Clip Norm & 50.0 \\
+% Auxiliary Forward Dynamic Task & Yes \\
+% Auxiliary Inverse Dynamic Task & Yes \\
+% Learner Push Model Every $n$ Steps & 25 \\
+% Actor Pull Model Every $n$ Steps & 64 \\
+% Num. Bandits & 7 \\
+% Bandit Learning Rate & Uniform([0.05, 0.1, 0.2]) \\
+% Bandit Tiling Width & Uniform([1, 2, 3]) \\
+% Num. Bandit Candidates & 7 \\
+% Bandit Value Normalization & Yes \\
+% Bandit UCB Scaling & 1.0 \\
+% Bandit Search Range for $1 / \tau$ & [0.0, 50.0] \\
+\bottomrule
+\end{tabular}}
+\caption{Hyperparameter configurations for R2D2.}
+\label{tab:r2d2_hyperparameters}
+\end{center}
+\end{table}
+% \end{multicols}
+% \clearpage
+
+% \begin{multicols}{2}
+\begin{table}[H]
+\begin{center}
+\scalebox{0.85}{
+\begin{tabular}{l@{\hspace{.43cm}}l@{\hspace{.22cm}}}
+\toprule
+\textbf{Parameter} & \textbf{Value}  \\
+\midrule
+% Image Size & (84, 84) \\
+% Grayscale & Yes \\
+% Num. Action Repeats & 4 \\
+% Num. Frame Stacks & 4 \\
+% Action Space & Full \\
+% End of Episode When Life Lost & No \\
+{\colorred Num. States} & {\colorred 200M} \\
+Sample Reuse & 2 \\
+% Num. Environments & 160 \\
+Reward Shape & $\log (|r| + 1.0) \cdot (2 \cdot 1_{\{r \geq 0\}} - 1_{\{r < 0\}})$ \\
+% Reward Clip & No \\
+% Intrinsic Reward & No \\
+% Random No-ops & 30 \\
+{\colorred Burn-in} & {\colorred 40} \\
+{\colorred Seq-length} & {\colorred 80} \\
+% Burn-in Stored Recurrent State & Yes \\
+% Bootstrap & Yes \\
+% Batch size & 64 \\
+Discount ($\gamma$) & 0.997 \\
+{\colorred Batch size} & {\colorred 64} \\
+{\colorred Backbone} & {\colorred IMPALA,deep} \\
+{\colorred LSTM Units} & {\colorred 256} \\
+$V$-loss Scaling ($\alpha_1$) & 1.0 \\
+$Q$-loss Scaling ($\alpha_2$) & 10.0 \\
+$\pi$-loss Scaling ($\alpha_3$) & 10.0 \\
+Temperature ($\tau$) & 1.0 \\
+% Entropy Regularization & No \\
+Importance Sampling Clip $\Bar{c}$ & 1.05 \\
+Importance Sampling Clip $\Bar{\rho}$ & 1.05 \\
+% Backbone & IMPALA,deep \\
+% LSTM Units & 256 \\
+% Optimizer & Adam Weight Decay \\
+% Weight Decay Rate & 0.01 \\
+% Weight Decay Schedule & Anneal linearly to 0 \\
+% Learning Rate & 5e-4 \\
+% Warmup Steps & 4000 \\
+% Learning Rate Schedule & Anneal linearly to 0 \\
+% AdamW $\beta_1$ & 0.9 \\
+% AdamW $\beta_2$ & 0.98 \\
+% AdamW $\epsilon$ & 1e-6 \\
+% AdamW Clip Norm & 50.0 \\
+% Auxiliary Forward Dynamic Task & Yes \\
+% Auxiliary Inverse Dynamic Task & Yes \\
+% Learner Push Model Every $n$ Steps & 25 \\
+% Actor Pull Model Every $n$ Steps & 64 \\
+% Num. Bandits & 7 \\
+% Bandit Learning Rate & Uniform([0.05, 0.1, 0.2]) \\
+% Bandit Tiling Width & Uniform([1, 2, 3]) \\
+% Num. Bandit Candidates & 7 \\
+% Bandit Value Normalization & Yes \\
+% Bandit UCB Scaling & 1.0 \\
+% Bandit Search Range for $1 / \tau$ & [0.0, 50.0] \\
+\bottomrule
+\end{tabular}}
+\caption{Hyperparameter configurations for CASA + DR-Trace.}
+\label{tab:drtrace_hyperparameters}
+\end{center}
+\end{table}
+% \end{multicols}
+\clearpage
+
+\section{Evaluation of CASA on Atari Games}
+\label{app:atari_results}
+
+Random scores and average human's scores are from \citep{agent57}.
+Human World Records (HWR) are from \citep{saber}.
+Rainbow's scores are from \citep{rainbow}.
+IMPALA's scores are from \citep{impala}.
+LASER's scores are from \citep{laser}, no sweep at 200M. 
+% \haiyan{no need to show RND/human columns}
+% \changnan{Will change later. What about HWR?}
+% As there are many versions of R2D2 and NGU, we use original papers'.
+% R2D2's scores are from \citep{r2d2}.
+% NGU's scores are from \citep{ngu}.
+% Agent57's scores are from \citep{agent57}.
+
+% According to the videos, we observe that there exist 19 games whose results achieve \textit{Full Score} by our method.
+% We underline the results of these games in the table below.
+
+\tiny
+\begin{center}
+\hskip -0.05in
+\scalebox{1.05}{
+\begin{tabular}{ccccccccccc}
+\toprule
+Games & RND & HUMAN & RAINBOW & HNS(\%) & IMPALA & HNS(\%) & LASER & HNS(\%) & CASA & HNS(\%) \\
+\midrule
+Scale  &     &       & 200M   &       &  200M    &        & 200M   &
+       &  200M   &  \\
+\midrule
+ alien  & 227.8 & 7127.8 & 9491.7 & 134.26 & 15962.1  & 228.03 & \textbf{35565.9} & \textbf{512.15} & 26137 & 375.50 \\
+ amidar & 5.8   & 1719.5 & \textbf{5131.2} & \textbf{299.08} & 1554.79  & 90.39  & 1829.2  & 106.4  & 560   & 32.34 \\
+ assault & 222.4 & 742   & 14198.5 & 2689.78 & 19148.47 & 3642.43  & \textbf{21560.4} & \textbf{4106.62} & 16228  & 3080.37  \\
+ asterix & 210   & 8503.3 & \textbf{428200} & \textbf{5160.67} & 300732   & 3623.67  & 240090  & 2892.46 & 213580 & 2572.80 \\
+ asteroids & 719 & 47388.7 & 2712.8 & 4.27   & 108590.05 & 231.14  & \textbf{213025}  &  \textbf{454.91} & 80339   & 170.60 \\
+ atlantis & 12850 & 29028.1 & 826660 & 5030.32 & 849967.5 & 5174.39 & 841200 & 5120.19 & \textbf{3211600} & \textbf{19772.10} \\
+ bank heist & 14.2 & 753.1  & \textbf{1358}   & \textbf{181.86}  & 1223.15  & 163.61  & 569.4  & 75.14   & 895.3   & 119.24 \\
+ battle zone & 236 & 37187.5 & 62010 & 167.18  & 20885    & 55.88  & 64953.3 & 175.14  & \textbf{91269}   & \textbf{246.36} \\
+ beam rider & 363.9 & 16926.5 & 16850.2 & 99.54 & 32463.47 & 193.81 & \textbf{90881.6} & \textbf{546.52} & 57456   & 344.70 \\
+ berzerk & 123.7 & 2630.4  & 2545.6   & 96.62  & 1852.7   & 68.98  & \textbf{25579.5}  & \textbf{1015.51} & 1648   & 60.81 \\
+ bowling & 23.1 & 160.7   & 30   & 5.01        & 59.92    & 26.76  & 48.3    & 18.31   & \textbf{162.4}     & \textbf{101.24} \\
+ boxing  & 0.1  & 12.1    & 99.6 & 829.17      & 99.96    & 832.17 & \textbf{100}   & \textbf{832.5}     & 98.3   & 818.33 \\
+ breakout & 1.7 & 30.5    & 417.5 & 1443.75    & \textbf{787.34}   & \textbf{2727.92} & 747.9 & 2590.97  & 624.3  & 2161.81 \\
+ centipede & 2090.9 & 12017 & 8167.3 & 61.22   & 11049.75 & 90.26   & \textbf{292792} & \textbf{2928.65} & 102600 & 1012.57 \\
+ chopper command & 811 & 7387.8 & 16654 & 240.89 & 28255  & 417.29  & \textbf{761699} & \textbf{11569.27} & 616690 & 9364.42 \\
+ crazy climber & 10780.5 & 36829.4 & \textbf{168788.5} & \textbf{630.80} & 136950 & 503.69 & 167820  & 626.93 & 161250 & 600.70 \\
+ defender & 2874.5 & 18688.9 & 55105 & 330.27 & 185203 & 1152.93 & 336953  & 2112.50   & \textbf{421600} & \textbf{2647.75} \\
+ demon attack & 152.1 & 1971 & 111185 & 6104.40 & 132826.98 & 7294.24 & 133530 & 7332.89 & \textbf{291590} & \textbf{16022.76} \\
+ double dunk & -18.6 & -16.4 & -0.3   & 831.82  & -0.33     & 830.45  & 14     & 1481.82 & \textbf{20.25} & \textbf{1765.91} \\
+ enduro      & 0   & 860.5 & 2125.9 & 247.05  & 0       & 0.00     & 0    & 0.00       & \textbf{10019} & \textbf{1164.32} \\
+ fishing derby & -91.7 & -38.8 & 31.3 & 232.51  & 44.85   & 258.13    & 45.2   & 258.79  & \textbf{53.24} & \textbf{273.99} \\
+ freeway       & 0     & 29.6  & \textbf{34} & \textbf{114.86}  & 0     & 0.00       & 0    & 0.00       & 3.46   & 11.69 \\
+ frostbite     & 65.2  & 4334.7 & \textbf{9590.5} & \textbf{223.10} & 317.75 & 5.92     & 5083.5 & 117.54  & 1583 & 35.55 \\
+ gopher  & 257.6 & 2412.5 & 70354.6 & 3252.91    & 66782.3 & 3087.14 & 114820.7 & 5316.40 & \textbf{188680} & \textbf{8743.90} \\
+ gravitar & 173 & 3351.4  & 1419.3  & 39.21   & 359.5      & 5.87    & 1106.2   & 29.36   & \textbf{4311}  & \textbf{130.19} \\
+ hero   & 1027 & 30826.4 & \textbf{55887.4} & \textbf{184.10}   & 33730.55  & 109.75   & 31628.7 & 102.69   & 24236 & 77.88 \\
+ ice hockey & -11.2 & 0.9 & 1.1    & 101.65   & 3.48      & 121.32   & \textbf{17.4}    & \textbf{236.36}   & 1.56  & 105.45 \\
+ jamesbond  & 29    & 302.8 & 19809 & 72.24   & 601.5     & 209.09   & \textbf{37999.8} & \textbf{13868.08} & 12468 & 4543.10 \\
+ kangaroo   & 52    & 3035 & \textbf{14637.5} & \textbf{488.05} & 1632    & 52.97    & 14308   & 477.91     & 5399 & 179.25 \\
+ krull     & 1598   & 2665.5 & 8741.5  & 669.18 & 8147.4  & 613.53   & 9387.5  &  729.70  & \textbf{64347} & \textbf{5878.13} \\
+ kung fu master & 258.5 & 22736.3 & 52181 & 230.99 & 43375.5 & 191.82 & \textbf{607443} & \textbf{2701.26}  & 124630.1 & 553.31 \\
+ montezuma revenge & 0  & \textbf{4753.3}  & 384   & 8.08   & 0       & 0.00   & 0.3    & 0.01     & 2488.4  & 52.35 \\
+ ms pacman  & 307.3 & 6951.6   & 5380.4  & 76.35   & 7342.32 & 105.88 & 6565.5 & 94.19    & \textbf{7579}  & \textbf{109.44} \\
+ name this game & 2292.3 & 8049 & 13136 & 188.37   & 21537.2 & 334.30 & 26219.5 & 415.64  & \textbf{32098} & \textbf{517.76} \\
+ phoenix & 761.5 & 7242.6  & 108529 & 1662.80   & 210996.45  & 3243.82 & \textbf{519304} & \textbf{8000.84} & 498590 & 7681.23 \\
+ pitfall & -229.4 & \textbf{6463.7} & 0      & 3.43      & -1.66      & 3.40    & -0.6   & 3.42    & -17.8 & 3.16 \\
+ pong    & -20.7  & 14.6   & 20.9   & 117.85    & 20.98      & 118.07  & \textbf{21}     &  \textbf{118.13} & 20.39  & 116.40 \\
+ private eye & 24.9 & \textbf{69571.3} & 4234 & 6.05     & 98.5       & 0.11    & 96.3   & 0.10    & 134.1  & 0.16 \\
+ qbert  & 163.9 & 13455.0 & 33817.5  & 253.20   & \textbf{351200.12}  & \textbf{2641.14} & 21449.6 & 160.15 & 27371 & 204.70 \\
+ riverraid & 1338.5 & 17118.0 & 22920.8 & 136.77 & 29608.05  & 179.15  & \textbf{40362.7} & \textbf{247.31} & 11182 & 62.38 \\
+ road runner & 11.5 & 7845    & 62041   & 791.85 & 57121     & 729.04  & 45289   & 578.00 & \textbf{251360} & \textbf{3208.64} \\
+ robotank   & 2.2   & 11.9  & 61.4   & 610.31    & 12.96     & 110.93  & \textbf{62.1}    & \textbf{617.53} & 10.44  & 84.95 \\
+ seaquest  & 68.4 & \textbf{42054.7} & 15898.9 & 37.70    & 1753.2    & 4.01    & 2890.3  & 6.72   & 11862  & 28.09 \\
+ skiing & -17098  & \textbf{-4336.9} & -12957.8 & 32.44  & -10180.38 & 54.21   & -29968.4 & -100.86 & -12730 & 34.23 \\
+ solaris & 1236.3 & \textbf{12326.7} & 3560.3  & 20.96  & 2365      & 10.18   & 2273.5   & 9.35    & 2319 & 9.76 \\
+ space invaders & 148 & 1668.7 & 18789 & 1225.82 & 43595.78 & 2857.09 & \textbf{51037.4} & \textbf{3346.45} & 3031 & 189.58 \\
+ star gunner & 664 & 10250 & 127029    & 1318.22 & 200625   & 2085.97 & 321528  & 3347.21 & \textbf{337150} & \textbf{3510.18} \\
+ surround    & -10 & 6.5   & \textbf{9.7}       & \textbf{119.39}  & 7.56     & 106.42  & 8.4     & 111.52  & -10  & 0.00 \\
+ tennis  & -23.8   & -8.3 & 0        & 153.55    & 0.55     & 157.10  & \textbf{12.2}    & \textbf{232.26}  & -21.05 & 17.74 \\
+ time pilot & 3568 & 5229.2 & 12926 & 563.36     & 48481.5  & 2703.84 & \textbf{105316}  & \textbf{6125.34} & 84341 & 4862.62 \\
+ tutankham  & 11.4 & 167.6  & 241   & 146.99     & 292.11   & 179.71  & 278.9   & 171.25  & \textbf{381} & \textbf{236.62} \\
+ up n down  & 533.4 & 11693.2 & 125755 & 1122.08 & 332546.75 & 2975.08 & 345727 & 3093.19 & \textbf{416020} & \textbf{3723.06} \\
+ venture    & 0     & \textbf{1187.5}  & 5.5    & 0.46    & 0         & 0.00    & 0      & 0.00    & 0  & 0.00 \\
+ video pinball & 0 & 17667.9  & 533936.5 & 3022.07 & \textbf{572898.27} & \textbf{3242.59} & 511835 & 2896.98 & 297920 & 1686.22 \\
+ wizard of wor & 563.5 & 4756.5 & 17862.5 & 412.57 & 9157.5    & 204.96  & \textbf{29059.3} & \textbf{679.60} & 26008 & 606.83 \\
+ yars revenge & 3092.9 & 54576.9 & 102557 & 193.19 & 84231.14  & 157.60 & \textbf{166292.3} & \textbf{316.99} & 118730 & 224.61 \\
+ zaxxon       & 32.5   & 9173.3 & 22209.5 & 242.62 & 32935.5   & 359.96 & 41118    & 449.47 & \textbf{46070.8}  & \textbf{503.66} \\
+\hline
+MEAN HNS(\%) &     0.00 & 100.00   &         & 873.97 &         & 957.34  &        & 1741.36 &      & 1941.08 \\
+\hline
+MEDIAN HNS(\%) & 0.00   & 100.00   &         & 230.99 &         & 191.82  &        & 454.91  &      & 246.36 \\
+\bottomrule
+\end{tabular}
+}
+% \caption{Comparison With 200M Scale Algorithms.}
+\end{center}
+\normalsize
+\clearpage
+
+\tiny
+\begin{center}
+\begin{tabular}{ccccccccccc}
+\toprule
+Games & RND & HWR & RAINBOW & SABER(\%) & IMPALA & SABER(\%) & LASER & SABER(\%) & CASA & SABER(\%) \\
+\midrule
+Scale  &     &       & 200M   &       &  200M    &        & 200M   & &  200M   &  \\
+\midrule
+ alien              & 227.8     & \textbf{251916}    & 9491.7   &3.68    & 15962.1    & 6.25       & 976.51  & 14.04                                & 26137             & 10.29    \\
+ amidar             & 5.8       & \textbf{104159}    & 5131.2   &4.92    & 1554.79    & 1.49       & 1829.2  & 1.75                                 & 560             & 0.53            \\
+ assault            & 222.4     & 8647               & 14198.5  &165.90  & 19148.47   & 200.00     & \textbf{21560.4} & \textbf{200.00}                               & 16228             & 189.99   \\
+ asterix            & 210       & \textbf{1000000}   & 428200   &42.81   & 300732     & 30.06      & 240090  & 23.99                                & 213580            & 21.34  \\
+ asteroids          & 719       & \textbf{10506650}  & 2712.8   &0.02    & 108590.05  & 1.03       & 213025  & 2.02                                 & 80339            & 0.76   \\
+ atlantis           & 12850     & \textbf{10604840}  & 826660   &7.68    & 849967.5   & 7.90       & 841200  & 7.82                                 & 3211600               & 30.20   \\
+ bank heist         & 14.2      & \textbf{82058}     & 1358     &1.64    & 1223.15    & 1.47       & 569.4   & 0.68                                 & 895.3             & 1.07 \\
+ battle zone        & 236       &\textbf{801000}    & 62010    &7.71    & 20885      & 2.58       & 64953.3 & 8.08                                           & 91269            & 11.37  \\
+ beam rider         & 363.9     & \textbf{999999}    & 16850.2  &1.65    & 32463.47   & 3.21       & 90881.6 & 9.06                                 & 57456           & 5.71    \\
+ berzerk            & 123.7     & \textbf{1057940}            & 2545.6   &0.23    & 1852.7     & 0.16       & 25579.5 & 2.41                        & 1648             & 0.14        \\
+ bowling            & 23.1      & \textbf{300}       & 30       &2.49    & 59.92      & 13.30      & 48.3    & 9.10                                 & 162.4            & 50.31   \\
+ boxing             & 0.1       & \textbf{100}                & 99.6     &99.60   & 99.96      & 99.96      & \textbf{100}     & \textbf{100.00}    & 98.3             & 98.3  \\
+ breakout           & 1.7       & \textbf{864}                & 417.5    &48.22   & 787.34     & 91.11      & 747.9   & 86.54                       & 624.3             & 72.20  \\
+ centipede          & 2090.9    & \textbf{1301709}   & 8167.3   &0.47    & 11049.75   & 0.69       & 292792  & 22.37                                & 102600           & 7.73 \\
+ chopper command    & 811       & \textbf{999999}             & 16654    &1.59    & 28255      & 2.75       & 761699  & 76.15                       & 616690            & 61.64 \\
+ crazy climber      & 10780.5   & \textbf{219900}    & 168788.5 &75.56   & 136950     & 60.33      & 167820  & 75.10                                         & 161250           & 71.95       \\
+ defender           & 2874.5    & \textbf{6010500}   & 55105    &0.87    & 185203     & 3.03       & 336953  & 5.56                                 & 421600           & 6.97       \\
+ demon attack       & 152.1     & \textbf{1556345}   & 111185   &7.13    & 132826.98  & 8.53       & 133530  & 8.57                                 & 291590           & 18.73       \\
+ double dunk        & -18.6     & \textbf{21}                 & -0.3     &46.21   & -0.33      & 46.14      & 14      & 82.32                                & 20.25            & 98.11 \\
+ enduro             & 0         & 9500               & 2125.9   &22.38   & 0          & 0.00       & 0       & 0.00                                 &\textbf{10019}             &\textbf{105.46}\\
+ fishing derby      & -91.7     & \textbf{71}        & 31.3     &75.60   & 44.85      & 83.93      & 45.2    & 84.14                                & 53.24            & 89.08 \\
+ freeway            & 0         & \textbf{38}        & 34       &89.47   & 0          & 0.00       & 0       & 0.00                                 & 3.46             & 9.11 \\
+ frostbite          & 65.2      & \textbf{454830}    & 9590.5   &2.09    & 317.75     & 0.06       & 5083.5  & 1.10                                 & 1583            & 0.33        \\          
+ gopher             & 257.6     & \textbf{355040}             & 70354.6  &19.76   & 66782.3    & 18.75      & 114820.7& 32.29                                & 188680          & 53.11 \\
+ gravitar           & 173       & \textbf{162850}    & 1419.3   &0.77    & 359.5      & 0.11       & 1106.2  & 0.57                                 & 4311             & 2.54        \\
+ hero               & 1027      & \textbf{1000000}            & 55887.4  &5.49    & 33730.55   & 3.27       & 31628.7 & 3.06                        & 24236            & 2.32 \\
+ ice hockey         & -11.2     & \textbf{36}                 & 1.1      &26.06   & 3.48       & 31.10      & 17.4    & 60.59                                & 1.56             & 27.03 \\
+ jamesbond          & 29        & \textbf{45550}              & 19809    &43.45   & 601.5      & 1.26       & 37999.8 & 83.41                                & 12468           & 27.33 \\
+ kangaroo           & 52        & \textbf{1424600}            & 14637.5  &1.02    & 1632       & 0.11       & 14308   & 1.00                        & 5399           & 0.38       \\
+ krull              & 1598      & \textbf{104100}    & 8741.5   &6.97    & 8147.4     & 6.39       & 9387.5  & 7.60                                          & 64347            & 61.22              \\
+ kung fu master     & 258.5     & \textbf{1000000}   & 52181    &5.19    & 43375.5    & 4.31       & 607443  & 60.73                                         & 124630.1            & 12.44        \\
+ montezuma revenge  &0          & \textbf{1219200}   & 384      &0.03    & 0          & 0.00       & 0.3     & 0.00                                 & 2488.4           & 0.20       \\
+ ms pacman          & 307.3     & \textbf{290090}    & 5380.4   &1.75    & 7342.32    & 2.43       & 6565.5  & 2.16                                 & 7579             & 2.51     \\
+ name this game     & 2292.3    & 25220              & 13136    &47.30   & 21537.2    & 83.94      & 26219.5 & 104.36                               &\textbf{32098}             &\textbf{130.00}  \\
+ phoenix            & 761.5     & \textbf{4014440}   & 108529   &2.69    & 210996.45  & 5.24       & 519304  & 12.92                                & 498590           & 12.40           \\
+ pitfall            & -229.4    & \textbf{114000}    & 0        &0.20    & -1.66      & 0.20       & -0.6    & 0.20               & -17.8            & 0.19     \\
+ pong               & -20.7     & \textbf{21}                 & 20.9     &99.76   & 20.98      & 99.95      & \textbf{21}      & \textbf{100.00}    & 20.39           & 98.54    \\
+ private eye        & 24.9      & \textbf{101800}    & 4234     &4.14    & 98.5       & 0.07       & 96.3    & 0.07                                 & 134.1           & 0.11         \\
+ qbert              & 163.9     & \textbf{2400000}   & 33817.5  &1.40    & 351200.12  & 14.63      & 21449.6 & 0.89                                 & 27371            & 1.13     \\
+ riverraid          & 1338.5    & \textbf{1000000}   & 22920.8  &2.16    & 29608.05   & 2.83       & 40362.7 & 3.91                                 & 11182            & 0.99    \\
+ road runner        & 11.5      & \textbf{2038100}   & 62041    &3.04    & 57121      & 2.80       & 45289   & 2.22                                 & 251360            & 12.33          \\
+ robotank           & 2.2       & \textbf{76}                 & 61.4     &80.22   & 12.96      & 14.58      & 62.1    & 81.17                                & 10.44            & 11.17 \\
+ seaquest           & 68.4      & \textbf{999999}             & 15898.9  &1.58    & 1753.2     & 0.17       & 2890.3  & 0.28                                 & 11862          & 1.18 \\
+ skiing             & -17098    & \textbf{-3272}     & -12957.8 &29.95   & -10180.38  & 50.03      & -29968.4& -93.09                               & -12730            & 31.59       \\
+ solaris            & 1236.3    & \textbf{111420}    & 3560.3   &2.11    & 2365       & 1.02       & 2273.5  & 0.94                                 & 2319           & 0.98      \\
+ space invaders     & 148       & \textbf{621535 }   & 18789    &3.00    & 43595.78   & 6.99       & 51037.4 & 8.19                                 & 3031           & 0.46            \\
+ star gunner        & 664       & 77400              & 127029   &164.67  & 200625     & 200.00     & 321528  & 200.00                               &\textbf{337150}            &\textbf{200.00}   \\
+ surround           & -10       & 9.6                & \textbf{9.7}      &\textbf{100.51}  & 7.56       & 89.59      & 8.4     & 93.88              & -10              & 0.00 \\
+ tennis             & -23.8     & \textbf{21}                 & 0        &53.13   & 0.55       & 54.35      & 12.2    & 80.36                                & -21.05              & 6.14 \\
+ time pilot         & 3568      & 65300              & 12926    &15.16   & 48481.5    & 72.76      & \textbf{105316}  & \textbf{164.82}                               & 84341            & 130.84   \\
+ tutankham          & 11.4      & \textbf{5384}      & 241      &4.27    & 292.11     & 5.22       & 278.9   & 4.98                                 & 381             & 6.88          \\
+ up n down          & 533.4     & 82840              & 125755   &152.14  & 332546.75  & 200.00     & 345727  & 200.00                               &\textbf{416020}            &\textbf{200.00} \\
+ venture            & 0         & \textbf{38900}     & 5.5      &0.01    & 0          & 0.00       & 0       & 0.00                                 & 0             & 0.00                 \\
+ video pinball      & 0         & \textbf{89218328}  & 533936.5 &0.60    & 572898.27  & 0.64       & 511835  & 0.57                                 & 297920           & 0.33                  \\\
+ wizard of wor      & 563.5     & \textbf{395300}    & 17862.5  &4.38    & 9157.5     & 2.18       & 29059.3 & 7.22                                 & 26008            & 6.45                \\
+ yars revenge       & 3092.9    & \textbf{15000105}  & 102557   &0.66    & 84231.14   & 0.54       & 166292.3& 1.09                                 & 118730           & 0.77              \\
+ zaxxon             & 32.5      & \textbf{83700}              & 22209.5  &26.51   & 32935.5    & 39.33      & 41118   & 49.11                                & 46070.8            & 55.03  \\
+\hline
+MEAN SABER(\%) &     0.00 & 100.00   &         & 28.39 &         & 29.45  &        & 36.78 &      &36.10\\
+\hline
+MEDIAN SABER(\%) & 0.00   & 100.00   &         & 4.92 &         & 4.31  &        & 8.08  &      &10.29  \\
+\bottomrule
+\end{tabular}
+% \caption{Score table of SOTA 200M model-free algorithms on SABER.}
+\end{center}
+% \clearpage
+% \normalsize
+\clearpage
+
+\begin{figure*}[t]
+    \centering
+    \vspace{-1.3cm}
+    % \hspace{-1.5cm}
+    \includegraphics[width=1.0\linewidth]{body/all_fig3.pdf}
+\end{figure*}
+
+\clearpage
+

@@ -1,0 +1,128 @@
+
+\section{The Detailed Training Scheme of BAT}\label{app:algorithm}
+
+In this section, we provide the detailed training scheme of BAT in Algorithm~\ref{alg:bat}. In particular, BAT algorithm starts from a randomly initialized neural network. On each mini-batch, it applies PGD attack to generate (training) adversarial examples (Step 5). Following the Eq~\ref{eq:poisoning_score} and Eq~\ref{eq:reweight}, BAT calculates which samples are likely to be \textit{Poisoning Atypical Samples} and their corresponding weight values (Step 6). Under the current mini-batch, next, BAT calculates the \textit{Discrimination Loss} of the typical samples $\mathcal{D}_\text{typ}$ (Step 8). Finally, BAT uses SGD to update the model parameter to minimize the reweighted adversarial loss regularized by $\beta$ times discrimination loss (Step 8).
+
+\begin{algorithm}[h!]
+\begin{algorithmic}[1]
+\setstretch{1}
+\STATE \textbf{Input:} Training dataset $\mathcal{D}$, with typical set $\mathcal{D}_\text{typ} = \{x \in\mathcal{D}; \text{mem}(x) \leq \sigma\}$, atypical set $\mathcal{D}_\text{atyp} = \{x \in\mathcal{D}; \text{mem}(x) > \sigma\}$. Targeted type of adversarial attack: $l_\infty$-$\epsilon$ attack.
+Hyperparameters $\alpha, \beta \in \R^+$. \\
+\STATE Randomly initialize the network $F$ \\
+\REPEAT
+\STATE Fetch mini-batch data $\{(x_i,y_i)\}$ at current epoch\\
+\STATE Using PGD to generate adversarial training sample  $\{(x_i^\text{adv},y_i)\}$\\
+\STATE Calculate Poisoning Score $\textbf{q}(x^\text{adv}_i)$ and weight $w_i$ as in Equation~\ref{eq:poisoning_score} and Equation~\ref{eq:reweight}.
+\STATE Calculate Discrimination Loss $\mathcal{L}_{DL}(F)$ within the current mini-batch, as in Equation~\ref{eq:dl}.
+\STATE Update $F$ by SGD on the objective: $\mathcal{L}_\text{BAT} = \frac{1}{\sum_i w_i }\sum_i \left[w_i \cdot \mathcal{L}(F(x_i^\text{adv}), y_i)\right] + \beta\cdot\mathcal{L}_{DL}(F)$.
+\UNTIL{End of Training}
+\caption{The Benign Adversarial Training (BAT) Algorithm}
+\label{alg:bat}
+\end{algorithmic}
+\end{algorithm}
+
+
+
+\section{Additional Results for Experiment}\label{app:exp}
+
+In this section, we provide additional experimental results to validate the effectiveness of BAT method. In Table~\ref{tab:resnet18_cifar100} and Table~\ref{tab:wrn28_cifar100}, we provide the results of BAT and baseline models on CIFAR100 dataset under ResNet18 and WRN28 architectures. In Table~\ref{tab:resnet18_imagenet} and Table~\ref{tab:wrn28_imagenet}, we provide the results of BAT and baseline models on Tiny~ImageNet dataset under ResNet32 and WRN28 architectures. In the experiments, we train the models for 160 epochs with learning rate 0.1, momentum 0.9, weight decay 5e-4, and decay the learning rate by 0.1 at the epoch 80 and 120. To have a more comprehensive and reliable adversarial robustness, in addition to PGD adversarial attack~\cite{madry2017towards}, we also measure the model's adversarial accuracy via other attack algorithms, including FGSM attack~\cite{goodfellow2014explaining}, CW attack~\cite{carlini2017towards} and Auto Attack~\cite{croce2020reliable}. The results show that the BAT method can consistently outperform baseline models, as BAT has better clean accuracy vs. adversarial accuracy trade-off. Under ResNet18, the BAT method achieves comparable adversarial accuracy to the best baseline methods, and BATs have the highest clean accuracy. Under WRN28, the BAT method has both higher clean \& adversarial accuracy than the baseline methods.
+
+
+
+\begin{table}[h]
+\small
+\centering
+\caption{Performance of BAT vs. Baselines on CIFAR100 Under ResNet18}
+\label{tab:resnet18_cifar100}
+\begin{tabular}{c|c|ccccc}
+\hline
+Method & Clean Acc. & FGSM & PGD & CW & AA. \\
+\hline
+\hline
+PGD Train (Best Adv.) & 56.9 & 36.0 & 27.4 & 25.4 & 23.6 \\
+PGD Train (Best Clean) & 57.8 & 33.5 & 21.9 & 22.5 & 20.2 \\
+TRADES ($1/\lambda = 5$) & 56.6 & 36.5 & 26.9 & 25.3 & 23.9 \\
+MART~\cite{wang2019improving} & 51.8 & 36.1 & \textbf{30.4} & 25.8 & \textbf{24.4} \\
+GAIRAT~\cite{zhang2020geometry} & 58.2 &36.5 & 27.8 & 25.9 & 23.8\\
+\hline
+BAT ($\alpha = 1, \beta = 0.2$) & \textbf{59.5} & \textbf{37.3} & 27.3 & \textbf{26.6} & 24.3\\
+BAT ($\alpha = 2, \beta = 0.2$) &59.3 & 37.1 & 27.4 & 26.5 & 24.0\\
+\hline
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Performance of BAT vs. Baselines on CIFAR100 Under WRN28}
+\label{tab:wrn28_cifar100}
+\begin{tabular}{c|c|ccccc}
+\hline
+Method & Clean Acc. & FGSM & PGD & CW & AA. \\
+\hline
+\hline
+PGD Train (Best Adv.) & 59.7 & 34.9 & 24.7 & 24.2 & 22.5 \\
+PGD Train (Best Clean.) & 59.7 & 34.9 & 24.7 & 24.2 & 22.5 \\
+%TRADES ($1/\lambda = 1$) & \textbf{61.3} & 21.9 & \textbf{93.0} & 50.0 & 44.7 & 7.9\\
+TRADES ($1/\lambda = 5$) & 57.3 & 34.5 & 24.9 & 24.6 & 22.9 \\
+MART~\cite{wang2019improving} & 56.5 & 36.1 & 26.8 & 25.3 & 23.8 \\
+GAIRAT~\cite{zhang2020geometry} & 60.2 & 34.8 & 24.4 & 24.8 & 22.9 \\
+\hline
+BAT ($\alpha = 1, \beta = 0.2$) & \textbf{62.0} & 38.6 & \textbf{28.5} & \textbf{26.5} & \textbf{24.8} \\
+BAT ($\alpha = 2, \beta = 0.2$) & 61.4 & \textbf{38.9} & 28.2 & 26.3 & \textbf{24.8} \\
+\hline
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\small
+\centering
+\caption{Performance of BAT vs. Baselines on Tiny~ImageNet Under ResNet32}
+\label{tab:resnet18_imagenet}
+\begin{tabular}{c|c|ccccc}
+\hline
+Method & Clean Acc. & FGSM & PGD & CW & AA. \\
+\hline
+\hline
+Adv. Train (Best Adv.) & 56.3 & 37.5 & 32.3 & 29.8 & 29.8\\
+Adv. Train (Best Clean) & 58.2 & 36.8 & 30.5 & 28.8 & 28.4\\
+TRADES ($1/\lambda = 5$) & 55.4 & 35.2 & 28.8 & 27.0 & 27.0\\
+MART~\cite{wang2019improving} & 56.2 & 38.1& \textbf{34.5} & \textbf{31.8} & 32.0\\
+GAIRAT~\cite{zhang2020geometry} & 58.4 & 37.3& 30.4 & 28.9 & 29.0\\
+\hline
+BAT ($\alpha = 1, \beta = 0.2$) & \textbf{59.4} &40.4 &32.0 & 31.5 & 32.0\\
+BAT ($\alpha = 2, \beta = 0.2$) & \textbf{59.4} & \textbf{41.3}  &32.9 & \textbf{31.8} & \textbf{32.4}\\
+\hline
+\hline
+\end{tabular}
+\end{table}
+\begin{table}[h!]
+\small
+\centering
+\caption{Performance of BAT vs. Baselines on Tiny~ImageNet Under WRN28}
+\label{tab:wrn28_imagenet}
+\begin{tabular}{c|c|ccccc}
+\hline
+Method & Clean Acc. & FGSM & PGD & CW & AA. \\
+\hline
+\hline
+Adv. Train (Best Adv.) & 58.9 & 35.7 & 31.7 & 30.0 & 30.0  \\
+Adv. Train (Best Clean) & 60.0 & 35.1 & 30.1 & 28.8 & 28.5\\
+TRADES ($1/\lambda = 5$) & 59.7 & 37.4 & 32.0 & 31.8 & 32.0\\
+MART~\cite{wang2019improving} & 58.2 & 41.0 & 35.6 & 33.9 & 34.1 \\
+GAIRAT~\cite{zhang2020geometry} & 59.9 & 38.3 & 32.4 & 31.0 & 31.1\\
+\hline
+BAT ($\alpha = 1, \beta = 0.2$) & 62.3 & 41.6 & 35.8 & 33.7 & 34.3 \\
+BAT ($\alpha = 2, \beta = 0.2$) & \textbf{62.4} & \textbf{43.1} &\textbf{37.4} & \textbf{35.3} & \textbf{35.6}\\
+\hline
+\hline
+\end{tabular}
+\end{table}
+
+
+
+\section{Boarder Impact}\label{app:board}
+
+Nowadays, deep neural networks (DNNs) have been widely applied to solve various machine learning tasks, especially on many safety-critical tasks such as autonomous vehicle~\cite{fagnant2015preparing}, AI healthcare~\cite{jiang2017artificial} and ID authentication~\cite{mohammed2011human}, etc. However, the existence of adversarial attacks~\cite{xu2019adversarial} brings huge threats to the safety of these DNNs' applications. As one of the most successful approaches to defend DNNs against adversarial attacks, adversarial training methods~\cite{madry2017towards, zhang2016understanding} still suffer from several disadvantages. For example, for a DNN model to achieve good adversarial robustness, it usually sacrifices its clean accuracy. Adversarially trained DNNs also present strong overfitting effects. In our study, we draw important findings to explain these drawbacks of adversarial training from the data perspective and empirically validate these issues' relation to atypical samples in the data distribution. Moreover, the currently existed adversarially trained models can only achieve satisfactory performance on simple datasets such as MNIST and CIFAR10. Motivated from our findings, we propose a new method to improve the performance of adversarial training, especially on more complex datasets. We anticipate that our findings and method are helpful for further studies to improve the effectiveness and feasibility of adversarial training and eventually build safer DNNs.

@@ -1,0 +1,361 @@
+\section{Theoretical statements for the linear model}
+
+\label{sec:app_theorylinear}
+Before we present the proof of the theorem, we introduce two lemmas are of separate interest that are used throughout the proof of Theorem 1. Recall that the definition of the (standard normalized) maximum-$\ell_2$-margin solution (max-margin solution in short) of a dataset $\data =\{(x_i, y_i)\}_{i=1}^n$ corresponds to
+\begin{equation}
+  \label{eq:stdmaxmargin}
+  \thetahat{} := \argmax_{\|\theta\|_2\leq 1} \min_{i\in [n]} y_i \theta^\top x_i,
+\end{equation}
+by simply setting $\epstrain = 0$ in Equation~\eqref{eq:maxmargin}. The $\ell_2$-margin of $\thetahat{}$ then reads $\min_{i\in[n]} y_i \thetahat{\top} x_i$. Furthermore for a dataset $\data = \{(x_i, y_i)\}_{i=1}^n$ we refer to the induced dataset $\datanonsig$ as the dataset with covariate vectors stripped of the first element, i.e.
+\begin{equation}
+  \datanonsig = \{(\xnonsig_i, y_i)\}_{i=1}^n :=  \{ ((x_i)_{[2:d]}, y_i) \}_{i=1}^n, 
+\end{equation}
+where $(x_i)_{[2:d]}$ refers to the last $d-1$ elements of the vector $x_i$. Furthermore, remember that for any vector $z$, $\indof{z}{j}$ refers to the $j$-th element of $z$ and $e_j$ denotes the $j$-th canonical basis vector.
+Further, recall the distribution $\prob_\sigsep$ as defined in
+Section~\ref{logreg_linear_model}: the label $y \in \{+1, -1\}$ is
+drawn with equal probability and the covariate vector is sampled as $x
+= [y\frac{\sigsep}{2}, \xnonsig]$ where $\xnonsig \in \R^{\dims-1}$ is
+a random vector drawn from a standard normal distribution,
+i.e. $\xnonsig \sim \Normal(0, \sigma^2 I_{d-1})$. We generally allow
+$\sigsep$, used to sample the training data, to differ from $\sigseptest$, which is
+used during test time.
+
+The following lemma derives a closed-form expression for the normalized max-margin solution for any dataset with fixed separation $\sigsep$ in the signal component, and that is linearly separable in the last $d-1$ coordinates with margin $\marginnonsig$.
+
+\begin{lemma}
+\label{lem:maxmargin}
+Let $\data = \{(x_i,y_i)\}_{i=1}^{\numsamp}$ be a dataset that
+consists of points $(x,y) \in \mathbb{R}^{\dims}\times\{\pm 1\}$ and
+$\xind{1} = y\frac{\sigsep}{2}$, i.e. the covariates $x_i$ are
+deterministic in their first coordinate given $y_i$ with
+separation distance $\sigsep$. Furthermore, let the induced dataset
+$\datanonsig$ also be linearly separable by the normalized
+max-$\ell_2$-margin solution $\thetatilde$ with an $\ell_2$-margin 
+$\marginnonsig$. Then, the normalized max-margin solution of the
+original dataset $\data$ is given by
+\begin{equation}
+\label{eq:lemmaxmargin}
+\thetahat{} = \frac{1}{\sqrt{\sigsep^2 + 4 \marginnonsig^{2}}}\left[\sigsep,  2 \marginnonsig \thetatilde \right].
+\end{equation}
+Further, the standard accuracy of $\thetahat{}$ for data drawn from $\prob_{\sigseptest}$ reads
+\begin{equation}
+  \label{eq:stdaccmaxmargin}
+  \prob_{\sigseptest}(Y \thetahat{\top} X > 0) = \Phi\left(
+  \frac{\sigsep \:\sigseptest }{4\mixvar\: \marginnonsig} \right).
+\end{equation}
+\end{lemma}
+The proof can be found in Section~\ref{sec:maxmarginproof}. The next lemma provides high probability upper and lower bounds
+for the margin $\marginnonsig$ of $\datanonsig$ when $\xnonsig_i$ are drawn from the normal distribution.
+\begin{lemma}
+\label{lem:boundsmaxmargin}
+Let $\datanonsig=\{(\Tilde{x}_i,y_i)\}_{i=1}^{\numsamp}$ be a random dataset where $y_i \in \{\pm 1\}$ are equally distributed and $\xnonsig_i \sim \Normal(0,\sigma I_{d-1})$ for all $i$, and $\marginnonsig$ is the maximum $\ell_2$ margin that can be written as
+\begin{equation*}
+  %\label{eq:marginnonsig}
+  \marginnonsig= \max_{\|\thetatilde\|_2 \leq 1} \min_{i \in [\numsamp]} y_i \thetatilde^{\top} \Tilde{x}_i .
+\end{equation*}
+%as defined in Equation~\eqref{eq:marginnonsig}. 
+%and define $\mathcal{V} \subset \mathbb{R}^{\dims-1}$ as the set of vectors inducing classifiers that achieve perfect training accuracy on $\data$. 
+Then, for any $t \geq 0$, with probability greater than $1-2e^{-\frac{t^2}{2}}$, we have $\minmargin(t) \leq \marginnonsig \leq \maxmargin(t)$ where
+\begin{align*}
+  \label{Crude_bounds_subsequent_maxmar}
+  &\maxmargin(t) = \mixvar \left( \sqrt{\frac{\dims-1}{\numsamp}} + 1  + \frac{t}{\sqrt{n}}\right), \:\: \minmargin(t)= \mixvar \left( \sqrt{\frac{\dims-1}{\numsamp}} -1 - \frac{t}{\sqrt{n}}\right).
+\end{align*}  
+%% \begin{equation}
+%% \begin{split}
+%% 	&\marginnonsig \leq \mixvar\left(1+ \frac{t+\sqrt{\dims-1}}{\sqrt{\numsamp}}\right)\\
+%% 	&\marginnonsig \geq \mixvar\left( \frac{\sqrt{\dims-1}-t}{\sqrt{\numsamp}}-1\right).
+%% \end{split}
+%% \end{equation}
+%% Moreover, 
+%% \begin{equation}
+%% \begin{split}
+%% 	&\mathbb{E}_{\datanonsig \sim\margprob}\left[ \marginnonsig\right] \leq \mixvar\left(1+ \frac{\sqrt{\dims-1}}{\sqrt{\numsamp}}\right),\\
+%% 	&\mathbb{E}_{\datanonsig \sim \margprob}\left[ \marginnonsig \right] \geq \mixvar\left( \frac{\sqrt{\dims-1}}{\sqrt{\numsamp}}-1\right).
+%% \end{split}
+%% \end{equation} 
+\end{lemma}
+
+
+%% The next lemma derives high probability upper and lower bounds for the
+%% robust accuracy of the robust max-margin solution of a dataset $\data$
+%% with samples drawn from the distribution $\prob_\sigsep$ as defined in
+%% Section~\ref{logreg_linear_model}: the label $y \in \{+1, -1\}$ is
+%% drawn with equal probability and the covariate vector is sampled as $x
+%% = [y\frac{\sigsep}{2}, \xnonsig]$ where $\xnonsig \in \R^{\dims-1}$ is
+%% a random vector drawn from a standard normal distribution,
+%% i.e. $\xnonsig \sim \Normal(0, \sigma^2 I_{d-1})$.  Further, we assume
+%% that more generally, the test data is drawn from $\prob_{\sigseptest}$ (that is we allow $\sigsep \neq \sigseptest$), so that 
+%% the standard accuracy of a vector $\theta$ reads
+%% \begin{equation*}
+%%   \stdacc{\theta}= \EE_{(x, y)\sim \prob_{\sigseptest}} \Indi{y f_\theta (x) >0}
+%% \end{equation*}
+%% which corresponds to plugging in $\prob_{\sigseptest}$ for $\prob$ in Equation~\eqref{eq:robacc} with $\epstest=0$.
+
+
+%% \begin{lemma}
+%%   \label{lem:sandwichmargin}
+%%   Assume a dataset $\data$ consists of $\numsamp$ i.i.d. samples
+%%   $(x,y)\sim \prob_{\sigsep}$. Then, for any $t\geq 0$,  the standard
+%%   accuracy of the linear max $\ell_2$-margin predictor $\thetahat{}$ trained on $\data$ and evaluated on $\prob_{\sigseptest}$ are
+%%   upper and lower bounded as follows with probability greater than $1-2
+%%   e^{-\frac{t^2}{2}}$
+%%   \begin{equation}
+%%               \Phi\left( \frac{\sigsep \:\sigseptest }{4\mixvar\:
+%%                 \maxmargin(t)}  \right)
+%%               \leq \stdacc{\thetahat{}} \\\leq \Phi \left(\frac{
+%%                \sigsep \:\sigseptest
+%%               }{4\mixvar \minmargin(t)}
+%%               \right),
+%%   \end{equation}
+%%   where we use
+%%   \begin{align*}
+%%   \label{Crude_bounds_subsequent_maxmar}
+%%   &\maxmargin(t) = \mixvar \left( \sqrt{\frac{\dims-1}{\numsamp}} + 1  + \frac{t}{\sqrt{n}}\right), \:\: \minmargin(t)= \mixvar \left( \sqrt{\frac{\dims-1}{\numsamp}} -1 - \frac{t}{\sqrt{n}}\right).
+%%   \end{align*}
+%%   %The standard accuracy is equivalent to $\stdacc{\theta}$.
+%% %  and $\sigsep > 2\maxmargin(t)$.
+%% \end{lemma}
+%% Note that in the theorem, we assume $\sigsep$ to be on the order of
+%% $\sqrt{\frac{d-1}{\numsamp}}$ (as later in the theorem).  The proof of the
+%% lemma relies on bounding the corresponding random $\ell_2$-margin
+%% $\marginnonsig$ based on standard random matrix theory results and can
+%% be found in Section~\ref{sec:sandwichmarginproof}.
+
+\subsection{Proof of Theorem~\ref{thm:linlinf}}
+\label{sec:thmproof}
+%\fy{say why}
+
+%{\color{magenta} Note that there were a few minor glitches in the theorem statement of the original submission that are corrected in the restatement below}
+%% Note that there were a few minor glitches in the theorem statement of the original submission that are corrected in the restatement below. 
+%% For convenience, we first restate the theorem that uses the following definitions
+%% \begin{align*}
+%%   &\maxmargin= \mixvar \left((1+\tconst)\sqrt{\frac{\dims-1}{\numsamp}} + 1\right),\\
+%%   &\minmargin= \mixvar \left( (1-\tconst) \sqrt{\frac{\dims-1}{\numsamp}}-1\right).\nonumber
+%% \end{align*}
+
+
+%% \begin{theorem}[Restatement of Theorem~\ref{thm:linlinf}]
+%%   Assume $d-1>n$. For the $\epstest$-robust accuracy on test samples from $\prob_{\sigsep}$ with $2 \epstest < \sigsep$ and perturbation sets in Equation~\eqref{eq:linfmaxpert} and~\eqref{eq:l1maxpert} the following holds:
+%%   \begin{enumerate}
+%%     \item  Almost surely (over the draw of the dataset $\data$ with samples from $\prob_\sigsep$), the $\epstest$-robust accuracy of the $\epstrain$-robust max-margin estimator $\robacc{\thetahat{\epstrain}}$ is a strictly decreasing function with respect to $\epstrain$.
+%%     \item For $\epstrain < \frac{\sigsep}{2} - \maxmargin$, with probability at least $1-2\E^{-\frac{\tconst^2 (d-1)}{2}}$ for any $0<\tconst<1$ over the draw of a dataset $\data$ with $n$ samples from $\prob_{\sigsep}$, the $\epstest$-robust accuracy is upper and lower bounded by
+%%       \begin{equation*}
+%%           1-\Phi\left(-\frac{\left( \frac{r}{2}-\epstrain \right)\left(\frac{r}{2}-\epstest\right) }{\mixvar \maxmargin} \right) \leq \robacc{\thetahat{\epstrain}} \leq 1-\Phi \left( -\frac{\left( \frac{r}{2}-\epstrain \right) \left(\frac{r}{2}-\epstest \right) }{\mixvar \minmargin} \right).
+%%       \end{equation*}
+%%   \end{enumerate}
+%% \end{theorem}
+%% %\fy{here could do: if $r$ blabla, then it also holds for l1 perts, else looks like its necessary for both}
+
+%% \begin{proof}
+
+
+%% We first prove the theorem for the signal-attacking $e_1$-directed
+%% perturbation set in Equation~\eqref{eq:linfmaxpert} and then prove
+%% that the robust max-margin solution with respect to perturbation
+%% set~\eqref{eq:l1maxpert} is identical to the robust max-margin
+%% solution~\eqref{eq:maxmargin} with respect to the perturbation
+%% sets~\eqref{eq:linfmaxpert}.
+
+%\paragraph{Proof for $e_1$-perturbations~\eqref{eq:linfmaxpert}}
+
+Given a dataset $\data = \{(x_i, y_i)\}$ drawn from $\prob_\sigsep$, it is easy to see that the (normalized) $\epstrain$-robust max-margin solution~\eqref{eq:maxmargin} of $\data$ with respect to signal-attacking perturbations $\pertset{\epstrain}{x_i}$ as defined in Equation~\eqref{eq:linfmaxpert}, can be written as
+\begin{equation}
+\begin{aligned}
+  \label{eq:robmaxmargin}
+  \thetahat{\epstrain} &= \argmax_{\|\theta\|_2\leq 1}  \min_{i\in [n], x_i' \in \pertset{x_i}{\epstrain}} y_i \theta^\top x'_i \\
+  &= \argmax_{\|\theta\|_2\leq 1}\min_{i\in [n],|\beta|\leq \epstrain}y_i \theta^\top (x_i + \beta e_1) \nonumber\\
+  &= \argmax_{\|\theta\|_2\leq 1} \min_{i\in [n]} y_i \theta^\top (x_i - y_i \epstrain \sign(\thetaind{1}) e_1). \nonumber
+\end{aligned}
+\end{equation}
+Note that by definition, it is equivalent to the (standard normalized)
+max-margin solution $\thetahat{}$ of the shifted dataset ${\Dshift =
+  \{(x_i - y_i \epstrain \sign(\thetaind{1}) e_1,
+  y_i)\}_{i=1}^n}$. Since $\Dshift$ satisfies the assumptions of
+Lemma~\ref{lem:maxmargin}, it then follows directly that the
+normalized $\epstrain$-robust max-margin solution reads
+\begin{equation}
+  \label{eq:appmaxmargin}
+  \thetahat{\epstrain} = \frac{1}{\sqrt{(\sigsep -2\epstrain)^2 + 4 \marginnonsig^{2}}}\left[\sigsep-2\epstrain,  2 \marginnonsig \thetatilde \right],
+\end{equation}
+by replacing $\sigsep$ by $\sigsep - 2\epstrain$ in
+Equation~\eqref{eq:lemmaxmargin}. Similar to above, $\thetatilde \in
+R^{d-1}$ is the (standard normalized) max-margin solution of
+$\{(\xnonsig_i, y_i)\}_{i=1}^n$ and $\marginnonsig$ the corresponding
+margin.
+
+\paragraph{Proof of 1.}
+We can now compute the $\epstest$-robust accuracy of the
+$\epstrain$-robust max-margin estimator $\thetahat{\epstrain}$ for a
+given dataset $\data$ as a function of $\marginnonsig$. Note that in
+the expression of $\thetahat{\epstrain}$, all values are fixed for a
+fixed dataset, while $0\leq \epstrain\leq \sigsep-2\maxmargin$ can be chosen.
+First note that for a test distribution $\prob_\sigsep$, the
+$\epstest$-robust accuracy, defined as one minus the robust error (Equation~\eqref{eq:roberr}), for a classifier
+associated with a vector $\theta$, can be written as
+\begin{align}
+  \label{eq:robacc_closed}
+  \robacc{\theta} &= \EE_{X,Y\sim \prob_\sigsep} \left[\Indi{\min_{x'
+        \in \pertset{X}{\epstest}} Y \theta^\top x'>0}\right] \\
+  &=   \EE_{X,Y\sim \prob_{\sigsep}} \left[ \Indi{ Y \theta^\top X -
+      \epstest \thetaind{1} >0}\right] = \EE_{X,Y\sim \prob_{\sigsep}}
+  \left[\Indi{ Y \theta^\top (X - Y\epstest \sign(\thetaind{1}) e_1) >0}\right]
+  \nonumber
+\end{align}
+Now, recall that
+by Equation~\eqref{eq:appmaxmargin} and the assumption in the
+theorem, we have $\sigsep-2\epstrain>0$, so that $\sign(\thetahat{\epstrain})=1$.
+Further, using the definition of the $\pertset{\epstrain}{x}$ in
+Equation~\eqref{eq:linfmaxpert} and by definition of the
+distribution $\prob_\sigsep$, we have $\indof{X}{1} = Y
+\frac{\sigsep}{2}$.
+Plugging into Equation~\eqref{eq:robacc_closed} then yields
+\begin{align*}
+  \robacc{\thetahat{\epstrain}}&= \EE_{X,Y\sim \prob_{\sigsep}} \left[\Indi{ Y \thetahat{\epstrain \top} (X - Y\epstest  e_1) >0}\right] \\
+  &=   \EE_{X,Y\sim \prob_{\sigsep}}\left[\Indi{ Y \thetahat{\epstrain \top} (X_{-1} + Y\left(\frac{\sigsep}{2} - \epstest\right)  e_1) >0}\right] \\
+  &= \prob_{\sigsep- 2 \epstest} (Y\thetahat{\epstrain \top} X >0 )
+\end{align*}
+where $X_{-1}$ is a shorthand for the random vector $X_{-1} = (0;
+  \indof{X}{2}, \dots, \indof{X}{d})$.  The assumptions in
+Lemma~\ref{lem:maxmargin} ($\Dshift$ is linearly separable) are
+satisfied whenever the $n<d-1$ samples are distinct, i.e. with
+probability one. Hence applying Lemma~\ref{lem:maxmargin} with
+$\sigseptest = \sigsep - 2\epstest$ and $\sigsep = \sigsep -
+2\epstrain$ yields
+\begin{equation}
+  \label{eq:arsenal}
+  \robacc{\thetahat{\epstrain}} =
+  \Phi\left(\frac{\sigsep(\sigsep-2\epstest)}{4\mixvar \marginnonsig}
+  - \epstrain \frac{\sigsep-2\epstest}{2\mixvar \marginnonsig}\right).
+\end{equation}
+Theorem statement a) then follows by noting that
+$\Phi$ is a monotically decreasing function in $\epstrain$.
+The expression for the robust error then follows by noting that $1-\Phi(-z) = \Phi(z)$ for any $z \in \R$
+and defining
+\begin{equation}
+  \label{eq:varphidef}
+  \randvarphi = \frac{\sigma \marginnonsig}{\sigsep/2 - \epstest}.
+\end{equation}
+
+
+\paragraph{Proof of 2.}
+First define $\varphimin, \varphimax$ using $\minmargin, \maxmargin$ as in Equation~\eqref{eq:varphidef}. Then we have by Equation~\eqref{eq:arsenal}
+\begin{align*}
+  \roberr{\thetahat{\epstrain}} - \roberr{\thetahat{0}} &= \robacc{\thetahat{0}} - \robacc{\thetahat{\epstrain}}\\
+  &=   \Phi\left(\frac{\sigsep/2}{\randvarphi}\right) - \Phi\left(\frac{\sigsep/2 - \epstrain}{\randvarphi}\right)\\
+  &= \int_{r/2-\epstrain}^{r/2} \frac{1}{\sqrt{2\pi}\randvarphi} \E^{- \frac{x^2 }{\randvarphi^2}} d x
+\end{align*}
+
+
+By plugging in $t = \sqrt{\frac{2 \log 2/\delta}{\numsamp}}$ in
+Lemma~\ref{lem:boundsmaxmargin}, we obtain that with probability at
+least $1-\delta$ we have
+\begin{equation*}
+   \minmargin := \mixvar 
+                \left[\sqrt{\frac{d-1}{n}} - \left(1+\sqrt{\frac{2 \log (2/\delta)}{\numsamp}}\right)\right] \leq \marginnonsig \leq \mixvar 
+                \left[\sqrt{\frac{d-1}{n}} + \left(1+\sqrt{\frac{2 \log (2/\delta)}{\numsamp}}\right)\right] =: \maxmargin
+\end{equation*}
+and equivalently $\varphimin \leq \randvarphi \leq \varphimax$.
+
+Now note the general fact that for all
+$\randvarphi \leq \sqrt{2} x$ the density function  
+$f(\randvarphi; x) = \frac{1}{\sqrt{2\pi}\randvarphi} \E^{- \frac{x^2 }{\randvarphi^2}} $
+is monotonically increasing in $\randvarphi$.
+
+By assumption of the theorem, $\randvarphi \leq \sqrt{2} (\sigsep/2-\epstrain)(\sigsep/2-\epstest)$ so that $f(\randvarphi; x) \geq f(\varphimin;x)$ for all $x\in [\sigsep/2-\epstrain,\sigsep/2]$ and therefore
+\begin{equation*}
+   \int_{r/2-\epstrain}^{r/2} \frac{1}{\sqrt{2\pi}\randvarphi} \E^{- \frac{x^2 }{\randvarphi^2}} d x \geq  \int_{r/2-\epstrain}^{r/2} \frac{1}{\sqrt{2\pi}\varphimin} \E^{- \frac{x^2 }{\randvarphi^2}} d x = \Phi\left(\frac{r/2}{\varphimin}\right) - \Phi\left(\frac{r/2-\epstrain}{\varphimin}\right).
+\end{equation*}
+and the statement is proved.
+
+
+
+%% \begin{align}
+%%   \roberr{\thetahat{\epstrain}} - \roberr{\thetahat{0}} \geq \\
+%%   %\int_{r/2-\epstrain}^{r/2} \frac{1}{\sqrt{2\pi}\varphi} \E^{- \frac{x^2 }{\varphi^2}} \d x
+%%   \Phi \left(\frac{r/2}{\varphi} \right) - \Phi \left(  \frac{r/2 -\epstrain}{ \varphi} \right)
+%% \end{align}
+%% with variance
+%% \begin{equation}
+%%   \varphi = \frac{\mixvar}{r/2-\epstest}  \left(  \sqrt{\frac{\dims-1}{\numsamp}} - \left(1 + \sqrt{\frac{\log \delta}{\numsamp}}\right)\right)
+%% \end{equation}
+%% increasing with $d/n$ so that the gap increases with $d/n$. 
+
+
+\subsection{Proof of Corollary~\ref{cor:l1extension}}
+%\fy{, also adapt element index notation}
+%\fy{probably want to change back $\thetaA$ to just $\thetahat{\epstrain}$ and remove all As ...}
+We now show that Theorem~\ref{thm:linlinf} also holds for
+$\ell_1$-ball perturbations with at most radius $\eps$.  Following
+similar steps as in Equation~\eqref{eq:appmaxmargin}, the
+$\epstrain$-robust max-margin solution for $\ell_1$-perturbations can
+be written as
+\begin{equation}
+  \label{eq:maxmarginl1}
+  \thetahat{\epstrain} := \argmax_{\|\theta\|_2 \leq 1}\min_{i\in [n]}  y_i \theta^\top (x_i  - y_i  \epstrain \sign(\indof{\theta}{\maxind(\theta)}) e_{\maxind(\theta)})
+\end{equation}
+where $\maxind(\theta) := \argmax_j |\theta_j|$ is the index of the maximum absolute value of $\theta$.
+We now prove by contradiction that the robust max-margin solution for
+this perturbation set~\eqref{eq:l1maxpert} is equivalent to the solution~\eqref{eq:appmaxmargin} for the perturbation set~\eqref{eq:linfmaxpert}.
+%% We now prove that the solution $\thetaA$ to
+%% Equation~\eqref{eq:maxmarginl1} is equal to the solution of
+%% Equation~\eqref{eq:maxmargin} by contradiction.
+We start by assuming that $\thetaA$ does not solve
+Equation~\eqref{eq:appmaxmargin}, which is equivalent to assuming $1\not \in
+\maxind(\thetaA)$ by definition. We now show how this assumption leads
+to a contradiction.
+
+Define the shorthand $\maxindA := \maxind(\thetaA) -1$. Since
+$\thetaA$ is the solution of~\eqref{eq:maxmarginl1}, by definition, we
+have that $\thetaA$ is also the max-margin solution of the shifted
+dataset $\Dshift :=(x_i - y_i \epstrain \sign(\thetaind{\maxindA+1})
+e_{\maxindA+1}, y_i)$.  Further, note that by the assumption that $1
+\not \in \maxind(\thetaA)$, this dataset $\Dshift$ consists of input
+vectors $x_i = (y_i \frac{\sigsep}{2}, \xnonsig_i - y_i \epstrain
+\sign(\thetaind{\maxindA+1}) e_{\maxindA+1} )$.  Hence via
+Lemma~\ref{lem:maxmargin}, $\thetaA$ can be written as
+\begin{equation}
+  \label{eq:sml}
+       \thetaA = \frac{1}{\sqrt{\sigsep^2 - 4 (\marginnonsig^{\epstrain})^2}} [\sigsep, 2 \marginnonsig^{\epstrain} \thetatilde^{\epstrain}],
+\end{equation}
+where $\thetatilde^{\epstrain}$ is the normalized max-margin solution
+of  $\datanonsig := (\xnonsig_i
+- y_i \epstrain \sign(\indof{\thetatilde}{\maxindA}) e_{\maxindA},
+y_i)$.
+%% that
+%% linearly separates $\Dsmall$ with margin $\marginnonsig^{\epstrain}$,
+%% where we define the $d-1$ dimensional dataset $\Dsmall := (\xnonsig_i
+%% - y_i \epstrain \sign(\indof{\thetatilde}{\maxindA}) e_{\maxindA},
+%% y_i)$.
+
+We now characterize $\thetatilde^{\epstrain}$. Note that by
+assumption, $\maxindA = \maxind(\thetatilde^{\epstrain}) = \argmax_j
+|\indof{\thetatilde^{\epstrain}}{j}|$. Hence, the normalized max-margin
+solution $\thetatilde^{\epstrain}$ is the solution of
+\begin{equation}
+  \label{eq:maxmarginsmall}
+  \thetatilde^{\epstrain} := \argmax_{\|\thetatilde\|_2 \leq 1}
+  \min_{i\in [n]} y_i \thetatilde^\top \xnonsig_i - \epstrain
+  |\indof{\thetatilde}{\maxindA}| 
+\end{equation}
+Observe that the minimum margin of this estimator
+$\marginnonsig^{\epstrain}=\min_{i\in [n]} y_i
+(\thetatilde^{\epstrain})^\top \xnonsig_i - \epstrain
+|\indof{\thetatilde^{\epstrain}}{\maxindA}|$ decreases with
+$\epstrain$ as the problem becomes harder $\marginnonsig^{\epstrain}
+\leq \marginnonsig$, where the latter is equivalent to the margin of
+$\thetatilde^{\epstrain}$ for $\epstrain = 0$.  Since $\sigsep >
+2\maxmargin$ by assumption in the Theorem, by Lemma~\ref{lem:boundsmaxmargin}
+ with probability at least $1-2\E^{-\frac{\tconst^2 (d-1)}{n}}$, we then have that $\sigsep> 2\marginnonsig \geq 2\marginnonsig^{\epstrain}$. Given
+the closed form of $\thetaA$ in Equation~\eqref{eq:sml}, it
+directly follows that $\indof{\thetaA}{1} = \sigsep >
+2\marginnonsig^{\epstrain} \|\thetatilde^{\epstrain}\|_2 =
+\|\indof{\thetaA}{2:d}\|_2$ and hence $1\in \maxind(\thetaA)$. This
+contradicts the original assumption $1\not \in \maxind(\thetaA)$ and
+hence we established that $\thetahat{\epstrain}$ for the
+$\ell_1$-perturbation set~\eqref{eq:l1maxpert} has the same closed
+form~\eqref{eq:robmaxmargin} as for the perturbation
+set~\eqref{eq:linfmaxpert}.
+
+The final statement is proved by using the analogous steps as in
+the proof of 1. and 2. to obtain the closed form of the robust accuracy of
+$\thetahat{\epstrain}$.

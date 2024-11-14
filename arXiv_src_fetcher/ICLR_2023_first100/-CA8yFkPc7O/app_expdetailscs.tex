@@ -1,0 +1,321 @@
+\section{Adversarial training hurts robust generalization for nonlinear feature learning}
+\label{sec:app_theorycs}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Concentric %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\fy{i've no idea what your statement was, it was a whole blurb was redundant definitions so this butchering is the fastest guess after scanning it}
+
+In this section, we give a mathematical explanation for the effect of
+adversarial training with \nameofattacks increasing the robust error
+for nonlinear feature learning models. In particular, we construct a
+dataset, the concentric spheres dataset, that has exactly one discriminative
+feature: the norm of the datapoints. Figure \ref{fig:app_cs_repeat}
+and Figure \ref{fig:cs_numsamp_rob} show that the behaviour of the
+feature learning model on our synthetic setting matches the behaviour
+we observe on the linear synthetic \emph{and} on the real-world
+datasets: in the low sample size regime, adversarial training
+increasingly hurts robust generalization with increasing perturbation
+set size.
+
+More concretely, we discuss a two-layer neural network and conclude the same intuitive explanation as in the linear example. First, we introduce the dataset and model. Then, we discuss some theoretical results. Lastly, we plot and discuss experiments.
+
+\subsection{Problem Setting}
+In this subsection, we first introduce the concentric spheres distribution, 2-layer quadratic neural networks and the \nameofattack that we consider. Then, we show that the optimal robust classifier is included in our function space.
+
+\paragraph{Distribution for concentric spheres}
+We study the concentric spheres distribution as also used in
+\cite{gilmer18, kolter19}. In particular, for
+$0<\radiusone<\radiustwo$, we draw $(x,y) \sim \probcs$ as follows: we draw a binary label $y\in \{+1, -1\}$
+equiprobably and a covariate vector $x \in \R^{\dims}$ that is,
+conditional on the label, distributed uniformly on the sphere of
+radius $\radius_{y}$.
+
+\paragraph{Perturbation sets}
+In this example, the radius of the input corresponds to the signal,
+hence, for a training perturbation size $0< \epstrain <
+\frac{\radiustwo-\radiusone}{2}$ and a covariate $x$ we may define
+a \nameofattack as an attack out of the perturbation set
+\begin{equation}
+  \label{eq:pertsetsphere}
+    \mathcal{S}_C(x, \epstrain) = \left\{\delta \in \mathbb{R}^{\dims} \mid \delta = \frac{x}{\norm{x}_2}\eta, \Hquad |\eta|<\epstrain\right\}.
+\end{equation}
+
+\paragraph{Neural network classifier}
+Similar to prior work on concentric spheres such as \cite{gilmer18},
+we consider two-layer neural networks with quadratic activations as
+our parameterized function class with
+\begin{equation*}
+    f_\theta(x) = \left(x^T W_1 \right)^2 W_2 + b,
+\end{equation*}
+where $\theta =(W_1 , W_2,b)$ and $W_1 \in \R^{\dims \times p}$, $ W_2 \in \R^p$, $b\in \R$. Every function induces a decision boundary defined by
+\begin{equation}
+  \label{eq:decisionboundary}
+  db(f_\theta) = \{x \in \mathbb{R}^{\dims} \mid f_{\theta}(x) = 0\}.
+\end{equation} 
+\fy{defined by} We note the function space of all neural networks as
+$\funcQNN = \{f_\theta(x): W_1 \in \R^{\dims \times p}, W_2 \in
+\R^p\}$.
+
+
+
+In particular, the function space includes a \fy{ perfectly robust classifier: this an expression that is not defined}.
+\fy{more like a fact than lemma}
+\begin{lemma}
+  If $p>d$, the function space $\funcQNN$ contains a classifier that minimizes the robust error against perturbations~\eqref{eq:pertsetsphere} defined by the distribution $\probcs$.
+\end{lemma}
+
+\fy{given $f_\theta$ what even is the $db(f_\theta)$? - i fixed it}
+\begin{proof}
+  Clearly, for any consistent $\epstest$, one perfectly robust classifier is a classifier with decision boundary ($db\left(f_{\theta}\right)$) the sphere with radius $R_{opt} = \frac{\radiusone+\radiustwo}{2}$. For a visualization see Figure \ref{fig:teaser_concentric_spheres}. Hence, it suffices to show that $\funcQNN$ includes a function that induces a decision boundary
+  that is the sphere with radius $R_{opt}$.
+  %  a 2-layer quadratic network can build the function with decision boundary
+
+  %, then the optimal classifier is included in the function space.
+
+%% Recall the definition of a two-layer quadratic neural network. A two-layer neural network is a function $f:\mathbb{R}^{\dims}\xrightarrow{}\mathbb{R}$, of the form
+%% \begin{equation*}
+%%     f_{\theta}(x) = (x^T W_1)^2 W_2 + b,
+%% \end{equation*}
+%% where $W_1 \in \mathbb{R}^{\dims \times p}$ and $W_2 \in \mathbb{R}^{p}$
+When $p>d$, choosing
+\begin{equation*}
+    W_1 = \begin{pmatrix}
+I_d & 0
+\end{pmatrix},
+\end{equation*}
+$W_2 = 1_{\{p\}}$ and $b = -\radiusone^2-\frac{\radiustwo^2-\radiusone^2}{2}$induces the decision boundary of $db\left(f_{\theta}\right)$ that is equivalent to a sphere of radius $R_{opt}$.
+Note that this is only one particular parameter constellation. In fact, there exist infinitely many $\theta$ that induce the same decision boundary.
+\end{proof}
+
+%% \paragraph{Optimal robust classifier}
+%% \fy{isn't this a statement already and not a setting?}
+%% \fy{the classifier? the model?}  In practice and in our linear
+%% example, the function class is able to interpolate all training points
+%% and there exists a perfect robust classifier within the considered
+%% function space \cite{yang19}.  To show to similarity between the
+%% settings \fy{which?}, we show here that the optimal robust binary
+%% classifier is included in the considered parametric function space
+%% defined by 2-layer quadratic neural networks.
+
+
+
+\subsection{Geometric characterization of the two layer quadratic neural network}
+
+
+\fy{this is again super poor language}
+A decision boundary that is ellipsoid uses primarily the signal (norm), else hyperboloid, using angular information (useless features).
+
+In experiments, we show that adversarial training
+learns networks with hyperboloids as decision boundary. In
+contrast, standard training leads to an ellipsoid.
+
+This explains why the ``phenomenon'' also appears for CS
+observed in experiments.
+
+In this section we describe how we can quantify and
+plot the ``hyperboloidity'' in learned
+classifiers with respect to $\epstrain$  \fy{why not numsamp}
+
+\fy{this is A HUGE SECTION for just one plot of explanation ... }
+
+%% \fy{why do you do that?}
+%% In this subsection, we first geometrically characterize the possible decision boundaries of the 2-layer quadratic neural network. Then, we introduce a dissimilarity score
+%% %specific to the concentric spheres setting,
+%% which aims to characterize the geometric class of the particular considered two-layer quadratic network, i.e. an ellipsoid or hyperboloid.
+
+\paragraph{Decision boundary of a two layer quadratic network.} To ease the flow of the text, we introduce a lemma close to the computation made in \cite{gilmer18}, which brings the quadratic neural network to a classical known form, here. We provide the proof in Subsection\ref{subsec:proof_lemma}.
+\begin{lemma}
+\label{lem:quadratic_symm_matrix}
+For any 2-layer quadratic neural network with $p>\dims$, there exists a real symmetric matrix $A \in \mathbb{R}^{\dims \times \dims}$ such that 
+\begin{equation}
+f_{\theta}(x) = x^{\top} A x + b,
+\end{equation}
+for any $x \in \mathbb{R}^{\dims}$.
+\end{lemma}
+
+
+Let $A, b$ be the characterization of a two-layer quadratic neural
+network as per Lemma \ref{lem:quadratic_symm_matrix}. Then, recalling
+the definition of a decision boundary ~\eqref{eq:decisionboundary}
+induced by $f_\theta$, we can define $\Adb= -\frac{A}{b}$ such that
+\begin{equation}
+\label{db_quadrnetwork}
+db(f_\theta) = \{ x \in \mathbb{R}^{\dims} \mid x^{\top} \Adb x = 1 \},
+\end{equation}
+where we note that $\Adb$ is a real symmetric matrix.
+\fy{another fact}
+\begin{fact}
+  Let $\eigvector$ be the vector with as entries all eigenvalues of
+  $\Adb$ induced by $f_{\theta}$. If $\eigvector_{i} > 0$ for all $i
+  \in [\dims]$, then $db(f_{\theta})$ is an ellipsoid, otherwise,
+  $db(f_{\theta})$ is an hyperboloid.
+\end{fact}
+
+
+%% Hence if the NN learns $\theta$ such that $\Adb$ has negative eigenvalues, the decision boundary is an hyperboloid -- i.e.  the classifier uses 
+%% angular information, and hence \fy{non-useful} features, to classify the training set instead of the useful features, which is the norm of the data points.
+
+
+\fy{this should go to experimental section, here its theory still} See Figure
+\ref{fig:teaser_concentric_spheres} for a visualization of ellipsoids and hyperboloids \fy{this is actually already experimental}. 
+\fy{future work would be to show that this is indeed what happens}
+
+
+
+%% \fy{this definition should come in the beginning}
+
+%%  Because $\Adb$ is a symmetric real matrix, we can diagonalize it as $\Adb = \ortgmatr^{\top} \diageig \ortgmatr$, where $\ortgmatr$ is an orthonormal matrix consisting of the eigenvectors of $\Adb$ and $\diageig$ is a square diagonal matrix with as entries all eigenvalues of $\Adb$. Using the form of Equation \ref{db_quadrnetwork} for the decision boundary of a two-layer quadratic neural network and the eigenvalues of $\Adb$, we can characterize the decision boundary of a 2-layer squared neural network. Let $\eigvector$ be the vector with as entries all eigenvalues of $\Adb$ induced by $f_{\theta}$. We can make the following characterization:
+%% \begin{enumerate}
+%% \item if $\eigvector_{i} > 0$ for all $i \in [\dims]$, then $db(f_{\theta})$ is an ellipsoid, 
+%% \item  otherwise, $db(f_{\theta})$ is an hyperboloid.
+%% \end{enumerate}
+
+%% \fy{dunno what this paragraph does}
+%% Suppose the decision boundary of our two-layer quadratic neural
+%% network is a hyperboloid. In that case, the classifier uses angular
+%% information to classify the training set instead of the true signal,
+%% which is the norm of the data points. See Figure
+%% \ref{fig:teaser_concentric_spheres} for a visualization. Using these
+%% insights and the geometric classification, we can introduce our
+%% dissimilarity score.
+
+%% \fy{why do you define this? honestly this should go, see no use. }
+
+
+\paragraph{The dissimilarity score.}
+
+\fy{please use a macro for this score ...}
+Since we cannot visualize the dec. boundaries in high dimensions, we can characterize how close the decision boundary is to the truth by calculating the ...
+
+\fy{what is this notation $1_{\dims}$ -> please use macro and fix}
+  Observe that any robust optimal two-layer quadratic neural network has $\eigvector_i = \lambda_{opt} = \frac{4}{(\radiusone+\radiustwo)^2}$ for all $i \in [\dims]$. We define our dissimilarity score as follows
+\begin{equation}
+    \text{dissim}(f_{\theta}) := \frac{1}{d}\norm{\eigvector-1_{\{\dims\}}\lambda_{opt}}_2.
+\end{equation}
+We note the following properties of our dissimilarity score:
+\fy{what the hell is happening here, the $R$ don't have values here yet do they?}
+\begin{enumerate}
+    \item $\text{Dissim}(f_{\theta})=0$ if and only if $f_{\theta}$ is a perfect robust classifier.
+    \item If $f_{\theta}$ achieves perfect standard accuracy, then  $\text{dissim}(f_{\theta})< \sqrt{\frac{1}{\dims}}(\lambda_{opt}-\frac{1}{\radiustwo^2}) = 1.03 \cdot 10^{-3}$. 
+    \item Given we classify a training dataset correctly, if $\text{dissim}(f_{\theta}) > \sqrt{\frac{1}{\dims}}(\lambda_{opt}-\frac{1}{\radiustwo^2})$, then $db(f_{\theta})$ is necessarily a hyperboloid. Moreover, the larger $\text{dissim}(f_{\theta})$, the more skewed the hyperboloid.
+    \item If $\text{Dissim}(f_{\theta})$ is large, we have either a stretched out ellipsoid or a sharp hyperboloid. See Figure \ref{fig:teaser_concentric_spheres} for a visualisation of a 2D cut of a hyperboloid and an ellipsoid.
+\end{enumerate}
+Intuitively, the larger the dissimilarity score, the worse the robust accuracy of the classifier, because the classifier uses more angular information to interpolate the training points.
+
+%% For visualization of the difference of a hyperboloid versus ellipsoidal decision boundary, we plot 2D cuts of the decision boundaries of the 2-layer quadratic network in Figure
+%% \ref{fig:teaser_concentric_spheres}.
+
+\begin{figure}[!ht]
+\centering
+  \includegraphics[width=0.5\linewidth]{plotsAistats/CS_teaser.png}
+  \caption{2D cut along the first two dimensions of the concentric spheres
+    example for $\dims=500$ to visualize the decision boundaries obtained via adversarial (left) and standard training (right) of a two-layer network with quadratic activations on training points not shown. The learned robust classifier has an hyperbolic decision boundary and uses angle information for classification, whereas the standard classifiers perfectly separates the classes.
+    %% a 2D cut along the first two dimensions. In the left panel, we train the one-layer quadratic network using standard training whereas in the right panel we use adversarial training. We see that the 2D cut of the decision boundary of the standardly trained network is an ellipse and primarily uses the useful feature that is the norm. In contrast, the network obtained by adversarial training has an hyperbolic decision boundary and uses spurious correlations in the training dataset, which are in the form of angular information in this case.
+  }
+\label{fig:teaser_concentric_spheres}
+\end{figure}
+
+
+\subsection{Experimental details on concentric spheres example}
+\label{sec:app_expcs}
+\fy{what did you do here before? how were these two sections? why figure 3b?}
+
+In this section, we further study the concentric spheres example experimentally and give experimental details on Figure \ref{fig:eps_cs}. More precisely, we observe that attack-model overfitting on the concentric spheres dataset is possible for multiple adversarial test perturbation budgets $\epstest$.
+
+\paragraph{Experimental details to Figure   \ref{fig:eps_cs}}
+We sample $5$ datasets of size $\numsamp =10^5$ samples with varying dimensions $\dim{} = 350, \Hquad 500$ and $750$ of the concentric spheres distribution with radii $\radiusone = 1$ and $\radiustwo = 1.3$. The results we plot in Figure \ref{fig:eps_cs} are the average robust accuracies over the $5$ datasets and the shaded areas the respective standard deviations.
+
+For optimization, we use Tensorflow \cite{tensorflow2015-whitepaper} and its Adam optimizer with a learning rate of $0.001$ and a batch size of $10$. We train for $100$ epochs or until all training points are correctly classified with a two-layer squared neural network of width $p = 1000$. We implement adversarial training by solving the inner maximization using
+\begin{equation}
+\label{eq:csATmaximization}
+    x' = x-\epstrain\frac{x}{\norm{x}_2}\text{sign}\left(x^T \partial_x f_{\theta}(x)\right).
+\end{equation}
+
+\subsection{Experimental results and discussion}
+In this subsection we show the experimental results and discuss their implications.
+In all experiments, we adversarially train a two-layer neural network with quadratic
+activations and width $1000$ on the concentric spheres dataset with
+$\radiusone=1$ and $\radiustwo=11$. We minimize the cross-entropy loss until
+convergence. More experimental details can be found in
+Section~\ref{sec:app_expcs}.
+
+\begin{figure}[!t]
+\vskip 0.2in
+\centering
+\begin{subfigure}[b]{0.33\textwidth}
+  \includegraphics[width=0.99\linewidth]{plotsAistats/cs_eps_standard_app.png}
+  \caption{Standard accuracy}
+  \label{fig:app_cs_dissim}
+\end{subfigure}
+\begin{subfigure}[b]{0.33\textwidth}
+  \includegraphics[width=0.99\linewidth]{plotsAistats/cs_eps_main.png}
+  \caption{Robust accuracy}
+  \label{fig:app_cs_repeat}
+\end{subfigure}
+\begin{subfigure}[b]{0.33\textwidth}
+  \includegraphics[width=0.99\linewidth]{plotsAistats/cs_dissim_app.png}
+  \caption{Dissimilarity score}
+  \label{fig:app_cs_dissim}
+\end{subfigure}
+
+\caption{Experiments with the 2-layer quadratic network on the concentric spheres dataset with different adversarial budgets (x-axis). We use an input dimension of $\dims = 500$. Note that the robust and standard accuracy monotonically decrease for increasing $\epstrain$. Moreover, the dissimilarity score monotonically increases with increasing $\epstrain$, meaning that the network converge to sharper hyperbolic solutions, and hence uses more angular information to classify the training points. See Subsection \ref{sec:app_expcs} for experimental details.}
+\label{fig:app_eps_cs}
+\end{figure}
+
+\paragraph{AT hurts robust generalization}
+
+\fy{show by Varying the perturbation set size $\epstrain$}
+
+To understand the effect of increasing adversarial training budget from standard training $(\epstrain = 0)$ to training with a large adversarial budget, we perform several experiments. We fix the dimension to be $\dims=500$, choose varying dataset sizes $\numsamp = 50, 100$ and $200$ and log the standard accuracy, robust accuracy ($\epstest = 3$) and dissimilarity score. We plot the results In Figure \ref{fig:app_eps_cs}. Observe that similar to the linear case and the real-world experiments the robust accuracy decreases with increasing adversarial training budget $\epstrain$. Moreover, the aggravating trend is more severe when $\frac{d}{n}$ is large. 
+
+\paragraph{Explanation: AT makes DB more hyperboloid}
+To understand the change in decision boundaries, we look at the dissimilarity score. In Figure \ref{fig:app_cs_dissim}, we note that the dissimilarity score monotonically increases with increasing $\epstrain$. In particular, we see that the dissimilarity score is strictly larger than $1.03 \cdot 10^{-3}$ for all $\frac{\dims}{\numsamp}$ when $\epstrain > 2.5$. By property 3 of the dissimilarity score, listed in the subsection above, this means that for large $\epstrain$, the decision boundary is an hyperboloid; the classifier uses angular information the interpolate the training dataset. Moreover, the larger the dissimilarity score the more sharp the hyperboloid. For visualization of a hyperbolic and ellipsoidal decision boundary, we refer to Figure \ref{fig:teaser_concentric_spheres}.
+
+Lastly, we also investigate the robustness score with varying $\epstrain$. In Figure \ref{fig:cs_trade_off}, we plot the decomposition after adversarial training with increasing $\epstrain$ and $\numsamp = 50$. Similar to the linear example, plotted in Figure \ref{fig:app_tradeoff_logreg}, we recognize an U-shape. Together with the increasing dissimilarity score, we can make the following arguments. For large $\epstrain$, when the dissimilarity score is also large, we converge to networks with sharp hyperboloid decision boundaries. These are highly robust but have low standard accuracy. In contrast, when using standard training ($\epstrain = 0$) we converge to decision boundaries close to the optimal robust one, which has high standard accuracy and robustness. 
+
+In summary, first steering away from the optimal decision boundary (increasing $\epstrain$) decreases standard accuracy and robust accuracy. Thereafter, when the decision boundary is a hyperboloid, increasing $\epstrain$ causes to further decrease standard accuracy, but increase the robustness. The increase in robustness is the result of converging to a sharper hyperboloid decision boundary, which uses less the norm of the samples to classify them.
+
+\begin{figure}[!b]
+\vskip 0.2in
+\centering
+\begin{subfigure}[b]{0.49\textwidth}
+  \includegraphics[width=0.99\linewidth]{plotsAistats/cs_rob_acc_numsamp_half.png}
+  \caption{Robust accuracy}
+  \label{fig:numobs}
+\end{subfigure}
+\begin{subfigure}[b]{0.49\textwidth}
+  \includegraphics[width=0.99\linewidth]{plotsAistats/cs_trade_off_decomposition_app.png}
+  \caption{Standard-robust accuracy trade-off}
+  \label{fig:cs_trade_off}
+\end{subfigure}
+
+\caption{ We set $\dims =  500, \radiusone = 1, \radiustwo = 11$ and $\epstest = 3$. (a) Adversarial training on the concentric spheres dataset with increasing sample size. We see that for low sample sizes, adversarial training hurts robust accuracy, but for high sample sizes, we recognize the known regime where it helps robust generalization. (b) Robust accuracy decomposition of adversarial training with increasing perturbation budget $\epstrain$. For large $\epstrain$, we note how the robust accuracy decreases, while the robustness increases. The decrease is hence a result of decreasing standard accuracy. See Subsection \ref{sec:app_expcs} for experimental details.}
+\label{fig:numobs_trade_off}
+\end{figure}
+
+\subsection{Proof of Lemma \ref{lem:quadratic_symm_matrix}}
+\label{subsec:proof_lemma}
+
+Let us start by recalling the two-layer squared neural network. A two-layer neural network is a function $f:\mathbb{R}^d\xrightarrow{}\mathbb{R}$, of the form
+\begin{equation*}
+    f_{\theta}(x) = \left(x^T W_1\right)^2 W_2+b.
+\end{equation*}
+We rewrite this equation in a quadratic form:
+\begin{equation*}
+    \begin{split}
+        f(x) &= \left(\sum_{i=1}^d x_i W_{1,i}\right)^2 W_2 + b\\
+        &= \sum_{j=1}^p\left(\sum_{i=1}^d x_i W_{1,i}\right)^2_j W_{2,j} + b\\
+        &= \sum_{i,j = 1}^d a_{i,j}x_i x_j + b\\
+        &= x^T A x + b,
+    \end{split}
+\end{equation*}
+where 
+\begin{equation*}
+    a_{i,j} = \begin{cases}
+    \sum_{m=1}^p W_{1,i,m}^2 W_{2,m} & \text{if i = j},\\
+    \sum_{m=1}^p W_{1,i,m} W_{1,j,m} W_{2,m} & \text{if i $\neq$ j.}
+    \end{cases}
+\end{equation*}
+Hence, the decision boundary of $f$ is a quadratic equation and any two-layer quadratic neural network can be written in the form $f(x) = x^T A x + b$.
+
+
+\subsection{Attack-model overfitting for multiple adversarial test budgets $\epstest$}
+The choice of $\epstest = 0.075$ is reasonable but somewhat arbitrary. Hence, we also conduct the same experiment with experimental details as in Section \ref{app_csexpdetails_main} with a different adversarial test perturbation budget $\epstest=0.1$ and include standard accuracy ($\epstest=0$). We plot the results of the experiments in Figure \ref{fig:n_d_exp_robust}. Again, we observe attack-model overfitting. 

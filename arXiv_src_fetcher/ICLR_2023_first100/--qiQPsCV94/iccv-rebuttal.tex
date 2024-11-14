@@ -1,0 +1,93 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{iccv_rebuttal}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+
+\usepackage[pagebackref=true,breaklinks=true,letterpaper=true,colorlinks,bookmarks=false]{hyperref}
+
+
+\newcommand{\myparagraph}[1]{\noindent\textbf{#1}}
+\newcommand{\myparagraphit}[1]{\noindent\textit{#1}}
+
+\newcommand{\Rone}{{\color{blue}{R1}}}
+\newcommand{\Rtwo}{{\color{blue}{R2}}}
+\newcommand{\Rthree}{{\color{blue}{R3}}}
+
+\newcommand{\ours}{MLC}
+\def\iccvPaperID{9756} %
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+\begin{document}
+
+
+\title{Unsupervised Manifold Linearizing and Clustering (MLC) \vspace{-0.2cm}}  %
+
+\maketitle
+\thispagestyle{empty}
+
+We thank all three reviewers for their insightful comments. They found \#\iccvPaperID{} \textit{interesting} (\Rone), addresses \textit{within-cluster diversity which is often neglected}  ({\Rtwo}). Below we respond to the questions of each reviewer.
+
+
+
+\smallskip
+\myparagraph{[\Rone] Differences and connections with reparameterizing the affinity trick used in SENet.} Good question! In both SENet [59] and MLC, the membership is computed by applying some \textit{non-linearity} to an intermediate similarity matrix composed of inner products of some latents. Differently, SENet uses a soft-thresholding as the non-linearity, while MLC uses a Sinkhorn projection, which gives rise to the question of \myparagraph{[\Rone] the role of Sinkhorn projection.} This is simply a means to convert an arbitrary square matrix to a \textit{doubly stochastic membership}. The latter is not only motivated by its success in subspace clustering (L360-364), but moreover \textit{necessary} for technical purposes: to ensure \textit{non-negativity} and \textit{proper scaling} of membership $\boldsymbol{\Gamma}$. Let us see why.
+Recall in the $R_c$ term of MLC, each volume measure $\log\det(\boldsymbol{I}+\frac{d}{\epsilon^2} \ \cdot \ )$ takes as input some sample covariance $\sum_{i} \Gamma_{ij}\boldsymbol{z}_i \boldsymbol{z}_i^\top$, so $\Gamma_{ij} \geq 0$ is important for the covariance to be positive-semidefinite (hence well-defined). Meanwhile, $\Gamma_{ij} \geq 0$ alone is not enough: one can check that $\max_{\Gamma_{ij} \geq 0, \ \forall i}-\log\det(\boldsymbol{I}+\frac{d}{\epsilon^2} \sum_{i} \Gamma_{ij}\boldsymbol{z}_i \boldsymbol{z}_i^\top ) = -1$ which is realized when $\Gamma_{ij} = 0$ for all $j$, leading to a \textit{trivial} membership. Thus the doubly stochastic constraint (or Sinkhorn projection) is crucial to learning a membership with the MLC loss.  We thank \Rone{} for the insightful questions and will add the above to the paper. 
+
+\smallskip
+\myparagraph{[\Rone] Cluster head is after the backbone rather than the features.} We tried both and found the current way of decoupling the cluster and feature heads leads to a slightly more stable loss decrease. We will gladly include it in the paper. 
+
+
+
+\smallskip
+\myparagraph{Presentation.} Thank you for your sharp eyes which make us sober! \myparagraphit{[\Rone]} \textit{Typo in L370-372}: Nice catch! We meant to say `The MCR$^2$ objective is convex in the membership, i.e., (2) is convex with respect to $\boldsymbol{\Pi}$'. \myparagraphit{[\Rtwo]} \textit{Caption of Fig. 1}: (a) Input data $\boldsymbol{X}$ where $100$ points in green lie close to a curve and $100$ in blue lie close to a point. (b) Stage $0$: Features $f_{\boldsymbol{\theta}}(\boldsymbol{X})$ from a neural network $f_{\boldsymbol{\theta}}$ whose parameters are randomly initialized. (c) Stage $1$: Features after self-supervised training. (d) Stage $2$: Features further improved by the proposed manifold clustering and linearizing (MLC). \myparagraphit{[\Rtwo]} For \textit{Fig. 2}, we will (i) add sample images to visualize the input, (ii) replace symbols with words, 
+(iii) add figures for the volumetric measures $R$ and $R_c$ in MLC. \myparagraphit{[\Rtwo]} As of \textit{structure of the paper}, we will happily add: We introduce MCR$^2$ to solve \textit{half} of both questions, since it linearizes the representation but requires labels. With readers now knowing MCR$^2$, we devise the doubly stochastic membership to solve the \textit{other half} of the questions, i.e., to further allow clustering. \myparagraphit{[\Rthree]} $R_c$: Thank you! We intended to use the same $R_c$ rather than two symbols to ease readability; we will add in the revision that treating each column of $\mathbf{\Gamma}$ as a cluster L394 reduces to L302.
+
+\smallskip
+\myparagraph{[\Rtwo] Ablation on augmentation} Beyond Appendix C, we have tried different augmentations, to be added in the paper.
+
+\smallskip
+\myparagraph{[\Rtwo,\Rthree] More experiments.} As requested by \Rtwo{}, we run MLC with the same MoCoV2 pretraining (i.e., Stage 1) as in SCAN, and include baselines in Propos that use ResNet-18 as backbone for a fair comparison. While in our paper MLC is shown to be more accurate on CIFAR-100 and TinyImageNet, since \Rthree{} believe they may not be clusterable, we dedicate the experiments here to CIFAR-10 and CIFAR-20. \noindent{\color{red}Remarkably, MLC is the most accurate, among methods using either the same pretraining (middle and bottom rows), or any pretraining.} Space limited, we will gladly include methods using larger backbones in the revision.
+\renewcommand{\thetable}{\Alph{table}} %
+\begin{table}[H]
+\vspace{-0.2cm}
+\centering
+\caption{Additional comparison to comply with \Rtwo{} and \Rthree{}. }
+\label{tab:my-table}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+\multirow{2}{*}{Methods} & \multirow{2}{*}{Source} & \multicolumn{2}{c}{CIFAR-10}  & \multicolumn{2}{c}{CIFAR-20}  \\
+             &           & ACC  & NMI  & ACC  & NMI  \\ \midrule
+SCAN-SimCLR  & ECCV '20  & .876 & .787 & .468 & .459 \\
+GCC          & ICCV '21  & .856 & .764 & .472 & .472 \\
+IDFD         & ICLR '21  & .815 & .711 & .425 & .426 \\
+IMC-SWaV     & KBS '22   & .891 & .811 & .490 & .503 \\
+ProPos       & TPAMI '22 & .915 & -    & .578 & -    \\ \midrule
+NMCE-TCR     & Arxiv '21 & .830 & .761 & .437 & .488 \\
+MLC-TCR      & Ours      & .863 & .783 & .522 & .546 \\ \midrule
+SCAN-MoCoV2  & ECCV '20  & .874 & .786 & .455 & .472 \\
+SPICE-MoCoV2 & TIP '22   & .918 & .850 & .535 & .565 \\
+MLC-MoCoV2               & Ours                    & \textbf{.922} & \textbf{.855} & \textbf{.583} & \textbf{.596} \\ \bottomrule
+\vspace{-0.8cm}
+\end{tabular}%
+}
+\end{table}
+
+\myparagraph{[\Rthree] Quadratic cost.} SOTA clustering methods all incorporate contrastive learning, consequently having quadratic cost as some form of (dis-)similarity is computed between pairs of features. To boost scalability, it is standard to use mini-batches, inducing biased estimates of the objective or gradient in general\footnote{If $\Sigma_{n_b}$ is the sample covariance of a batch of $n_b$ i.i.d. samples, then $\mathrm{E}(f(\Sigma_{n_b}))$ varies with $n_b$ unless, e.g., when $f(\cdot)$ is affine.}. MLC aligns with this norm: all forward or backward passes have only $O(n_b^2)$ computations with $n_b$ the batch size (also in Fig. 2 or Alg. 1). Empirically, MLC uses less time to be more accurate (Tab. 4). Thank you, we believe it is important to add the above clarification to the paper.
+
+
+
+
+\smallskip
+\myparagraph{[\Rthree] Clusterability of CIFAR-100 / (Tiny)ImageNet. } We intended to use experiments on these datasets as an attempt to \textit{large-scale} clustering, as is also done in SCAN, IMC-SWaV and SPICE. Meanwhile, we hope the \textit{moderate-scale} experiments above alleviate your concern. We will de-emphasize the former and focus on the latter in the revision. 
+
+
+
+\end{document}

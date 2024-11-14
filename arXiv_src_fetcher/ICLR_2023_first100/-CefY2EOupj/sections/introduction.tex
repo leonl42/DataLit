@@ -1,0 +1,43 @@
+\section{Introduction}
+\label{sec:intro}
+Over the past few years, we have witnessed outstanding performance of foundation models on many applications. However, these models, including BERT~\cite{devlin2018bert} and GPT~\cite{gpt-2,gpt-3}, usually have hundreds of millions or even billions of parameters and require to be trained on massive GPUs. For example, the largest dense transformer model, 530B MT-NLG~\cite{mt-nlg}, was trained over 4000 GPUs in more than a month. At this scale, the expensive communication overhead across computing processors and servers hinders the scalability \citep{alistarh2017qsgd}.
+
+\emph{1-bit gradient compression} and \emph{local steps} are two representative methods to mitigate the communication bottleneck. 1-bit compression drastically reduces the communication volume by quantizing each value in gradients with ultra-low bits (i.e., as low as 1 bit)~\cite{seide20141,bernstein2018signsgd}; and local steps alternatively saves the bandwidth by periodically skipping communication rounds\citep{stich2018local}.
+While these techniques demonstrate tremendous success on distributed SGD, their benefits over large-scale Adam-based model training, such as for BERT and GPT pre-training, remains an open question \citep{kingma2014adam,wang2019signadam++}.
+% \textbf{The challenges of non-linearity from Adam.}
+Comparing to SGD where the model parameters are linearly dependent on the gradients, the non-linearity in Adam updates \citep{kingma2014adam} limits the direct usage of compression or local steps.
+In particular, this non-linearity incurs two challenges: 1) when aggressively compressing the gradient such as with 1-bit quantizer, all the coordinate-wise effect learning rate will become the same value, so that Adam no longer enjoys adaptive and fast convergence; 2) to ensure all parallel workers reach consensus on the optimizer states, which is critical for convergence, the existence of non-linearity incurs the overhead of iteratively synchronizing the states when using local steps.
+
+\citet{tang20211} undertook the first investigation of fixing this non-linearity towards compression and proposed \textbf{1-bit Adam}. The algorithm follows a two-stage training paradigm: first run Adam with full-precision communication (\emph{full-precision stage}\footnote{In the original 1-bit Adam paper, this stage is referred to as warmup stage. We use a slightly different term to avoid confusion with learning rate warmup.}); and then switch to 1 bit when the variance becomes stable (\emph{compression stage}).
+While this paradigm avoids compressing non-linear information with a one-time frozen variance,
+the experimental results from \citep{tang20211} indicate the full-precision stage still incurs non-trivial overhead. 
+%For instance, it is shown that when training the BERT-Large model, 1-bit Adam sends each parameter with 3.27 bits on average, which is not close to 1 bit as we would expect.
+Furthermore, 1-bit Adam is restricted in the scope of gradient compression, and cannot be trivially adapted when other techniques are used, such as local steps. Besides, the empirical success of \citep{tang20211} was not substantiated on generative models (GPT-style models), for instance, 175B GPT-3~\cite{gpt-3}, 530B MT-NLG~\cite{mt-nlg}, etc.
+
+% our study in Section~\ref{sec:motivation} reveals that since large models like BERT and GPT are trained with Adam on a large number of GPUs, even during compression stage, the fixed cost of initiating 1-bit communication and compression can still become a bottleneck that limits the end-to-end throughput gain.
+
+% \textbf{Challenges on improving 1-bit Adam.}
+% In correspondence to the limitations of 1-bit Adam, one natural idea is to remove the full-precision stage, and then potentially skip some 1-bit communication rounds. This overall motivation seems well-aligned with the classic works on 1-bit SGD \cite{bernstein2018signsgd} and local SGD \citep{stich2018local}.
+% However, this natural idea cannot be applied to Adam directly due to  two main challenges:
+% (1)
+% (1-bit) Adam has additional optimizer states, momentum and variance, that are sensitive to compression at early stage of training. The naive removal of full-precision stage could easily cause slow convergence or even divergence.
+% (2)
+% While local SGD guarantees all the workers can optimize the same model parameters via periodic model synchronization, (1-bit) Adam requires additional synchronization over momentum and variance, which otherwise would fail to capture the global gradient moments dynamics on each worker locally. This additional synchronization would somehow compromise the benefits from compression or skipped rounds.
+
+
+% In this paper, we address these challenges by proposing {\myalgo}.
+% On one hand, {\myalgo} leverages the insight that the variance states in adjacent Adam steps are close, and thus it can be sparsely updated and reused for several steps without having a per-step-update full-precision stage. 
+% As will be shown in Section~\ref{sec:motivation} and \ref{sec:experiment}, a lazily updated variance suffices to transfer the information of layer-wise adaptivity as in the original Adam.
+% {\myalgo} incorporates this intuition into a design named \emph{adaptive variance state freezing}, which effectively eliminates the need for full-precision communication and further reduces the data volume overhead in 1-bit Adam (For example, it reduces per-parameter bits from 3.27 to 1.03 on BERT-Large pretraining as shown in Section~\ref{sec:experiment}).
+% To mitigate the synchronization overhead when skipping communication rounds,
+% we make another observation that with frozen variance, the change to model parameters will be linearly dependent to the momentum state in Adam, so that if model is synchronized using 1 bit, the momentum can be approximated locally without additional communication. Given this insight,
+% {\myalgo} includes another novel design, namely \emph{1-bit sync}, that requires zero optimizer states synchronization when skipping communication rounds. 
+In this paper, we address this gap by proposing {\myalgo}. {\myalgo} breaks the barrier of non-linearity from two aspects: first it adaptively freezes variance, so that given agreement on a stale variance state, the parallel workers only need to communicate momentum that \emph{is} linearly dependent on the model update; This technique allows reducing the previous two-stage compression scheme to a unified single stage;  2) it leverages the insight that in adjacent Adam steps, the changes to optimizer states are generally bounded, so that with frozen variance, parallel workers can linearly approximate momentum and parameter updates locally without additional synchronization. This further pushes the limit of communication reduction towards its extreme, achieving the state-of-the-art speed up for large-scale model training.   
+To summarize, our contributions are as follows:
+\begin{itemize}[nosep,leftmargin=12pt]
+    % \item We perform a motivation study that analyzes the limitation of the state-of-the-art 1-bit Adam. (Section~\ref{sec:motivation})
+    \item We propose {\myalgo}, a novel optimization method that addresses the non-linearity challenges in Adam when applying aggressive 1-bit quantization and local steps (Section~\ref{sec:algorithm}).
+    \item We provide convergence guarantee of {\myalgo} on smooth and non-convex objectives (Section~\ref{sec:theory}).
+    \item We conduct experiments on a wide range of large-scale model training tasks, including BERT-Base, BERT-Large, GPT-2 pre-training and ImageNet. We demonstrate on up to 128 GPUs that {\myalgo} is able to reduce up to 87\% of data volume, 54\% of communication rounds, and achieve up to 2$\times$ higher throughput and training time reduction compared to the state-of-the-art 1-bit Adam without compromising end-to-end model accuracy (Section~\ref{sec:experiment}). 
+    \item The 0/1 Adam optimizer and corresponding experimental scripts (e.g. BERT pre-training and GLUE finetuning) have been open sourced in a deep learning optimization library called DeepSpeed\footnote{https://github.com/microsoft/DeepSpeed}.
+\end{itemize}

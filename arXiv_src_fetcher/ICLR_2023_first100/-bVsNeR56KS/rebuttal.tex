@@ -1,0 +1,209 @@
+# Summary of Paper Revisions
+
+We thank all the reviewers for their constructive feedback, insightful comments, and generally positive appraisal of our work. 
+
+Our paper has been carefully revised according to the valuable comments, and the revised version has been submitted to OpenReview. The revised parts are highlighted in blue in our manuscript.  And the summary of the main revision is as follows:
+
+1. We have modified some expressions and details to make the paper more clear, as suggested by the reviewers.
+
+2. We have added more strong baselines in Sec.5.3, and provided more comparisons in Sec.2 and Appendix A.3.
+
+3. We have added some other content in the appendix:
+
+   a). more details of our pre-training data in A.1. 
+
+   b). more analysis on multilinguality in A.2.
+
+   c). the comparison to translation-based method for cross-lingual retrieval in A.5.
+
+   
+
+
+
+# Rebuttal
+
+
+
+## Reviewer XpJe
+
+#### Response to Reviewer XpJe, Part 1
+
+Thanks for your insightful and invaluable comments. Our paper has been carefully revised according to the comments and the revised version has been submitted to OpenReview. Below is our point-to-point response.
+
+> Q1. Only a partial awareness of very related work on cross-lingual information retrieval (CLIR), with many strong reference works and baselines omitted from the paper completely.
+>
+> Q2.  Related to the point above, those papers provide much stronger baselines - the baselines in this submission are simply weak and inadequate.
+
+Thanks for the valuable comments. First we add more strong baselines, and then we clarify some misunderstandings and the differences between these methods and our MSM. 
+
+The below table shows the performance comparison on Mr. TyDi after fine-tuning on MS MARCO.
+
+| Method      | Metrics    | AR   | BN   | EN   | FI   | ID   | JA   | KO   | RU   | SW   | TE   | TH   | AVG  |
+| :---------- | ---------- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| DistilmBERT | MRR@100    | 40.8 | -    | 29.9 | 26.7 | 39.7 | 27.0 | 32.2 | 29.4 | 22.0 | -    | 26.5 | 30.5 |
+|             | Recall@100 | 79.7 | -    | 71.0 | 64.1 | 79.7 | 65.0 | 64.4 | 62.6 | 48.2 | -    | 60.9 | 66.2 |
+| InfoXLM     | MRR@100    | 48.2 | 50.6 | 30.1 | 29.0 | 39.9 | 30.1 | 34.8 | 35.0 | 38.9 | 51.7 | 50.9 | 39.9 |
+|             | Recall@100 | 81.2 | 83.8 | 72.2 | 65.8 | 75.9 | 68.1 | 70.0 | 72.7 | 69.3 | 81.0 | 87.1 | 75.2 |
+| LaBSE       | MRR@100    | 50.1 | 52.3 | 29.7 | 41.3 | 48.3 | 27.6 | 33.4 | 37.3 | 54.6 | 56.7 | 43.6 | 43.2 |
+|             | Recall@100 | 83.0 | 85.6 | 71.4 | 80.2 | 86.1 | 63.2 | 67.0 | 74.3 | 86.7 | 89.4 | 81.9 | 79.0 |
+| XLMR-Long   | MRR@100    | 43.9 | 44.7 | 27.2 | 31.6 | 44.2 | 28.5 | 34.1 | 30.9 | 31.0 | 49.5 | 48.2 | 37.6 |
+|             | Recall@100 | 75.8 | 82.0 | 68.5 | 71.1 | 81.6 | 62.9 | 64.9 | 64.7 | 58.9 | 80.0 | 85.9 | 72.4 |
+| CROP        | MRR@100    | 46.2 | 39.9 | 27.7 | 34.0 | 47.0 | 26.2 | 32.1 | 31.8 | 41.5 | 55.9 | 46.3 | 38.9 |
+|             | Recall@100 | 80.3 | 84.2 | 70.9 | 73.8 | 85.5 | 63.1 | 68.1 | 70.4 | 72.0 | 86.3 | 85.9 | 76.4 |
+| MSM         | MRR@100    | 51.6 | 53.0 | 31.6 | 39.4 | 50.5 | 32.0 | 36.8 | 37.2 | 43.4 | 62.6 | 53.5 | 44.7 |
+|             | Recall@100 | 83.0 | 83.8 | 73.9 | 77.9 | 85.7 | 67.5 | 70.3 | 71.4 | 73.0 | 89.8 | 88.2 | 78.6 |
+
+For more detailed comparisons please refer to Sec.5.3 in our revised manuscript. 
+
+Here we mainly clarify some misunderstandings and differences, as follows: 
+
+a). MSM are trained without any supervised data, which keeps in line with mBERT and XLM-R. In contrast, mUSE, LASER and LaBSE are trained on text-matching datasets [1] such as parallel data, NLI data, QA data, etc, which provide more supervised signals. Indeed we also compared to LaBSE in the appendix of the original version, and we have added more baselines in the revised version. 
+
+b). Our target is a universal pre-trained model, while some of the others [2, 3] focus on specialized (or fine-tuning) methods such as adapters [2], distillation [3], etc. And our pre-trained model MSM can be easily applied with these methods by replacing mBERT or XLMR in these papers.
+
+c). We follow the advanced setting that first fine-tunes and then evaluates for dense retrieval [7], which may differ from the previous methods of static word embeddings or fixed pre-trained models. This setting is suggested by the dataset paper of XTREME-R, Mr. TyDi and XOR, and the recent research [4, 5] also adopt this evaluation paradigm. 
+
+d). mContriever [4] is trained on fewer languages and the corpus that is closer to the evaluation task, both of which can improve upon our setting, according to its ablation study [4]. That is because more languages face the curse of multilinguality and the closer corpus leads to better domain transfer. However, this setting may damage generalization and narrow the application scope. And there are several methods [4, 5, 6] similarly adopting cropped spans. So for a fair comparison, we have reproduced it as CROP under the same setting.
+
+
+
+References:
+
+[1] Litschko et al. ECIR 2021. https://arxiv.org/pdf/2101.08370.pdf
+
+[2] Reimers et al. EMNLP 2020. https://arxiv.org/abs/2004.09813
+
+[3] Litschko et al. COLING 2022. https://arxiv.org/abs/2204.02292
+
+[4] Izacard et al. TMLR 2022.https://arxiv.org/pdf/2112.09118.pdf 
+
+[5] Wu et al. IJCAI 2022. https://arxiv.org/abs/2206.03281
+
+[6] Gao et al. EMNLP 2021. https://arxiv.org/abs/2104.08253
+
+[7] Ruder et al. EMNLP 2021. https://arxiv.org/abs/2104.07412
+
+
+
+#### Response to Reviewer XpJe, Part 2
+
+> Q3. The paper also does conflate query-passage and sentence retrieval, and does not evaluate on document retrieval at all. 
+
+Thanks for your valuable comments. 
+
+a). According to [1], the document retrieval dataset CLEF gets even better results when truncated into 128 tokens than 256 tokens. And our evaluation dataset XOR and Mr.TYDI passages are 256 tokens long, which is comparable to the former. Though we mainly focus on passage retrieval, the outperforming results on XOR and Mr.TYDI can also demonstrate that our MSM can address different granularity of retrieval well. 
+
+b). Besides, recent works on cross-lingual document retrieval [7, 8] are usually based on mBERT and XLMR and expose or split the documents to less than 512 tokens. Our MSM's input can be 512 tokens, and as a pre-trained model it's easy to be applied to replace mBERT or XLMR in the cross-lingual document retrieval papers [1, 8].  
+
+
+
+> Q4. The paper also critically requires parallel data to work -> if one has parallel data, one of the must-have baselines are also MT-based query-translate or passage-translate approaches which sometimes/often work better than standard encoder-based approaches.
+
+a). In fact, MSM is trained without any parallel data and only utilizes multi-lingual raw text, and the setting of the pre-training corpus mainly keeps the same as XLMR.
+
+b). We have added MT-based baselines for cross-lingual retrieval in Appendix A.5. The results show that MSM outperforms Transformer-based MT and GMT (Google MT) is still a stronger method. However, MT-based methods depend on the quality of the MT system, and it relies on a two-stage pipeline which may lead to cumulative errors. In contrast, our MSM is easily applied with bi-encoder retrievers, which have more advantages in terms of deployments and diagnosis. For more details refer to Appendix A.5 in the revised version.
+
+
+
+> Q5. There are no discussions on how different target languages might impact the results: are all the languages equally difficult, which ones might cause major drops of performance and, most importantly, why? 
+
+Thanks for the constructive advice. Please refer to Appendix A.2 in our revised manuscript, where we have added more analysis on multilinguality, summarized as follows: (1) MSM can achieve more gains in low-resource language. (2) The target languages closer to the pivot language usually perform better and achieve more improvements. (3) The multi-lingual data lead to better cross-lingual retrieval performance. 
+
+
+
+Others that may be helpful:
+
+- We have added some citations and continually polished the paper.
+- As for the reproducibility, we will release the code and models soon. 
+
+Thanks again for helping us make the paper stronger. Please let me know if you have any unclear things or additional concerns.
+
+
+
+References:
+
+[7] Yang et al. SIGIR 2022. https://arxiv.org/pdf/2204.11989.pdf
+
+[8] Nair et al. ECIR 2022. https://arxiv.org/abs/2201.08471
+
+
+
+## Response to Reviewer VGZA
+
+> Q1. One concern I have for the proposed approach is its efficiency -- masking document representation with leave-one-sentence-out scheme seems very expensive, since the document encoder needs to be recomputed for every masking.
+
+Thanks for your insightful comments. Indeed our masked sentence scheme is so efficient. First, the sentences in a document pass through the sentence encoder only once without recomputation. As for the document encoder, the length of document encoder's input is not long, for the number of sentences in a document is not long. And our document encoder is also shallow. These factors make our approach very efficient without much computation.
+
+
+
+> Q2. It is also counter intuitive that more negatives performs worse than 512 negatives -- usually larger batch sizes improves contrastive learning.
+
+Thanks for your valuable comments. 
+
+a). Recall that our negatives contain a limited number of Intra-doc Negatives (for the sentence in a document is limited) and a varying number of Cross-doc Negatives. And the results in Table.5 show Intra-doc Negatives play an important role in our hierarchical contrastive loss. So when the total negative number increases to a large number, the impact of intra-document negatives would be diminished and hurt the performance. 
+
+b). Recent works [1, 2] also revealed that keep increasing the batch size did not necessarily bring improvement, which is also in line with our experiment. It has diminishing gains if the batch is sufficiently large, and the performance would be harmed by the instability when the batch size is too large [1].
+
+
+
+We have updated the paper to make these points more clearly. Please let me know if anything is unclear or if you have any additional concerns.
+
+
+
+[1] Xinlei Chen et al. ICCV 2021. https://arxiv.org/pdf/2104.02057.pdf
+
+[2] Rui Cao et al. ACL 2022. https://arxiv.org/abs/2202.13093
+
+
+
+## Response to Reviewer TsJC
+
+> Q1. Why the document encoder is discarded after pre-training ?
+
+Thanks for your valuable comments. There are some points about this question:
+
+a). In our hierarchical approach, the document encoder plays as a bottleneck: the sentence encoder press the sentence semantics into sentence vectors, and the document encoder leverage the limited information to predict the masked vector, thus enforcing an information bottleneck on the sentence encoder for better representations. There are several papers also utilizing the similar method, such as Condenser [1] and RetroMAE [2].
+
+b). According to our analysis in Sec.5.4, the shared document encoder helps to model the sequential sentence relation across languages. So it can promote sentence representations for better cross-lingual ability, which is more vital for downstream retrieval tasks. It is similar to some findings on mBERTology [3, 4] which find the shared model can learn the universal word embeddings across languages. And our experiments indicate that shared document encoder does benefit universal sentence embedding. 
+
+c). By the way, the sentence encoder has the same architecture as XLMR, which ensures a fair comparison. 
+
+
+
+We have updated the paper to make these points more clearly. Please let me know if you have any other questions.
+
+
+
+References:
+
+[1] Gao et al. EMNLP 2021. https://aclanthology.org/2021.emnlp-main.75/
+
+[2] Xiao et al. EMNLP 2022. https://arxiv.org/abs/2205.12035
+
+[3] Doddapaneni et al. 2021 https://arxiv.org/abs/2107.00676
+
+[4] Rogers et al. TACL 2020. https://arxiv.org/abs/2002.12327
+
+
+
+## Response to Reviewer Hf6d
+
+> Q1. The paper's motivation seems to focus a little too much on the "cross-lingual" aspect of things rather than just as a multilingual hierarchical contrastive learning approach. The authors' arguments center around the fact that sentences are ordered similarly with documents across different languages.
+
+Thanks for your insightful comments. Indeed, the two aspects, namely the motivation on cross-lingual aspect and the multilingual hierarchical approach, are highly correlated rather than independent from each other. We start from the idea that sentences are ordered similarly with documents across different languages. And to model this relation, we design the hierarchical learning approach including the hierarchical model and masked sentence prediction task. In turn, our experiments demonstrate that the hierarchical learning approach is crucial for stronger cross-lingual retrieval capabilities, thus resulting in better downstream cross-lingual performance. 
+
+
+
+> Q2. The paper lacks some details about the dataset used. The paper cites the CC-100 paper, but was it exactly CC-100? Or did you pre-process commoncrawl yourselves?
+
+Yes, since Common Crawl is not a public dataset, so we need to pre-process it  by ourselves. Our reserved 108 languages are the union of the languages that XLMR and mBERT support, which covers more languages for larger application scope. And we followed the public processing code [1] adopted by XLMR to pre-process CommonCrawl [2] and retain 108 languages for our pre-training.
+
+
+
+Thanks for your constructive feedback, and we have revised the paper to make them more clear. Please let me know if you have any other questions.
+
+References:
+
+[1] https://github.com/facebookresearch/cc_net
+
+[2] Wenzek et al. LREC 2020. https://aclanthology.org/2020.lrec-1.494/

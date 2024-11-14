@@ -1,0 +1,52 @@
+\section{Experiment Setup}
+
+\subsection{Model aspect ratio}\label{section:method:ratio}
+
+For our Transformer models we fix the number of embedding features, sequence features, attention features, and the hidden layer dimension in the FFNs for each task.
+We vary the number of layers, $L$, and the number of heads per layer, $H$, whilst keeping $L \times H$ constant.
+Starting with typical values for $L$ \& $H$, we then move down to a single layer with one to two intermediate model aspect ratios, observing how test accuracy changes for trained models.
+See \Cref{fig:wide} for an illustration of our deepest and widest models.
+
+In all of our tasks we do not use pretrained embeddings or pretrained model parameters as this allows us to make a fairer comparisons.
+Computing pretrained embeddings and weights that are optimised for each combination of attention and model aspect ratio would be computationally prohibitive, and using ones typically used for deep networks would introduce bias.
+
+
+\subsection{Datasts and models}\label{section:method:datasets}
+
+\begin{table}[!h]
+    \caption{The different tasks and datasets used.}
+    \label{table:tasks}
+    \begin{center}
+        \begin{tabular}{l | l l l l}
+            \toprule
+            \textbf{Task Name} & \textbf{Classification} & \textbf{Dataset} & \textbf{Input Type} & \textbf{Input Length} \\
+            \midrule
+            IMDb Token Level & Binary & IMDb Reviews & Review text tokens & 500 \\
+            IMDb Byte Level & Binary & IMDb Reviews & Review text bytes & 1000 \\
+            Listops & 10-way & LRA Listops & Listop bytes & 2000 \\
+            Document Matching & Binary & ACL Anthology & Document bytes & 4000 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+\end{table}
+
+Primarily we investigate using 4 different text classification tasks, a vision based task is investigated in \Cref{sec:discussion:vit}.
+The first two are sentiment analysis (binary classification) on the IMDb dataset.
+One uses input embeddings at the token level with an input sequence length of 500, and the other uses input embeddings at the byte level and an input sequence length of 1k.
+This second task is taken from LRA \citep{lra}, as are the final two.
+The third task is Listops 10-way classification with a sequence length of 2k.
+This task involves reasoning about sequences of hierarchical operations to determine a result, and the input is given at the byte level.
+The final task used is byte level document matching, a binary classification task with a sequence length of 4k.
+This uses the ACL anthology network for related article matching \citep{acl}.
+We summarise each task in \Cref{table:tasks}, further details on them can be found in \citet{lra}.
+
+For the text classification and Listops task we try four different model aspect ratios.
+In terms of number of layers and heads per layer these are: 6 layers, 8 heads; 3 layers, 16 heads; 2 layers, 24 heads; and finally 1 layer, 48 heads.
+As the matching task has an input sequence length of 4k, the models used are smaller to offset the computation size involved.
+Thus the combinations we use are: 4 layers, 4 heads; 2 layers, 8 heads; 1 layer, 16 heads.
+
+In order to investigate whether the type of the attention mechanism influences the effects of widening the attention layer, we test on 10 different types of Transformer attention, including the original dot-product attention \citep{tfm}.
+The others are: Bigbird \citep{bigbird}, Linear Transformer \citep{linear_tfm}, Linformer \citep{linformer}, Local attention \citep{local_tfm}, Longformer \citep{longformer}, Performer \citep{performer}, Sinkhorn \citep{sinkhorn}, Sparse Transformer \citep{sparse_tfm}, and Synthesizer \citep{synthesizer}.
+The implementations and hyper-parameter choices for each attention type are the same as used in LRA.
+Unlike LRA, we do not test with Reformer \citep{reformer} due to it requiring the sequence features and attention features to have the same dimension. Training and other Transformer hyperparameters used for each task are given in \Cref{appendix:tasks}.
+

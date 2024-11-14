@@ -1,0 +1,868 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2023_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\input{math_commands.tex}
+\usepackage{xcolor} 
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{wrapfig,lipsum,booktabs}
+\usepackage[para,online,flushleft]{threeparttable}
+%\newcommand{\fix}{\marginpar{FIX}}
+%\newcommand{\new}{\marginpar{NEW}}
+\definecolor{BlueModel}{RGB}{88,117,164}
+\definecolor{GreenModel}{RGB}{95,158,110}
+\definecolor{PinkModel}{RGB}{208,149,191}
+\definecolor{OrangeModel}{RGB}{204,137,99}
+\definecolor{BlueModel2}{RGB}{0,47,108}
+\newcommand{\BlueM}{\textcolor{BlueModel}}
+\newcommand{\GreenM}{\textcolor{GreenModel}}
+\newcommand{\PinkM}{\textcolor{PinkModel}}
+\newcommand{\OrangeM}{\textcolor{OrangeModel}}
+\newcommand{\arturo}{\textcolor{violet}}
+\newcommand{\william}{\textcolor{blue}}
+\newcommand{\record}{\textcolor{BlueModel2}}
+\usepackage{subcaption}
+\usepackage{adjustbox}
+\captionsetup{belowskip=0pt}
+
+
+\title{Joint rotational invariance and adversarial training of a dual-stream Transformer yields state of the art Brain-Score for Area V4}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+\author{William Berrios$^{1,2}$ \& Arturo Deza$^{1,2}$ \\ 
+The Center for Brains, Minds and Machines\\ Massachusetts Institute of Technology$^{1}$\\
+Artificio$^{2}$ \\
+\texttt{\{wberrios,deza\}@mit.edu} \\
+}
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Modern high-scoring models of vision in the brain score competition do not stem from Vision Transformers. However, in this paper, we provide evidence against the unexpected trend of Vision Transformers (ViT) being not perceptually aligned with human visual representations by showing how a dual-stream Transformer, a CrossViT~\textit{a la}~\cite{chen2021crossvit}, under a joint rotationally-invariant and adversarial optimization procedure yields 2nd place in the aggregate Brain-Score 2022 competition~\citep{SCHRIMPF2020413} averaged across all visual categories, and at the time of the competition held 1st place for the highest explainable variance of area V4. In addition, our current Transformer-based model also achieves greater explainable variance for areas V4, IT and Behavior than a biologically-inspired CNN (ResNet50) that integrates a frontal V1-like computation module~\citep{dapello2020simulating}. To assess the contribution of the optimization scheme with respect to the CrossViT architecture, we perform several additional experiments on differently optimized CrossViT's regarding adversarial robustness, common corruption benchmarks, mid-ventral stimuli interpretation and feature inversion. % Our team  was also the only entry in the top-5 that shows a positive rank correlation between explained variance per area and depth in the visual hierarchy.
+ Against our initial expectations, our family of results provides tentative support for an \textit{``All roads lead to Rome''} argument enforced via a joint optimization rule even for non biologically-motivated models of vision such as Vision Transformers. Code is available at \record{\url{https://github.com/williamberrios/BrainScore-Transformers}}
+\end{abstract}
+
+\section{Introduction}
+
+Research and design of modern deep learning and computer vision systems such as the NeoCognitron~\citep{fukushima1982neocognitron}, H-Max Model~\citep{serre2005theory} and classical CNNs~\citep{lecun2015deep} have often stemmed from breakthroughs in visual neuroscience dating from~\cite{kuffler1953discharge} and~\cite{hubel1962receptive}. Today, research in neuroscience passes through a phase of symbiotic development where several models of artificial visual computation (mainly deep neural networks), may inform visual neuroscience~\citep{richards2019deep} shedding light on puzzles of development~\citep{lindsey2018the}, physiology~\citep{dapello2020simulating}, representation~\citep{jagadeesh2022texture} and perception~\citep{harrington2022finding}.
+
+Of particular recent interest is the development of Vision Transformers~\citep{dosovitskiy2021an}. A model that originally generated several great breakthroughs in natural language processing~\citep{vaswani2017attention}, and that has now slowly begun to dominate the field of machine visual computation. However, in computer vision, we still do not understand why Vision Transformers perform so well when adapted to the visual domain~\citep{bhojanapalli2021understanding}. Is this new excel in performance due to their self-attention mechanism; a relaxation of their weight-sharing constraint? Their greater number of parameters? Their optimization procedure? Or perhaps a combination of all these factors? Naturally, given the uncertainty of the models' \textit{explainability}, their use has been carefully limited as a model of visual computation in biological (human) vision. 
+
+This is a double-edged sword: On one hand, perceptual psychologists still rely heavily on relatively low-scoring ImageNet-based accuracy models such as AlexNet, ResNet \& VGG despite their \textit{limited} degree of biological plausibility (though some operations are preserved, \textit{eg.} local filtering, half-wave rectification, pooling). On the other hand, a new breed of models such as Vision Transformers has surged, but their somewhat non-biologically inspired computations have no straightforward mapping to approximate the structure of the human ventral stream\footnote{Even at their start, the patch embedding operation is not obviously mappable to retinal, LGN, or V1-like primate computation.} -- thus discarding them as serious models of the human visual system. Alas, even if computer vision scientists may want to remain on the sidelines of the usefulness of a biological/non-biological plausibility debate, the reality is that computer vision systems are still far from perfect. The existence of Adversarial examples, both artificial~\citep{goodfellow2014explaining,szegedy2014intriguing} and natural~\citep{hendrycks2021natural}, reflects that there is still a long way to go to close the human-machine perceptual alignment gap~\citep{geirhos2021partial}. Beyond the theoretical milestone of closing this gap, this will be beneficial for automated systems in radiology~\citep{hosny2018artificial}, surveillance~\citep{deza2019assessment}, driving~\citep{huang2020autonomous}, and art~\citep{ramesh2022hierarchical}.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=0.09,angle=-90]{src/crossvit_final_horizontal.pdf}
+\caption{Diagram of CrossViT-18$\dagger$ ~\citep{chen2021crossvit} architecture \& specification of selected layers for the V1, V2, V4, IT brain areas and the behavioral benchmark. Our Brain-Score 2022 competition entry was a variation of this model where the architecture is cloned, and the network is adversarially trained with hard data-augmentation rotations starting from a pre-trained ImageNet model.}
+\label{fig:CrossViT}
+\end{figure}
+
+These two lines of thought bring us to an interesting question that was one of the motivations of this paper: \textit{``Are Vision Transformers good models of the human ventral stream?''} Our approach to answer this question will rely on using the \href{https://www.brain-score.org/}{Brain-Score} platform~\citep{schrimpf2020brain} and participating in their first yearly competition with a Transformer-based model. This platform quantifies the similarity via bounded [0,1] scores of responses between a computer model and a set of non-human primates. Here the ground truth is collected via neurophysiological recordings and/or behavioral outputs when primates are performing psychophysical tasks, and the scores are computed by some derivation of Representational Similarity Analysis~\citep{kriegeskorte2008representational} when pitted against artificial neural network activations of modern computer vision models. 
+
+Altogether, if we find that a specific model yields high Brain-Scores, this may suggest that such flavor of Vision Transformers-based models obey a necessary but not sufficient condition of biological plausibility -- or at least relatively so with respect to their Convolutional Neural Network (CNN) counter-parts. As it turns out, we will find out that the answer to the previously posed question is complex, and depends heavily on how the artificial model is optimized (trained).
+Thus the main contribution of this paper is to understand \textit{why} this particular Transformer-based model when optimized under certain conditions performs vastly better in the Brain-Score competition achieving SOTA in such benchmark, and \textit{not} to develop another competitive/SOTA model for ImageNet (which has shown to not be a good target~\cite{beyer2020we}). The authors firmly believe that the former goal tackled in the paper is much under-explored compared to the latter, and is also of great importance to the intersection of the visual neuroscience and machine learning communities.
+%\arturo{Critically our paper's main claim is not to say that our transformer-based model is a general SOTA model in both human and machine vision, but rather to \textit{understand} why this particular model when optimized under certain conditions performs vastly better in the Brain-Score competition achieving SOTA in such benchmark than the same model optimized differently.}
+
+% =========================
+% Arturo put main contributions here
+% =========================
+
+\section{Optimizing a CrossViT for the Brain-Score Competition}
+
+% I think I will remove this first paragraph! Let us keep it commented just in case!
+%Research and design of modern deep learning and computer vision systems such as the NeoCognitron~\citep{fukushima1982neocognitron}, H-Max Model~\citep{serre2005theory} and classical CNNs~\citep{lecun2015deep} have often stemmed from breakthroughs in visual neuroscience dating from~\cite{kuffler1953discharge,hubel1962receptive}. Today, research in neuroscience passes through a phase of symbiotic development where several models of artificial visual computation (mainly deep neural networks), may inform visual neuroscience~\citep{richards2019deep} sheddling light on puzzles of development~\citep{lindsey2018the}, physiology~\citep{dapello2020simulating}, representation~\citep{jagadeesh2022texture} and perception~\citep{harrington2022finding}.
+
+Now, we discuss an interesting finding, where amidst the constant debate of the biological plausibility of Vision Transformers -- which have been deemed less biologically plausible than convolutional neural networks (as discussed in: \href{https://twitter.com/martin_schrimpf/status/1377640443266105352}{URL\_1} \href{https://mobile.twitter.com/dileeplearning/status/1377688297296687105}{URL\_2}, though also see~\cite{conwell2021what}) --, we find that when these Transformers are optimized under certain conditions, they may achieve high explainable variance with regards to many areas in primate vision, and surprisingly the highest score to date at the time of the competition for explainable variance in area V4, that still remains a mystery in visual neuroscience (see~\cite{pasupathy2020visual} for a review). Our final model and highest scoring model was based on several insights:
+
+\begin{table}[t!]
+\footnotesize
+\centering
+%\addtolength{\leftskip} {-2.2cm} % increase (absolute) value if needed
+%\addtolength{\rightskip}{-1cm}
+\begin{adjustbox}{width=\textwidth}
+
+ \begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|} 
+ \hline
+ \multicolumn{3}{|c|}{} & \multicolumn{6}{|c|}{Brain-Score} & $\rho$-Hierarchy\\
+ \hline
+  Rank & Model ID \# & Description & Avg & V1 & V2 & V4 & IT & Behavior & \\
+  \hline
+  1 & \href{http://www.brain-score.org/model/1033}{1033} & Bag of Tricks~\citep{riedel2022bag} [New SOTA] & \textbf{\record{0.515}} & \textbf{0.568} & \textbf{0.360} & 0.481 & 0.514 & \textbf{0.652} & -0.2\\ 
+ %2 & \href{http://www.brain-score.org/model/991}{991} & \BlueM{CrossViT-18$\dagger$ (Adv + Rot) [Ours]} & 0.488 & 0.493 & 0.342 & \textbf{\record{0.514}} & \textbf{0.531} & 0.562 & \textbf{+0.8}\\ 
+ 2 & \href{http://www.brain-score.org/competition/#leaderboard}{991} & \BlueM{CrossViT-18$\dagger$ (Adv + Rot) [Ours]} & 0.488 & 0.493 & 0.342 & \textbf{\record{0.514}} & \textbf{0.531} & 0.562 & \textbf{+0.8}\\ 
+ 
+  3 & \href{http://www.brain-score.org/model/1044}{1044} & Gated Recurrence~\citep{azeglio2022improving} & 0.463 & 0.509 & 0.303 & 0.482 & 0.467 & 0.554 & -0.4\\ 
+ 4 & \href{http://www.brain-score.org/model/896}{896} & N/A & 0.456 & 0.538 & 0.336 & 0.485 & 0.459 & 0.461 & -0.4\\ 
+  5 & \href{http://www.brain-score.org/model/1031}{1031} & N/A & 0.453 & 0.539 & 0.332 & 0.475 & 0.510 & 0.410 & -0.2\\ \hline
+\end{tabular}\
+\end{adjustbox}
+ 
+%\begin{adjustbox}{width=\textwidth}
+
+%\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|} 
+%\hline
+%\multicolumn{3}{|c|}{} & \multicolumn{6}{|c|}{Brain-Score} & $\rho$-Hierarchy\\
+% \hline
+% Rank & Model ID \# & Description & Avg & V1 & V2 & V4 & IT & Behaviour & \\
+% \hline
+% 1 & 1033 & Bag of Tricks~\citep{riedel2022bag} [New SOTA] & \textbf{\record{0.515}} & \textbf{0.568} & \textbf{0.360} & 0.481 & 0.514 & \textbf{0.652} & -0.2\\ 
+% 2 & \href{http://www.brain-score.org/competition/#leaderboard}{991} & \BlueM{CrossViT-18$\dagger$ (Adv + Rot) [Ours]} & 0.488 & 0.493 & 0.342 & \textbf{\record{0.514}} & \textbf{0.531} & 0.562 & \textbf{+0.8}\\ 
+% 3 & 1044 & Gated Recurrence~\citep{azeglio2022improving} & 0.463 & 0.509 & 0.303 & 0.482 & 0.467 & 0.554 & -0.4\\ 
+% 4 & 896 & N/A & 0.456 & 0.538 & 0.336 & 0.485 & 0.459 & 0.461 & -0.4\\ 
+% 5 & 1031 & N/A & 0.453 & 0.539 & 0.332 & 0.475 & 0.510 & 0.410 & -0.2\\ \hline
+%\end{tabular}\\
+%\end{adjustbox}
+
+
+%http://www.brain-score.org/competition/#leaderboard
+%\vspace{4pt}
+\caption{Ranking of all entries in the Brain-Score 2022 competition as of February 28th, 2022. Scores in \textbf{\record{blue}} indicate \textbf{\record{world record}} (highest of all models at the time of the competition), while scores in \textbf{bold} display the highest scores of \textbf{competing entries}. Column $\rho$-Hierarchy indicates the Spearman rank correlation between per-Area Brain-Score and Depth of Visual Area (V1 $\rightarrow$ IT).}
+\label{table:1}
+\end{table}
+
+
+%Despite Transformers not being a popular choice for the Brain-Score competition given previous entries and open forum discussions (though see recent work by~\cite{conwell2021what}), we ventured to test if a specific flavor of a Transformer, that perhaps with a different architecture, or training procedure will yield greater Brain-Scores. Our final model was based on several insights:
+
+%\arturo{Still to-do!}
+
+\textbf{Adversarial-Training}: Work by~\cite{santurkar2019image,engstrom2019adversarial,dapello2020simulating}, has shown that convolutional neural networks trained adversarially\footnote{Adversarial training is the process in which an image in the training distribution of a network is perturbed adversarially (\textit{e.g.} via PGD); the perturbed image is re-labeled to its original non-perturbed class, and the network is optimized via Empirical Risk Minimization~\citep{madry2018towards}.} yield human perceptually-aligned distortions when attacked. This is an interesting finding, that perhaps extends to vision transformers, but has never been qualitatively tested before though recent works -- including this one (See Figure~\ref{fig:short}) -- have started to investigate in this direction~\citep{tuli2021convolutional,caro2020local}. Thus we projected that once we picked a specific vision transformer architecture, we would train it adversarially.
+
+\textbf{Multi-Resolution}: Pyramid approaches~\citep{burt1987laplacian,simoncelli1995steerable,heeger1995pyramid} have been shown to correlate highly with good models of Brain-Scores~\citep{marques2021multi}. We devised that our Transformer had to incorporate this type of processing either implicitly or explicitly in its architecture.
+
+\textbf{Rotation Invariance}: Object identification is generally rotationally invariant (depending on the category; \textit{e.g.} not the case for faces~\citep{kanwisher1998effect}). So we implicitly trained our model to take in different rotated object samples via hard rotation-based data augmentation. This procedure is different from pioneering work of~\cite{ecker2018a} which explicitly added rotation equivariance to a convolutional neural network.
+
+\textbf{Localized texture-based computation}: Despite the emergence of a \textit{global} texture-bias in object recognition when training Deep Neural Networks~\citep{geirhos2018imagenettrained} -- object recognition is a compositional process~\citep{brendel2019approximating,deza2020hierarchically}. Recently, works in neuroscience have also suggested that \textit{local} texture computation is perhaps pivotal for object recognition to either create an ideal basis set from which to represent objects~\citep{long2018mid,jagadeesh2022texture} and/or encode robust representations~\citep{harrington2022finding}.
+
+
+After searching for several models in the computer vision literature that resemble a Transformer model that ticks all the boxes above, we opted for a CrossViT-18$\dagger$ (that includes multi-resolution + local texture-based computation) that was trained with rotation-based augmentations and also adversarial training (See Appendix~\ref{sec:Training_Setup} for exact training details, our \textit{best} model also used $p=0.25$ grayscale augmentation, though this contribution to model Brain-Score is minimal). 
+
+\begin{table}[t!]
+\footnotesize
+\centering
+%\addtolength{\leftskip} {-1.5cm} % increase (absolute) value if needed
+%\addtolength{\rightskip}{-1cm}
+\begin{adjustbox}{width=\textwidth}
+
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|} 
+\hline
+\multicolumn{2}{|c|}{} & ImageNet ($\uparrow$) & \multicolumn{6}{|c|}{Brain-Score ($\uparrow$)} \\
+ \hline
+ Model ID \# & Description & Validation Accuracy (\%) & Avg & V1 & V2 & V4 & IT & Behavior \\
+ \hline
+ N/A & Pixels (Baseline) & N/A & 0.053 & 0.158 & 0.003 & 0.048 & 0.035 & 0.020 \\
+ N/A & AlexNet (Baseline) & 63.3 & 0.424 & 0.508 & 0.353 & 0.443 & 0.447 & 0.370 \\
+ N/A & VOneResNet50-robust (SOTA) & 71.7 & \textbf{0.492} & \textbf{0.531} & \textbf{0.391} & 0.471 & 0.522 & 0.545\\
+ \hline
+991 & \BlueM{CrossViT-18$\dagger$ (Adv + Rot)} & 73.53 & 0.488 & 0.493 & 0.342 & \textbf{\record{0.514}} & \textbf{0.531} & \textbf{0.562}\\  
+1084 & \GreenM{CrossViT-18$\dagger$ (Adv)} & 64.60 & 0.462  & 0.497 & 0.343 & 0.508 & 0.519 & 0.441 \\ 
+ 1095   & \PinkM{CrossViT-18$\dagger$ (Rot)} & 79.22 & 0.458 & 0.458 & 0.288 & 0.495 & 0.503 &0.547 \\ 
+ 1057 & \OrangeM{CrossViT-18$\dagger$} & \textbf{83.05} & 0.442 & 0.473 & 0.274 & 0.478 & 0.484 & 0.500\\ 
+\hline
+\end{tabular}
+ \end{adjustbox}
+
+%\vspace{4pt}
+\caption{A list of different models submitted to the Brain-Score 2022 competition. Scores in \textbf{bold} indicate the highest performing model per column. Scores in \textbf{\record{blue}} indicate \textbf{\record{world record}} (highest of all models at the time of the competition). All CrossViT-18$\dagger$ entries in the table are ours.}
+\label{table:2}
+\end{table}
+
+
+
+%\newpage
+%\section{Experimental Results}
+\begin{wraptable}{r}{6.5cm}
+\caption{Selected Layers of CrossViT-18$\dagger$}\label{wrap-tab:BrainScoreLayers}
+\begin{tabular}{cc}\\\toprule  
+Benchmark & Layer\\\midrule  
+V1,V2,V4 & blocks.1.blocks.1.0.norm1 \\  \midrule
+IT & blocks.1.blocks.1.4.norm2 \\  \midrule
+Behavior & blocks.2.revert\textunderscore projs.1.2\\  \bottomrule
+\end{tabular}
+\label{table:layers}
+\end{wraptable}\textbf{Results:}
+Our best performing model \href{http://www.brain-score.org/competition/#leaderboard}{\#991} achieved 2nd place in the overall Brain-Score 2022 competition~\citep{SCHRIMPF2020413}) as shown in Table~\ref{table:1}. At the time of submission, it holds the first place for the highest explainable variance of area V4 and the second highest score in the IT area. Our model also currently ranks 6th across all Brain-Score submitted models as shown on the main brain-score website (including those outside the competition and since the start of the platform's conception, totaling 219). Selected layers used from the CrossViT-18$\dagger$ are shown in Figure~\ref{fig:CrossViT}, and a general schematic of how Brain-Scores are calculated can be seen in Figure~\ref{fig:schmatic}.
+
+%Table~\ref{table:layers}, more information can be seen in Appendix~\ref{sec:Layers}. 
+
+%------------------------------------------
+\begin{wrapfigure}{l}{0.5\textwidth}
+\centering
+%\vspace{-15pt}
+\includegraphics[scale=0.24]{src/Brain-Score-Figure.pdf}
+\caption{A schematic of how brain-score is calculated as similarity metrics obtained from neural responses and model activations.}
+\label{fig:schmatic}
+\end{wrapfigure}Additionally, in comparison with the  biologically-inspired model (VOneResNet50+  Adv. training), our model achieves greater scores in the IT, V4 and Behavioral benchmarks. Critically we notice that our best-performing model (\#991) has a \textit{positive} $\rho$-Hierarchy coefficient\footnote{$\rho$-Hierarchy coefficient: We define this as the Spearman rank correlation between the Brain-Scores of areas [V1,V2,V4,IT] with hierarchy: [1,2,3,4]} compared to the new state of the art model (\#1033) and other remaining entries, where this coefficient is negative. This was an unexpected result that we found as most biologically-driven models obtain higher Brain-Scores at the initial stages of the visual hierarchy (V1)~\citep{dapello2020simulating}, and these scores decrease as a function of hierarchy with generally worse Brain-Scores in the final stages (\textit{e.g.} IT). 
+% Change Text so It can fit in 3 pagess
+
+We also investigated the differential effects of rotation invariance and adversarial training used on top of a pretrained CrossViT-18$\dagger$ as shown in Table~\ref{table:2}. We observed that each step independently helps to improve the overall Brain-Score, quite ironically at the expense of ImageNet Validation accuracy~\citep{zhang2019theoretically}. Interestingly, when both methods are combined (Adversarial training and rotation invariance), the model outperforms the baseline behavioral score by a large margin (+0.062), the IT score by (+0.047), the V4 score by (+0.036), the V2 score by (+0.068), and the V1 score by (+0.020). Finally, even though is not the objective of our paper, our best model outperforms on Imagenet standard accuracy (73.53\%) to a more biologically principled model such as the adversarially trained VOneResNet-50 (71.7\%)~\citep{dapello2020simulating}.
+
+%\newpage
+\vspace{-5pt}
+\section{Assessment of CrossViT-18$\dagger$ based models}
+As we have seen, the \textit{optimization} procedure heavily influences the brain-score of each CrossViT-18$\dagger$ model, and thus its alignment to human vision (at a coarse level accepting the premise of the Brain-Score competition). We will now explore how different variations of such CrossViT's change as a function of their training procedure, and thus their learned representations via a suite of  experiments that are more classical in computer vision. Additional experiments on common corruptions (ImageNet-C) and ImageNet-R can be seen in Appendix ~\ref{additional-experiments}.
+
+\vspace{-5pt}
+\subsection{Adversarial Attacks}
+
+%\section{Exploring Human-Machine Perceptual Alignment via Adversarial Attacks}
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\includegraphics[scale=0.065]{src/adv_1-min.png}
+\caption{A qualitative demonstration of the human-machine perceptual alignment of the CrossViT-18$\dagger$ via the effects of adversarial perturbations. As the average Brain-Score increases in our system, the distortions seem to fool a human as well.}
+\label{fig:short}
+\end{wrapfigure}One of our most interesting qualitative results is that the \textit{direction} of the adversarial attack made on our highest performing model resembles a distortion class that seems to fool a human observer too (Figures~\ref{fig:short},~\ref{fig:adversarial-examples}). Alas, while the adversarial attack can be conceived as a type of \textit{eigendistortion} as in \cite{berardino2017eigen} we \textit{find} that the Brain-Score optimized Transformer models are more perceptually aligned to human observers when judging distorted stimuli. Similar results were previously found by~\cite{santurkar2019image} with ResNets, though there has not been any rigorous \& unlimited time verification of this phenomena in humans similar to the work of~\cite{elsayed2018adversarial}. Experimental details can be found in  Appendix ~\ref{Adversarial-attacks-info}
+
+%\begin{figure*}[!t]
+%  \centering
+%  \begin{subfigure}{0.8\linewidth}
+%    \includegraphics[width=0.95\textwidth]{src/adv_1-min.png}
+%    \centering
+%    \caption{A qualitative demonstration of the human-machine perceptual alignment of the CrossViT-18$\dagger$ via the effects of adversarial perturbations. As the average Brain-Score increases in our system, the distortions seem to fool a human as well.}
+%    \label{fig:adversarial-crossvit-brainscore}
+%  \end{subfigure}
+%  \hfill
+%  \begin{subfigure}{0.8\linewidth}
+%    \includegraphics[width=0.95\textwidth]{src/advimage.pdf}
+%    \centering
+%    \caption{An extended demonstration of our winning model (CrossViT-18$\dagger$ [Adv. Training + Rot. invariance]) where a targeted attack is done for 3 images and the resulting stimuli is perceptually aligned with a human judgment of the fooled class.}
+%    \label{fig:adversarial-examples}
+%  \end{subfigure}
+%  \centering
+%  \caption{Exploring Human-Machine Perceptual Alignment via Adversarial Attacks.}
+%  \label{fig:short}
+%\end{figure*}
+
+
+% \begin{figure*}[!t]
+%   \centering
+%   \begin{subfigure}{0.43\linewidth}
+%     \includegraphics[width=0.95\textwidth]{src/adv_1-min.png}
+%     \centering
+%     \caption{A qualitative demonstration of the human-machine perceptual alignment of the CrossViT-18$\dagger$ via the effects of adversarial perturbations. As the average Brain-Score increases in our system, the distortions seem to fool a human as well.}
+%     \label{fig:adversarial-crossvit-brainscore}
+%   \end{subfigure}
+%   \hfill
+%   \begin{subfigure}{0.53\linewidth}
+%     \includegraphics[width=0.95\textwidth]{src/advimage.pdf}
+%     \centering
+%     \caption{An extended demonstration of our winning model (CrossViT-18$\dagger$ [Adv. Training + Rot. invariance]) where a targeted attack is done for 3 images and the resulting stimuli is perceptually aligned with a human judgment of the fooled class.}
+%     \label{fig:adversarial-examples}
+%   \end{subfigure}
+%   \centering
+%   \caption{Exploring Human-Machine Perceptual Alignment via Adversarial Attacks.}
+%   \label{fig:short}
+% \end{figure*}
+
+\begin{figure}[!t]
+     \includegraphics[width=0.85\textwidth]{src/advimage.pdf}
+     \centering
+     \caption{An extended demonstration of our winning model (CrossViT-18$\dagger$ [Adv. Training + Rot. invariance]) where a targeted attack is done for 3 images and the resulting stimuli is perceptually aligned with a human judgment of the fooled class. To our knowledge, this is the first time perceptually-aligned adversarially attacks have been shown to emerge in Transformer-based models.}
+     \label{fig:adversarial-examples}
+ \end{figure}
+
+
+We also applied PGD attacks on our winning entry model (Adversarial Training + Rot. Invariance) on range $\epsilon$ $\in$ $\{ 1/255, 2/255, 4/255, 6/255, 8/255, 10/255 \}$ and step-size = $\frac{2.5}{ \# PGD_{iterations}}$ as in the robustness Python library~\citep{robustness} , in addition to three other controls: Adv. Training, Rotational Invariance, and a pretrained CrossViT, to evaluate how their adversarial robustness would change as a function of this particular distortion class. When doing this evaluation we observe in Figure~\ref{fig:AdvEffects} that Adversarially trained models are more robust to PGD attacks (three-step size flavors: 1 (FGSM), 10 \& 20). One may be tempted to say that this is ``expected'' as the adversarially trained networks would be more robust, but the type of adversarial attack on which they are trained is different (FGSM as part of FAT~\citep{wong2020fast} during training; and PGD at testing). Even if FGSM can be interpreted as a 1 step PGD attack, it is not obvious that this type of generalization would occur. In fact, it is of particular interest that the Adversarially trained CrossViT-18$\dagger$ with ``fast adversarial training'' (FAT) shows greater robustness to PGD 1 step attacks when the epsilon value used at testing time is very close to the values used at training (See Figure~\ref{fig:AdvEffects_a}). Naturally, for PGD-based attacks where the step size is greater (10 and 20; Figs. \ref{fig:AdvEffects_b},\ref{fig:AdvEffects_c}), our winning entry model achieves greater robustness against all other trained CrossViT's independent of the $\epsilon$ values.  
+
+
+
+\begin{figure}[!t]
+\centering
+\subfloat[PGD attack - 1 step]{
+\label{fig:AdvEffects_a}
+\includegraphics[width=.31\linewidth]{src/robustness/Adv_attack_pgd_1.pdf}
+}\hfill
+\subfloat[PGD attack - 10 step]{
+\label{fig:AdvEffects_b}
+\includegraphics[width=.31\linewidth]{src/robustness/Adv_attack_pgd_10.pdf}
+}\hfill
+\subfloat[PGD attack - 20 step]{
+\label{fig:AdvEffects_c}
+\includegraphics[width=.31\linewidth]{src/robustness/Adv_attack_pgd_20.pdf}
+}\par 
+\caption{A suite of multiple steps [1,10,20] PGD-based adversarial attacks on clones of CrossViT-18$\dagger$ models that were optimized differently. Here we see that our winning entry (Adversarial training + Rotation Invariance) shows greater robustness (adversarial accuracy) than all other models as the number of steps of PGD-based attacks increases only for big step sizes of 10 \& 20.}
+\label{fig:AdvEffects}
+\end{figure}
+
+%* \arturo{Add discussion on EigenDistortion/Simoncelli and new paper from Bowers}
+
+%In the future we are planning on psychophysically testing this phenomenon.
+
+
+
+% \begin{figure*}[ht!]
+%   \centering
+%     \includegraphics[width=0.95\textwidth]{src/tSNE_Plots_Reduced.pdf}
+%     \centering
+%     \caption{\arturo{Talk about texforms here}}
+%     \label{fig:tSNE_with_texforms}
+% \end{figure*}
+
+
+% \newpage
+
+% \begin{figure*}[ht!]
+%   \centering
+%   \begin{subfigure}{0.45\linewidth}
+%     \includegraphics[width=0.95\textwidth]{src/robustness/Adv_attack_pgd_10.pdf}
+%     \centering
+%     \caption{PGD attack - 10}
+%     \label{fig:pgd_attack_10}
+%   \end{subfigure}
+%   %\hfill
+%   \begin{subfigure}{0.45\linewidth}
+%     \includegraphics[width=0.95\textwidth]{src/robustness/Adv_attack_pgd_20.pdf}
+%     \centering
+%     \caption{PGD attack - 20}
+%     \label{fig:pgd_attack_20}
+%   \end{subfigure}
+%   \centering
+%   \caption{Evaluation of the Adversarial robustness against PGD attacks for each step used in our best model: CrossViT-18}
+%   \label{fig:short}
+% \end{figure*}
+%\vspace{-5pt}
+\subsection{Mid-Ventral Stimuli Interpretation}
+\label{sec:Texform}
+In addition to the previous experiments, we wondered how well the two models: CrossViT-18$\dagger$ (PreTrained) and CrossViT-18$\dagger$ (Adv. Training + Rot. Invariance) could linearly separate a small subset of 2-class stimuli across their visual hierarchy. For this experiment, we used both the original and texform stimuli (100 images per class) from~\cite{harrington2022finding}, where the texform stimuli can be used to test the mechanisms of human peripheral computation~\citep{rosenholtz2012summary,freeman2011metamers} or mid-ventral human computation ~\citep{long2018mid,jagadeesh2022texture}. Roughly speaking these texforms are very similar to their original counter-part, where they match in global structure (\textit{i.e.} form), but are locally distorted through a texture-matching operation (\textit{i.e. texture}) as seen in Figure~\ref{fig:Texform} (Inset 0.). In this analysis, we will use a t-SNE projection with a fixed random seed across both models and stimuli to evaluate the qualitative similarity/differences of their 2D clustering patterns.
+
+Here we are interested in exposing our models to this distortion class because recent work has used these types of stimuli to show that human peripheral computation may act as a biological proxy for an adversarially robust processing system~\citep{harrington2022finding}, and that humans may in-fact use strong texture-like cues to perform object recognition (in IT) without the specific need for a strong structural cue~\citep{jagadeesh2022texture}.
+
+We find that Pretrained CrossViT-18$\dagger$ models have trouble in early visual cortex read-out sections to cluster both classes. In fact, several images are considered ``visual outliers'' for both original and texform images. These differences are slowly resolved only for the original images as we go higher in depth in the Transformer model until we get to the Behavior read-out layer. This is not the case for the texforms, where the PreTrained CrossViT-18$\dagger$ can not tease apart the primate and insect classes at such simulated behavioral stage. This story was to our surprise very different and more coherent with human visual processing for the Adv + Rot CrossViT-18$\dagger$ where outliers no longer exist -- as there are none in the small dataset --, and the degree of linear separability for the original and texform stimuli increases to near perfect separation for both stimuli at the behavioral stage.
+
+\begin{figure}[!t]\centering
+\includegraphics[width=0.9\linewidth]{src/tSNE_Plots_Updated.pdf}
+\caption{A comparison of how two CrossViT-18$\dagger$ models manage to classify original and texform stimuli. In (0.) we see a magnification of a texform, and in (A.,B.) we see how our winning Model Adv. + Rot. manages to create tighter vicinities across the visual stimuli, and ultimately -- at the behavioral level -- can separate both original and texform stimuli, while pretrained transformers seem to struggle with texform linear separability at the behavioral stage.}
+\label{fig:Texform}
+\end{figure}
+
+\subsection{Feature Inversion}
+\label{sec:Inversion}
+The last assessment we provided was inspired by feature inversion models that are a window to the representational soul of each model~\citep{mahendran2015understanding}. Oftentimes, models that are aligned with human visual perception in terms of their inductive biases and priors will show renderings that are very similar to the original image even when initialized from a noise image~\citep{feather2019metamers}. We use the list of stimuli from~\cite{harrington2022finding} to compare how several of these stimuli look like when they are rendered from the penultimate layer of a pretrained and our winning entry CrossViT-based model. A collection of synthesized images can be seen in Figure~\ref{fig:FeatureInversion}.
+
+\begin{figure}[!t]\centering
+%\includegraphics[width=.9\linewidth]{src/inversion/inversion_pretrained_crossvit_best.pdf}}
+\includegraphics[width=1\linewidth]{src/inversion/CrossViT_Figures_Trim.pdf}
+\caption{A summary of Feature Inversion models when applied on two different randomly samples noise images from a subset of the stimuli used in~\cite{harrington2022finding}. Standard and Pretrained models poorly invert the original stimuli leaving high spatial frequency artifacts. Adversarial training improves image inversion models, and this is even more evident for Transformer models. Notice that Transformer models independent of their optimization seem to preserve a higher shape bias as they recover the global structure of the original images. An extended figure can be viewed in the supplementary material.}
+\label{fig:FeatureInversion}
+\end{figure}
+
+Even when these images are rendered starting from different noise images, Transformer-based models are remarkably good at recovering the structure of these images. This hints at coherence with the results of~\cite{tuli2021convolutional} who have argued that Transformer-based models have a stronger shape bias than most CNN's~\citep{geirhos2018imagenettrained}. We think this is due to their initial patch-embedding stage that preserves the visual organization of the image, though further investigation is necessary to validate this conjecture.
+
+%\vspace{-10pt}
+\section{Comparison of CrossViT vs vanilla Transformer (ViT) Models}
+
+In this last section, we investigated what is the role of the architecture in our results. Did we arrive at a high-scoring Brain-Score model by virtue of the general Transformer architecture, or was there something particular about the CrossViT (dual stream Transformer), that in tandem with our training pipeline allowed for a more ventral-stream like representation? We repeated our analysis and training procedures with a collection of  vanilla Vision Transformers (ViT) where we manipulated the patch size and number of layers with the conventions of~\cite{dosovitskiy2021an} as shown in Figure~\ref{fig:TransformerComparison}.
+
+Here we see that the Brain-Score on V2, V4, superior processing IT, Behavior and Average \textit{increase} independent of the type of Vision Transformer used for our suite of models (CrossViT-18$\dagger$, and multiple ViT flavors) except for the particular case of ViT-S/16 due to over-fitting (See Figure~\ref{fig:train_robust_acc}) that heavily reflects on the behavior score. To our surprise, adversarial training in some cases helped V1 score and in some not, potentially due to an interaction with both patch size and transformer depth that has not fully been understood. In addition, to our knowledge, this is also the first time that it has been shown that adversarial training coupled with rotational invariance homogeneously increases brain-scores across Transformer-like architectures, as previous work has shown that classical CNNs (\textit{i.e.} ResNets) increase Brain-Scores with adversarial training~\citep{dapello2020simulating}. 
+\begin{figure}[!h]
+    \centering % <-- added
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_V1.pdf}
+  \caption{V1 Scores}
+  \label{fig:1}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_V2.pdf}
+  \caption{V2 Scores}
+  \label{fig:2}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_V4.pdf}
+  \caption{V4 scores}
+  \label{fig:3}
+\end{subfigure}
+\medskip
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_IT.pdf}
+  \caption{IT Scores}
+  \label{fig:4}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_behavior.pdf}
+  \caption{Behavior Scores}
+  \label{fig:5}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.33\textwidth}
+  \includegraphics[width=\linewidth]{src/brainscores/brainscore_average.pdf}
+  \caption{Average Brain-Scores}
+  \label{fig:6}
+\end{subfigure}
+\caption{Similarity Brain-Score analysis on the different cortical areas of the ventral stream for vanilla transformers (ViT) and CrossViT. For nearly all Transformer variations, Adversarial Training with Joint Rotational Invariance increases per Area and Average Brain-Scores.}
+\label{fig:TransformerComparison}
+\end{figure}
+
+\clearpage
+\newpage
+
+\section{Discussion}
+A question from this work that motivated the writing of this paper beyond the achievement of a high score in the Brain-Score competition is: How does a CrossViT-18$\dagger$ perform so well at explaining variance in primate area V4 without many iterations of hyper-parameter engineering? In this paper, we have only scratched the surface of this question, but some clues have emerged. 
+
+One possibility is that the cross-attention mechanism of the CrossViT-18$\dagger$ is a proxy for Gramian-like operations that encode local texture computation (vs global~\textit{a la}~\cite{geirhos2018imagenettrained}) which have been shown to be pivotal for object representation in humans~\citep{long2018mid,jagadeesh2022texture,harrington2022finding}. This initial conjecture is corroborated by our image inversion effects (Section~\ref{sec:Inversion}) where we find that CrossViT's preserves the structure stronger than Residual Networks (ResNets), while vanilla ViT's shows strong grid-like artifacts (See Figures~\ref{fig:FeatureInversionViT-Base},~\ref{fig:FeatureInversionViT-Small} in the supplementary material).
+
+Equally relevant throughout this paper has been the critical finding of the role of the optimization procedure and the influence it has on achieving high Brain-Scores -- even for non-biologically plausible architectures~\citep{riedel2022bag}. Indeed, the simple combination of adding rotation invariance as an implicit inductive bias through data-augmentation, and adding ``worst-case scenario'' (adversarial) images in the training regime seems to create a perceptually-aligned representation for neural networks~\citep{santurkar2019image}.
+
+On the other hand, the contributions to visual neuroscience from this paper are non-obvious. Traditionally, work in vision science has started from investigating phenomena in biological systems via psychophysical experiments and/or neural recordings of highly controlled stimuli in animals, to later verify their use or emergence when engineered in artificial perceptual systems. We are now in a situation where we have ``by accident'' stumbled upon a perceptual system that can successfully model (with half the full explained variance) visual processing in human area V4 -- a region of which its functional goal still remains a mystery to neuroscientists~\citep{vacher2020texture,bashivan2019neural} --, giving us the chance to reverse engineer and dissect the contributions of the optimization procedure to a fixed architecture. We have done our best to pin-point a causal root to this phenomena, but we can only make an educated guess that a system with a cross-attention mechanism can \textit{even under regular training} achieve high V4 Brain-Scores, and these are maximized when optimized with our joint adversarial training and rotation invariance procedure.
+
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+\centering
+\vspace{-15pt}
+\includegraphics[scale=0.3]{src/Discussion_Figure_Update.pdf}
+\caption{A cartoon inspired by~\cite{feather2019metamers,feather2021adversarial} depicting how our model changes its perceptual similarity depending on its optimization procedure. The arrows outside the spheres represent projections of such perceptual spaces that are observable by the images we show each system. While it may look like our winning model is ``nearly human" it has still a long way to go, as the adversarial conditions have never been physiologically tested.}
+\label{fig:Discussion}
+\end{wrapfigure}Ultimately, does this mean that Vision Transformers are good models of the Human Ventral Stream? We think that an answer to this question is a response to the nursery rhyme: \textit{"It looks like a duck, and walks like a duck, but it's not a duck!"} One may be tempted to affirm that it is a duck if we are only to examine the family of in-distribution images from ImageNet at inference; but when out of distribution stimuli are shown to both machine and human perceptual systems we will have a chance to accurately assess their degree of perceptual similarity\footnote{Consider for example, that some stimuli used in Brain-Score are a basis set of Gabor filters, which are never encountered in nature}. We can tentatively expand this argument further by studying adversarial images for both perceptual systems (See also Figure~\ref{fig:Discussion}). Future images used in the Brain-Score competition that will better assess human-machine representational similarity should use these adversarial-like images to test if the family of mistakes that machines make are similar in nature than to the ones made by humans (See For example~\cite{doi:10.1073/pnas.1912334117}). If that is to be the case, then we are one step closer to building machines that can \textit{see} like humans.
+
+%\arturo{To Add somewhere likely in Discussion}
+
+%In particular, the approach of~\cite{riedel2022bag} is also quite interesting and provides parallel support for our ``All roads lead to Rome'' argument; where the author (and also the winner of the Brain-Score 2022 competition) approaches the Brain-Score challenge wit-fully as a pure scoring maximization problem without particularly focusing on biologically-plausible strategies.
+
+%An alternative hypothesis also arises, in where creating models that achieve high brain-scores are necessary but not sufficient conditions of biological plausibility at the representational level.
+
+
+\clearpage
+\newpage
+
+\bibliography{iclr2023_conference}
+\bibliographystyle{iclr2023_conference}
+\clearpage
+\newpage
+
+\appendix
+
+\section{Experimental Setup}
+\label{label:exp-setup}
+\subsection{Dataset} 
+We used the ImageNet 1k~\citep{deng2009imagenet} dataset for training. ImageNet1K contains 1,000 classes and the number of training and validation images
+are 1.28 million and 50,000, respectively. We validate the effectiveness of our models in the different datasets proposed in the Brain-Score~\citep{schrimpf2020brain}
+competition.
+
+\subsection{Custom Scheduler} 
+\begin{wrapfigure}{r}{0.5\textwidth}
+\vspace{-24pt}
+\centering
+    \includegraphics[width=0.45\textwidth]{src/scheduler.pdf}
+    \caption{Custom scheduler used for training the Vision Transformer.}
+    \label{fig:scheduler}
+\end{wrapfigure}
+The proposed learning rate scheduler is based on ~\cite{jeddi2020simple} and is formulated as $LR = 0.00012\times e-0.0004$ for $e=1$ and $LR = \frac{0.00002}{2^{e-2}}$ for $1<e<=6$. As shown in Figure~\ref{fig:scheduler}, we start with a small learning rate and then it is smoothly increased for one epoch. We empirically found that fine-tuning the transformer for more than 1 epoch resulted in an under-fitting behavior of the adversarial robustness. After this first epoch, the learning rate is reduced very fast so that model performance converges to a steady state, without having too much time to overfit on the training data.
+
+
+
+\subsection{Training Setup}
+\label{sec:Training_Setup}\begin{wrapfigure}{r}{0.5\textwidth}
+%\vspace{-24pt}
+\centering
+    \includegraphics[width=0.5\textwidth]{src/train_loss_transformers.pdf}
+    \caption{Training robust acc. of each Vision Transformer model (Adv + Rot). We clearly observed that ViT-S/16 has over-fitted during training.}
+    \label{fig:train_robust_acc}
+\end{wrapfigure}
+We used a pretrained CrossViT-18$\dagger$~\citep{chen2021crossvit} downloaded from the \href{https://github.com/rwightman/pytorch-image-models}{timm} library that is adversarially trained via a fast gradient sign method (FGSM) attack and random initialization~\citep{wong2020fast}. We opted for this strategy, known as "Fast Adversarial Training" as it allows a faster iteration in comparison with other common approaches (\textit{e.g.} adversarial training with the PGD attack). In particular, all experiments used  $\epsilon = 2/255$ and step size $\alpha = 1.25\epsilon$ as proposed originally in~\citep{wong2020fast}. However, in contrast to the previous method, we follow a 5 epoch fine-tuning approach with a custom learning rate scheduler in order to avoid underfitting. We optimize our networks with Adaptive Moment Estimation (Adam~\textit{a la}~\cite{kingma2014adam}) and employed mixed precision for faster training. All input images were pre-processed with resizing to $256\times256$ followed by standard random cropping and horizontal mirroring. In the case of our best performing model (\#991), we additionally incorporated a random grayscale transformation $(p=0.25)$ and a set of hard rotation transformations of (0°, 90°, 180°, 270°) -- implicitly aiding for rotational invariance -- due to the characteristics of images appearing in the behavioral benchmark of~\cite{Rajalingham240614}. All our experiments were run locally on a GPU-Tesla V-100. Each adversarial training of a vision transformer took around 48 hours.
+
+\section{Additional Assessment of CrossViT-18$\dagger$ based models}
+\label{additional-experiments}
+\subsection{Common Corruption Benchmarks}
+We also looked into how adversarial training would affect the performance of the different sets of neural networks to common corruptions that are \textit{not} adversarial. To do this, we ran our models and benchmarked them to the ImageNet-C dataset~\citep{hendrycks2018benchmarking}.
+
+One would have expected Brain-Aligned models like our adversarially-trained + rotationally invariant CrossViT to also present strong robustness to common corruptions. To our surprise, this was not the case as seen in Table~\ref{table:Corruptions}. This is a puzzling result, though there have been several bodies of work suggesting that adversarial robustness and common corruptions robustness are independent phenomena~\citep{laugros2019adversarial}, however~\cite{kireev2021effectiveness} have proved otherwise contingent on the $l_\infty$ radius~\footnote{Also see~\cite{li2022robust} that shows that generally robust models (robust to adversarial + commmon corruptions) have a preference for low-spatial frequency statistics.} -- but now see~\cite{li2022robust}.
+%, and that robustness to . \arturo{Arturo: Fix this last sentence.} and that perceptual systems need to behave similarly to these distributions~\citep{laugros2019adversarial,kireev2021effectiveness,li2022robust}. 
+
+
+\begin{table}[h!]
+  \centering
+  %\addtolength{\leftskip} {-2.2cm} % increase (absolute) value if needed
+  \begin{adjustbox}{width=\textwidth}
+  %\begin{adjustbox}{width=1.3\textwidth}
+    \begin{tabular}{c|cc|ccccccccccccccc}
+    Network & Clean Accuracy ($\uparrow$) & mce ($\downarrow$) & Gauss & Shot & Impulse & Defocus & Glass & Motion & Zoom & Snow & Frost & Fog & Bright & Contrast & Elastic & Pixel & JPEG \\\midrule  
+    ResNet50-Augmix & 77.53 & 67.1 & 65.5 & 65.1 & 66.4 & 67.7 & 81 & 63.9 & 65.5 & 71.6 & 70.9 & 66.5 & 57.8 & 60.2 & 76.9 & 59.5 & 68.5\\\midrule 
+    \BlueM{CrossViT-18$\dagger$ (Adv + Rot)} & 73.53 & 79.5 & 80.7 & 81.6 & 83.2 & 90.2 & 78.7 & 82.4 & 80 & 77.6 & 74 & 107.9 & 65 & 100.4 & 74.2 & 57.4 & 58.7 \\\midrule    
+    \GreenM{CrossViT-18$\dagger$ (Adv)} & 64.60 & 88.8 & 85 & 85.7 & 86.7 & 96.7 & 88 & 92.1 & 91.3 & 85.8 & 83.6 & 109.3 & 82.2 & 104.9 & 90 & 70.3 & 80.9 \\\midrule
+    \PinkM{CrossViT-18$\dagger$ (Rot)}& 79.22 &  73.1 & 75.4 & 76.7 & 75 & 75.7 & 85.3 & 72.3 & 79.2 & 68.8 & 70.9 & 64.3 & 54.7 & 67.6 & 78.4 & 75.4 & 76.4 \\\midrule
+    \OrangeM{CrossViT-18$\dagger$} & \textbf{83.05} & \textbf{51} & \textbf{46.1} & \textbf{48.8} & \textbf{46.4} & \textbf{61.2} & \textbf{72.6} & \textbf{54.4} & \textbf{65} & \textbf{44.9} & \textbf{42.1} & \textbf{37.2} & \textbf{41.5} & \textbf{37} & \textbf{67.2} & \textbf{46.8} & \textbf{54.2} \\\midrule 
+    \end{tabular}
+  \end{adjustbox}
+  \vspace{4pt}
+  %\label{table:Corruptions}
+  \caption{A table showing the comparison of mean corruption errors (mce)'s across CrossViT models contingent on their training regime. A ResNet50-Augmix is shown as a reference of a particularly strong model to common corruptions. Here lower scores are indicative of better robustness to the different distortion types of~\cite{hendrycks2018benchmarking}.}
+  \label{table:Corruptions}
+\end{table}
+
+
+\subsection{ImageNet-R}
+
+We also looked into how adversarial training would affect the performance of generalization to various abstract visual renditions. To do this, we ran our models and benchmarked them on the ImageNet-Rendition (ImageNet-R) dataset~\citep{hendrycks2021many}.
+
+We observe that the accuracy on ImageNet-R decreases when the CrossViT is adversarially trained. However, when we combine the rotation invariance and adversarial training regimes, the accuracy on ImageNet-R becomes competitive with its pretrained version. In addition, we also appreciate that this combination does not affect the IID/OOD Gap with respect to the pretrained CrossViT.
+
+
+\begin{table}[h!]
+  \centering
+  %\addtolength{\leftskip} {-2.2cm} % increase (absolute) value if needed
+  %\begin{adjustbox}{width=\textwidth}
+  %\begin{adjustbox}{width=1.3\textwidth}
+    \begin{tabular}{c|c|c|c}
+    Network & ImageNet-200 ($\uparrow$) & ImageNet-R ($\uparrow$) & Gap ($\downarrow$)\\\midrule
+    \BlueM{CrossViT-18$\dagger$ (Adv + Rot)} & 90.75 & 41.14 & \textbf{49.61} \\\midrule
+    \GreenM{CrossViT-18$\dagger$ (Adv)} & 85.52 & 35.73 & 49.79\\\midrule
+    \PinkM{CrossViT-18$\dagger$ (Rot)}& 93.89 &  37.35 & 56.54\\\midrule
+     \OrangeM{CrossViT-18$\dagger$} & 95.64 & \textbf{45.7} & 49.94
+    \end{tabular}
+  %\end{adjustbox}
+  \vspace{4pt}
+  %\label{table:Corruptions}
+  \caption{A table showing the comparison of the accuracy on Imagenet-R dataset across CrossViT models contingent in their training regime.}
+  \label{table:R}
+\end{table}
+
+
+\subsection{Center Kernel Alignment to understand CrossVIT representations}
+We also calculated the center kernel alignment ~\citep{pmlr-v97-kornblith19a} scores at each brain-region layer and on the Behavior and Inversion layers using a linear kernel. Besides, CKA scores were generated using the \textit{`ImageNette'} validation dataset~\citep{imagewang} which is a subset of 10 easily classified classes from ImageNet. The objective of this experiment is to understand how correlated are the variance of internal representations across the different versions of the optimized CrossViT-18$\dagger$.
+
+We can see in Figure~\ref{fig:CKA-Analisis} that intermediate brain-region layers (IT, Behavior) tend to have similar representations across the 3 variants of CrossViT-18$\dagger$ (Rot. + Adv., Rot. and Adv.) based on the CKA score. In addition, we also appreciate that our best model (Crossvit-18$\dagger$ + Rot. + Adv.) is more correlated with their individual versions (Rot. and Adv.) than with its pretrained version.
+
+It is also remarkable that at the penultimate layer of the largest branch (inversion layer), our best CrossViT possesses a very weak similarity with its pretrained form. This suggests that adversarial training and rotation invariance, either jointly or independently, strongly changes the representation of the final layers with respect to its pretrained version (CrossViT-18$\dagger$).
+ 
+
+
+\begin{figure}[htb]
+    \centering % <-- added
+\begin{subfigure}{0.43\textwidth}
+  \includegraphics[width=\linewidth]{src/cka/layer_V1-V2-V4.pdf}
+  %\caption{V1/V2/V4 layer}
+  %\label{fig:1}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.43\textwidth}
+  \includegraphics[width=\linewidth]{src/cka/layer_IT.pdf}
+ %\caption{IT layer}
+
+  %\caption{V2 Scores}
+  %\label{fig:2}
+\end{subfigure}\hfil % <-- added
+\medskip
+\begin{subfigure}{0.43\textwidth}
+  \includegraphics[width=\linewidth]{src/cka/layer_Behavior.pdf}
+  %\caption{Behavior layer}
+  %\label{fig:4}
+\end{subfigure}\hfil % <-- added
+\begin{subfigure}{0.43\textwidth}
+  \includegraphics[width=\linewidth]{src/cka/layer_Inversion.pdf}
+  %\caption{Inversion layer}
+  %\label{fig:5}
+\end{subfigure}\hfil % <-- added
+\caption{Similarity of representations at V1, V2, V4, Behavior and Inversion layers across the four versions of CrossViT-18$\dagger$ (pretrained, Adv., Adv. + Rot., Rot.). A score of 1.0 indicates highest representational similarity, while a score of 0.0 indicated lowest.}
+\label{fig:CKA-Analisis}
+\end{figure}
+
+
+\section{Adversarial Attacks experiments}
+\label{Adversarial-attacks-info}
+\subsection{Targeted Adversarial Attacks}
+In this experiment, we maximize the probability of a specific class ("Goldfish" targeted attack) for the 4 flavors of the CrossViT-18$\dagger$. We observed that as the average "Brain-Score" increases, the models tend to resemble more accurately the samples of the target class (Figure ~\ref{fig:short}). In addition, we also performed targeted attacks for different classes on the ImageNet dataset as can be seen in Figure~\ref{fig:adversarial-examples}. Parameters used for these experiments can be found in Table~\ref{table:parameters_targeted_attack}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{cccc}\\\toprule  
+Dataset & $\epsilon$ & Steps & Step size \\\midrule  
+ImageNet & 300 & 500 & 1 \\ \bottomrule
+\end{tabular}
+ \vspace{4pt}
+\caption{Parameters used for the targeted attacks}
+\label{table:parameters_targeted_attack}
+\end{table}
+\subsubsection{Adversarial Robustness to PGD attacks}
+Results of PGD adversarial attacks on different versions of CrossViT-18$\dagger$ can be found in Table~\ref{table:PGD-attack-values}. All experiments used $\epsilon$ $\in$ $\{ 1/255, 2/255, 4/255, 6/255, 8/255, 10/255 \}$ and step-size = $\frac{2.5}{ \# PGD_{iterations}}$ as in the robustness Python library~\citep{robustness}.
+\begin{table}[h!]
+\footnotesize
+\centering
+\begin{threeparttable}
+ \begin{adjustbox}{width=1.0\textwidth}
+\begin{tabular}{|c|c|c|c|c|c|c|c|} 
+\hline
+\multicolumn{1}{|c|} {} & \multicolumn{6}{|c|}{ $\epsilon - test$($\uparrow$) } \\
+ \hline
+ {Model} & 1/255 & 2/255 & 4/255 & 6/255 & 8/255 & 10/255 \\
+ \hline
+CrossViT-18$\dagger$ (Adv + Rot)  & 65.1/64.84/64.83 & 55.99/54.27/54.23 & 39.52/32/31.69 & 27.81/15.76/15.28 & 19.33/6.67/6.32 & 14.77/2.72/2.43\\
+CrossViT-18$\dagger$ (Adv)   & 62.27/5.3/4.15 & 59.9/4.2/2.14 & 55.36/7.18/0.996 & 51.02/14.97/0.66 & 47.16/12.84/0.6 & 43.76/6.37/0.6\\
+CrossViT-18$\dagger$ (Rot)  & 48/1.75/1.5 & 4.87/0/0 & 2.17/0/0 & 1.89/0/0 & 1.87/0/0 & 2.13/0/0\\ 
+CrossViT-18$\dagger$  & 48.31/14.87/6.64 & 44.01/5.56/1.1 & 41.58/1.47/0.09 & 40.96/0.59/0.02 & 40.79/0.35/0.01 & 40.9/0.13/0\\ 
+\hline
+\end{tabular}
+\end{adjustbox}
+\end{threeparttable}
+\vspace{4pt}
+\caption{PGD adversarial attacks on different flavors of CrossViT-18$\dagger$. Results represent adversarial accuracy at 1/10/20 PGD-iterations}
+\label{table:PGD-attack-values}
+\end{table}
+% \begin{table}[h!]
+% \centering
+% \caption{Adversarial Robustness to PGD attack}
+% \begin{tabular}{ccccc}\\\toprule  
+% Model &  $\epsilon$ - test &PGD-5 & PGD-10 & PGD-20 \\\midrule  
+% CrossViT-18$\dagger$+Rotation+Adv & 2/255 & 54.40 & 54.27 & 54.23 \\
+% CrossViT-18$\dagger$+Rotation+Adv & 4/255 & 32.71 & 32.00 & 31.69 \\
+% CrossViT-18$\dagger$+Rotation+Adv & 8/255 & 7.65 & 6.67 & 6.32\\ 
+ %ResNet FAT - $\epsilon:$ 2/255 & 2/255 & 42.58 & 42.47 & 42.41\\
+ %ResNet FAT - $\epsilon:$ 2/255 & 4/255 & 26.38 & 25.96 & 25.49\\
+ %ResNet FAT - $\epsilon:$ 2/255 & 8/255 & 8.00 & 7.29 & 7.02\\
+% \bottomrule
+% \label{table:attack}
+% \end{tabular}
+% \end{table}
+% \begin{table}[h!]
+%   \centering
+%   \label{my-label}
+
+%   \begin{adjustbox}{width=\textwidth}
+%     \begin{tabular}{cccccccccccccccccc}
+%     Network & Clean & mce &Gauss & Shot & Impulse & Defocus & Glass & Motion & Zoom & Snow & Frost & Fog & Bright & Contrast & Elastic & Pixel & JPEG \\\midrule  
+%     ResNet50-Augmix & - & 67.1 & 65.5 & 65.1 & 66.4 & 67.7 & 81 & 63.9 & 65.5 & 71.6 & 70.9 & 66.5 & 57.8 & 60.2 & 76.9 & 59.5 & 68.5\\\midrule 
+%     CrossViT-18 - Pretrained & - & 51 & 46.1 & 48.8 & 46.4 & 61.2 & 72.6 & 54.4 & 65 & 44.9 & 42.1 & 37.2 & 41.5 & 37 & 67.2 & 46.8 & 54.2 \\\midrule 
+%     CrossViT-18 - FAT-ROTINV & - & 79.5 & 80.7 & 81.6 & 83.2 & 90.2 & 78.7 & 82.4 & 80 & 77.6 & 74 & 107.9 & 65 & 100.4 & 74.2 & 57.4 & 58.7 \\\midrule
+%     CrossViT-18 FAT & - & 88.8 & 85 & 85.7 & 86.7 & 96.7 & 88 & 92.1 & 91.3 & 85.8 & 83.6 & 109.3 & 82.2 & 104.9 & 90 & 70.3 & 80.9 \\\midrule
+%     CrossViT-18 - ROTINV & - &  73.1 & 75.4 & 76.7 & 75 & 75.7 & 85.3 & 72.3 & 79.2 & 68.8 & 70.9 & 64.3 & 54.7 & 67.6 & 78.4 & 75.4 & 76.4
+%     \end{tabular}
+
+%   \end{adjustbox}
+
+% \end{table}
+\section{Brain-Score}
+\subsection{Metrics}
+\label{brainscore-metrics}
+Brain-Score is a composite of multiple neural and behavioral benchmarks that score most of the artificial neural networks on how similar they are to the primate's brain mechanisms for core object recognition\cite{schrimpf2020brain}.
+
+In the same direction, the Brain-Score competition was held for 4 months from December 21 to March 22. The objective was to evaluate models that engage with the whole ventral visual stream. These models were evaluated in 33 neuronal and behavioral benchmarks  related to activity in macaque visual cortical areas V1, V2, V4, and IT and human psychophysical performance in a set of object classification tasks. The metrics used in the evaluation are the followings:
+
+\textbf{Neural predictivity:} Measures how well the responses to given images in a model area predict the responses of a neuronal population of the corresponding area in the macaque brain. First, the model responses are mapped to the neuronal recordings using a linear transformation (PLS regression with 25 components) on a training set of images. Then the model’s predictivity is determined for held-out images by computing the Pearson correlation coefficient between the model’s predictions and the neuronal responses. 
+
+\textbf{Single-neuron property distribution similarity:} Measures whether single neurons in a model area are functionally similar to single-neurons in the corresponding monkey brain area. This is done by comparing the distribution of single-neuron response properties between the model area and the brain area using a similarity score (using the KS distance). 
+
+\textbf{Behavioral consistency:} Measures the behavioral similarity between the model and humans in core object recognition tasks. This metric does not measure the overall accuracy of the model but whether it can predict the patterns of successes and failures of humans in a set of object recognition tasks. Model’s and humans’ behavioral accuracies are first transformed to a d’statistic and then compared using the Pearson correlation coefficient. 
+\subsubsection{Selecting Best-BrainScore layers}
+
+Best performing layers on each vision transformer were selected by a brute-force approach. We evaluate each layer of the vision transformer models on each brain region and behavior dataset and select the layer that got the best score on the public benchmarks (in order to avoid overfitting) proportioned by Brain-Score organization. After this step, the "Adv + Rot" \& pretrained versions of each transformer are submitted to the competition fixing best performing layers (See Table~\ref{table:best-layers-transformers} ). We achieved our highest score at the time of our 4th submission, which was the lowest number of submissions in the competition (the winner of the competition performed nearly 60 submissions). All our results reflect the private scores obtained by each vision transformer model.
+
+Additionally to the experiments on CrossViT-18$\dagger$, we also evaluate the brain-scores on vanilla Vision transformers that can be seen in Table~\ref{table:vanilla-transformer-table}.
+
+\begin{table}[h!]
+\centering
+%\caption{Best Brain-Score Layers per region \& benchmark for vision transformer models}
+ \begin{adjustbox}{width=1.0\textwidth}
+\begin{tabular}{cccccc}\\\toprule  
+Model & V1  & V2 & V4 & IT & Behavior \\\midrule  
+CrossViT-18$\dagger$ & blocks.1.blocks.1.0.norm1 & blocks.1.blocks.1.0.norm1 & blocks.1.blocks.1.0.norm1 & blocks.1.blocks.1.4.norm2 & blocks.2.revert\textunderscore projs.1.2\\ \bottomrule
+ViT-S/16 & blocks.1.mlp.act  &  blocks.3.attn.proj &  blocks.3.norm2 &  blocks.9.norm1 & pre\_logits\\ \bottomrule
+ViT-S/16 & blocks.1.mlp.act  &  blocks.3.attn.proj &  blocks.3.norm2 &  blocks.9.norm1 & pre\_logits\\ \bottomrule
+ViT-S/32 & blocks.1.mlp.act & blocks.10.norm1 & blocks.2.mlp.act & blocks.10.norm1 & pre\_logits\\\bottomrule
+ViT-B/16 & blocks.1.mlp.act & blocks.6.norm2 & blocks.2.mlp.act & blocks.8.norm1 & pre\_logits \\ \bottomrule
+ViT-B/32 & blocks.1.mlp.act & blocks.6.norm2 & blocks.2.mlp.act & blocks.11.norm1 & pre\_logits\\ \bottomrule
+\end{tabular}
+ \end{adjustbox}
+ \vspace{4pt}
+\caption{Layers selected for each brain region on each vision transformer.}
+\label{table:best-layers-transformers}
+\end{table}
+
+
+\begin{table}[h!]
+\footnotesize
+\centering
+%\addtolength{\leftskip} {-1.5cm} % increase (absolute) value if needed
+%\addtolength{\rightskip}{-1cm}
+\begin{threeparttable}
+\begin{tabular}{|c|c|c|c|c|c|c|c|} 
+\hline
+\multicolumn{1}{|c|}{} & ImageNet($\uparrow$) & \multicolumn{6}{|c|}{Brain-Score($\uparrow$)} \\
+ \hline
+ Description & Validation Acc. (\%) & Avg & V1 & V2 & V4 & IT & Behavior \\
+ \hline
+ViT-S/16 & 81.40 & 0.445 & 0.527 & 0.295 & 0.454 & 0.449 & 0.498\\
+ViT-S/32 & 75.99 & 0.415 & 0.531 & 0.271 & 0.422 & 0.423 & 0.426\\
+ViT-B/16 & 84.53 & 0.451 & 0.522 & 0.317 & 0.398 & 0.487 & 0.529\\ 
+ViT-B/32 & 80.72 & 0.440 & 0.553 & 0.311 & 0.413 & 0.418 & 0.505\\ 
+ViT-S/16 (Adv + Rot) & 50.44 & 0.443 & 0.506 & 0.332 & 0.470 & 0.496 & 0.409\\
+ViT-S/32 (Adv + Rot) & 55.20 & 0.457 & 0.512 & 0.347 & 0.433 & 0.485 & 0.508\\
+ViT-B/16 (Adv + Rot) & 67.25 & 0.486 & 0.536 & 0.332 & 0.470 & 0.496 & 0.598\\ 
+ViT-B/32 (Adv + Rot) & 53.01 & 0.457 & 0.524 & 0.357 & 0.417 & 0.472 & 0.515\\ 
+
+
+
+ %991 & CrossViT-18$\dagger$+Rotation+Adv & 73.26 & \textbf{0.488} & 0.493 & 0.342 & \textbf{\record{0.514}} & \textbf{0.531} & \textbf{0.562}\\ 
+\hline
+\end{tabular}
+\end{threeparttable}
+\vspace{4pt}
+\caption{ImageNet accuracy, Brain-Scores of each brain area \& Behavior benchmark evaluated on vanilla vision transformers. The spearman rank correlation between the validation accuracy and the average Brain-Score is $-0.28$ suggesting an \textit{inverse} correlation between clean ImageNet accuracy and Brain-Score~\citep{schrimpf2020brain}.}
+\label{table:vanilla-transformer-table}
+\end{table}
+
+
+
+
+\section{Image Synthesis Experiments}
+\subsection{Standard \& Robust Stimuli}
+
+We used publicly available transformer models from \href{https://github.com/rwightman/pytorch-image-models}{timm} library which were trained adversarially ($\epsilon = 2/255$ and step size $\alpha = 1.25$) as in ~\citep{wong2020fast} coupled with a set of hard rotation462 transformations of (0°, 90°, 180°, 270°) as proposed in this paper. In order to synthesize the standard and robust images, we used the penultimate layer (norm layer) in all of our vision transformer models except in the case of the CrossViT-18$\dagger$ versions in which we used the penultimate layer of the largest branch for all variations. Parameters used in these experiments can be seen in Table \ref{table:parameters_inversion}.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{cccc}\\\toprule  
+Constraint& $\epsilon$ & Step-size & Iterations \\\midrule  
+$l_{2}$
+&1000 & 1 & 10000\\ \bottomrule
+\end{tabular}
+ \vspace{4pt}
+\caption{Parameters used for standard \& robust stimuli by feature inversion}
+\label{table:parameters_inversion}
+\end{table}
+%% Add layers use for brainscore results!!!!
+%% =====
+
+% VIT-BASE-PATCH-16
+% change for only 1 table
+
+
+
+
+%\begin{table}[b!]
+%\caption{Selected Layers of ViT-B/16}
+%\centering
+%\begin{tabular}{cc}\\\toprule  
+%Benchmark & Layer\\\midrule  
+%V1 &  blocks.1.mlp.act\\  \midrule
+%V2 &  blocks.6.norm2\\  \midrule
+%V4 &  blocks.2.mlp.act\\  \midrule
+%IT &  blocks.8.norm1\\  \midrule
+%Behavior & pre\_logits\\  \bottomrule
+%\end{tabular}
+%\label{table:layers1}
+%\end{table}
+
+
+% VIT-BASE-PATCH-32
+%\begin{table}[b!]
+%\caption{Selected Layers of ViT-B/32}
+%\centering
+%\begin{tabular}{cc}\\\toprule  
+%Benchmark & Layer\\\midrule  
+%V1 & blocks.1.mlp.act \\  \midrule
+%V2 & blocks.6.norm2 \\  \midrule
+%V4 & blocks.2.mlp.act \\  \midrule
+%IT &  blocks.11.norm1\\  \midrule
+%Behavior & pre\_logits\\  \bottomrule
+%\end{tabular}
+%\label{table:layers2}
+%\end{table}
+
+% VIT-small-PATCH-16
+
+%\begin{table}[b!]
+%\caption{Selected Layers of ViT-S/16}
+%\centering
+%\begin{tabular}{cc}\\\toprule  
+%Benchmark & Layer\\\midrule  
+%V1 &  blocks.1.mlp.act\\  \midrule
+%V2 &  blocks.3.attn.proj\\  \midrule
+%V4 &  blocks.3.norm2\\  \midrule
+%IT &  blocks.9.norm1\\  \midrule
+%Behavior & pre\_logits\\  \bottomrule
+%\end{tabular}
+%\label{table:layers3}
+%\end{table}
+
+% VIT-small-PATCH-32
+
+%\begin{table}[b!]
+%\caption{Selected Layers of ViT-S/32}
+%\centering
+%\begin{tabular}{cc}\\\toprule  
+%Benchmark & Layer\\\midrule  
+%V1 &  blocks.1.mlp.act\\  \midrule
+%V2 &  blocks.10.norm1\\  \midrule
+%V4 &  blocks.2.mlp.act\\  \midrule
+%IT &  blocks.10.norm1\\  \midrule
+%Behavior & pre\_logits\\  \bottomrule
+%\end{tabular}
+%\label{table:layers4}
+%\end{table}
+
+\newpage
+\begin{figure}[!t]\centering
+%\includegraphics[width=.9\linewidth]{src/inversion/inversion_pretrained_crossvit_best.pdf}}
+\includegraphics[width=1.0\linewidth]{src/inversion/CrossViT_Figures.pdf}
+\caption{An extended version of Figure~\ref{fig:FeatureInversion}}
+\label{fig:FeatureInversionFull}
+\end{figure}
+\clearpage
+
+\begin{figure}[!t]\centering
+\includegraphics[width=0.8\linewidth]{src/inversion/inversion_crossvit_adv_and_rot.pdf}
+\caption{Feature Inversion for CrossViT-18$\dagger$ (Adv) \& CrossViT-18$\dagger$ (Rot).}
+\label{fig:FeatureInversionCrossViT18-adv-rot}
+\end{figure}
+\clearpage
+
+\begin{figure}[!h]\centering
+\includegraphics[width=1.0\linewidth]{src/inversion/inversion_vit_base.pdf}
+\caption{Feature Inversion for Vanilla Vision Transformers ViT-B/32 \& ViT-B/16.}
+\label{fig:FeatureInversionViT-Base}
+\end{figure}
+\clearpage
+
+\begin{figure}[!h]\centering
+\includegraphics[width=1.0\linewidth]{src/inversion/inversion_vit_small.pdf}
+\caption{Feature Inversion for Vanilla Vision Transformers ViT-S/32 \& ViT-S/16.}
+\label{fig:FeatureInversionViT-Small}
+\end{figure}
+\clearpage
+
+
+
+
+
+%\clearpage
+%\newpage
+%\section{Frequently Asked Questions}
+
+%The following set of \textit{Frequency Asked Questions} have came up in either talks, discussions or reviewers pertaining this paper. Here we have paraphrased the most popular ones anticipating any similar thoughts that general readers may come up with.
+
+%\underline{Q1}: ImageNet performance \textit{i.e.} clean accuracy is low and not near SOTA. How does this affect your claims?
+
+%\underline{A1}
+
+%\underline{Q2}: There needs to be additional benchmarks aside from Brain-Score ... what is the benefit of Brain-Score? More baselines should be included, as this research raises more questions than answers, and overall what if this model does not achieve SOTA on ImageNet, what is the benefit of this work for the machine learning \& computer vision community?
+
+%\textbf{``I think there needs to be more experimentation done on different metrics other than brain score... what is the benefit of such a model ? It seems as though the research raises more questions than it answers. How would this work benefit the machine learning community?''}
+
+%\underline{A2}: Paraphrasing our answer from the previous section, I think the goal of our research may have been mis-interpreted. \textbf{Our goal is \underline{not} to create a new state-of-the-art model of computer vision tailored to object recognition purely driven by deep-learning based engineering (through the concept of invention)}. Rather, our goal is more scientific and of analysis of modern popular computer systems such as Vision Transformers, and testing their perceptual alignment with primate visual processing from actual neurophysiological and behavioral data. There has been (as argued in our introduction), a back and forth in the computer vision community and visual neuroscience community of the potential “biological plausibility and/or perceptual alignment” of vision transformers. We take a step towards answering this question by evaluating a single architecture and controlling it via different optimization frameworks, surprisingly finding that one specific type of optimization breaks a world record in neural activation alignment with visual area V4 (that no current biological or non-biological model of vision has ever achieved before when evaluated with the Brain-Score metric). This is important for machine learning because it provides supporting evidence about the role of optimization to shaping representations; it is important for computer vision, because it provides additional evidence on the role of adversarial training on aligning such representations to those learned by humans~\citep{santurkar2019image,ilyas2019adversarial,harrington2022finding}; and our paper is finally important for computational neuroscience because it gives clues to potentially reverse engineer learned representations from our high-performing brain-score model into shedding light on how visual information is processed in area V4 (that still remains an open scientific question; See Pasupathy et al., 2020).
+
+%\arturo{Here mention and reference Anne's paper on perceptual straightening}
+
+%In addition, please feel free to read our response and replies to other Reviewers voting Accept (C1x4). In particular in our response to Reviewer C1x4, we mention that our brain-aligned transformer model is currently being used as an embedding for a reverse image search engine for abstract art. This is an idea we are working on in parallel -- interestingly, non-brain aligned models (despite greater ImageNet validation accuracy) perform poorly in abstract art image retrieval due to texture-bias, and other factors like lack of compositional understanding.
+
+%\underline{Q3}: Even if you are trying to revese engineer primate visual cortex -- and assuming Brain-Score is in fact the best metric for this -- why should this paper be accepted if you are currently not \#1 in the Brain-Score leaderboard?
+
+%\underline{A3}:
+
+\end{document}

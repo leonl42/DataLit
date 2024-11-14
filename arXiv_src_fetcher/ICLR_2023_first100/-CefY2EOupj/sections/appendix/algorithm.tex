@@ -1,0 +1,33 @@
+\section{Full Description to AllReduce}
+\label{appendix:sec:algorithm}
+
+As introduced in Section~\ref{sec:related work}, the error feedback based \textbf{1bit-AllReduce} works best both in theory and in practice. In fact, the original 1-bit Adam also adopts the error-feedback design \citep{tang20211}. We give the full description of this \textbf{1bit-AllReduce} in Algorithm~\ref{algo:EF}, to replace the \textbf{1bit-AllReduce} in Algorithm~\ref{algo:localstep01}. In the theoretical analysis, our proofs will also rely on this algorithm. Note that this algorithm does not require any additional assumptions for our theory to hold, since this fits the black-box procedure in Algorithm~\ref{algo:basic01} and Algorithm~\ref{algo:localstep01}.
+
+\begin{algorithm}[ht!]
+	\caption{The full description of Error Feedback 1 bit Communication (\textbf{1bit-AllReduce})}\label{algo:EF}
+	\begin{algorithmic}[1]
+		\Require communication buffer $\*z_{t}^{(i)}$, worker error $\*\delta_{t}^{(i)}$, server error $\overline{\*\delta}_{t}$, 1-bit compressor $\mathcal{C}[\cdot]$. Both worker and server errors will be initialized at $\*0$ at $t=0$.
+	    \State \textbf{(On $i$-th node)}
+	    \State Compress $\*z^{(i)}_{t}$ into $\hat{\*z}^{(i)}_{t}=\mathcal{C}[\*z^{(i)}_{t}+\*\delta^{(i)}_{t}]$, and update the compression error by $\*\delta^{(i)}_{t+1} = \*z^{(i)}_{t}+\*\delta^{(i)}_{t} - \hat{\*z}^{(i)}_{t}$.
+	    \State Send $\hat{\*z}^{(i)}_{t}$ to the server.
+	    \State \textbf{(On server)}
+	    \State Take the average over all the $\hat{\*z}^{(i)}_{t}$ and compress it into $\overline{\*z}_{t} = \mathcal{C}[\frac{1}{n}\sum_{i=1}^{n}\hat{\*z}^{(i)}_{t+1} + \overline{\*\delta}_{t}]$, and update the compression error by $\overline{\*\delta}_{t+1} = \frac{1}{n}\sum_{i=1}^{n}\hat{\*z}^{(i)}_{t} + \overline{\*\delta}_{t} - \overline{\*z}_{t}$.
+	    \State Send $\overline{\*z}_{t}$ to all the workers.
+	    \State \textbf{(On $i$-th node)}
+		\State \textbf{return} $\overline{\*z}_{t}$, $\*\delta_{t+1}^{(i)}$, $\overline{\*\delta}_{t+1}$.
+	\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[ht!]
+	\caption{The full description of \textbf{AllReduce}}\label{algo:AllReduce}
+	\begin{algorithmic}[1]
+		\Require communication buffer $\*z_{t}^{(i)}$.
+	    \State \textbf{(On $i$-th node)}
+	    \State Send $\*z^{(i)}_{t}$ to the server.
+	    \State \textbf{(On server)}
+	    \State Take the average over all the ${\*z}^{(i)}_{t}$ into $\overline{\*z}_{t} = \frac{1}{n}\sum_{i=1}^{n}{\*z}^{(i)}_{t}$.
+	    \State Send $\overline{\*z}_{t}$ to all the workers.
+	    \State \textbf{(On $i$-th node)}
+		\State \textbf{return} $\overline{\*z}_{t}$.
+	\end{algorithmic}
+\end{algorithm}

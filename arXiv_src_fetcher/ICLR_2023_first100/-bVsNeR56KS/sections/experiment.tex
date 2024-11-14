@@ -1,0 +1,326 @@
+
+\section{Experiments Setup}
+
+
+\subsection{Evaluation Datasets}
+
+We evaluate our model with other counterparts on 4 popular datasets: \tydi is for query-passage retrieval, \xor is cross-lingual retrieval for open-domain QA, Mewsli-X and LAReQA are for language-agnostic retrieval. 
+\tydi~\citep{zhang-etal-2021-mr} aims to evaluate cross-lingual passage retrieval with dense representations. Given a question in language \textit{L}, the model should retrieve relevant texts in language \textit{L} that can respond to the query. 
+\xor~\citep{asai-etal-2021-xor} is proposed for multilingual open-domain QA, and we take its sub-task XOR-Retrieve: given a question in \textit{L} (e.g., Korean), the task is to retrieve English passages that can answer the query. 
+Mewsli-X is built on top of Mewsli~\citep{botha-etal-2020-entity} and we follow the setting of XTREME-R~\citep{ruder-etal-2021-xtreme}, in which it consisting of 15K mentions in 11 languages. 
+LAReQA~\citep{roy-etal-2020-lareqa} is a retrieval task that each query has target answers in multiple languages, and models require retrieving all correct answers regardless of language. 
+More details refer to Appendix \ref{ap:finetune}.
+
+% 传到arxiv
+% LAReQA~\citep{roy-etal-2020-lareqa} is a retrieval task that each query has target answers in multiple languages, and models require retrieving all correct answers from the candidate pool regardless of language. 
+% More details refer to Appendix \ref{ap:finetune}.
+
+
+
+
+% \noindent{\bf \tydi} ~\citep{zhang-etal-2021-mr} It aims to evaluate cross-lingual passage retrieval with dense representations. Given a question in language \textit{L}, the model should retrieve relevant texts in language \textit{L} that can respond to the query. 
+
+% \noindent{\bf \xor } ~\citep{asai-etal-2021-xor} XOR QA is proposed for multilingual open-domain QA, and we take its sub-task XOR-Retrieve for our evaluation: given a question in \textit{L} (e.g., Korean), the task is to retrieve English passages that can answer the query. 
+
+% \noindent{\bf Mewsli-X} ~\citep{ruder-etal-2021-xtreme} Mewsli-X is built on top of Mewsli~\citep{botha-etal-2020-entity}. We follow the setting of XTREME-R~\citep{ruder-etal-2021-xtreme}, and it consisting of 15K mentions in 11 languages. 
+
+% \noindent{\bf LAReQA} ~\citep{roy-etal-2020-lareqa} Language Agnostic Retrieval Question Answering is a retrieval task in which each query has target answers in multiple languages, and models require retrieving all correct answers from the candidate pool regardless of language. 
+
+
+
+\subsection{Implementation Details}
+
+For the pre-training stage, we adopt transformer-based sentence encoder initialized from the XLMR weight, and a 2-layers transformer document encoder trained from scratch. We use a learning rate of 4e-5 and Adam optimizer with a linear warm-up. Following~\citet{wenzek2019ccnet}, we collect a clean version of Common Crawl (CC) including a 2,500GB multi-lingual corpus covering 108 languages, which 
+adopt the same pre-processing method as XLMR~\citep{conneau2019unsupervised}. Note that we only train on CC without any bilingual parallel data, in an unsupervised manner. To limit the memory consumption during training, we limit the length of each sentence to 64 words (longer parts are truncated) and split documents with more than 32 sentences into smaller with each containing at most 32 sentences. The rest settings mainly follow the original XLMR's in FairSeq. We conduct pre-training on 8 A100 GPUs for about 200k steps. 
+
+For the fine-tuning stage, we mainly follow the hyper-parameters of the original paper for the \tydi and \xor tasks separately. And for Mewsli-X and LAReQA tasks, we mainly follow the settings of XTREME-R using its open-source codebase. Note that we didn't tune the hyper-parameters and mainly adopted the original settings using the same pipeline for a fair comparison. More details of fine-tuning hyper-parameters refer to Appendix.\ref{ap:finetune}.
+
+
+\begin{table*}[t]
+\small
+    \centering
+    \resizebox{0.80\textwidth}{!}{
+\setlength\tabcolsep{8pt}
+\begin{tabular}{lcccccc}
+\toprule
+\multirow{2}{*}{Model} & \multicolumn{2}{c}{\tydi} & \multicolumn{2}{c}{XOR Retrieve} & \multicolumn{1}{c}{Mewsli-X} & \multicolumn{1}{c}{LAReQA} \\ \cmidrule(l){2-7} 
+ & MRR@100 & R@100 & R@2k & R@5k & mAP@20  & mAP@20 \\ \midrule
+\multicolumn{7}{l}{\emph{Cross-lingual zero-shot transfer (models are fine-tuned on English data)}} \\ \midrule
+mBERT* & 34.4$^{\dag}$ & 73.4$^{\dag}$ & - & - & 38.6$^{\ddag}$ & 21.6$^{\ddag}$ \\
+mBERT & 33.0 & 69.7 & 31.6 & 42.3 & 39.0 & 24.5 \\
+XLMR & 37.7 & 72.7 & 30.6 & 39.3 & 39.7 & 29.3 \\
+MSM & \textbf{44.7} & \textbf{78.6} & \textbf{34.9} & \textbf{44.7} & \textbf{41.5} & \textbf{33.5}  \\
+\midrule
+\multicolumn{7}{l}{\emph{Multi-lingual fine-tune (models are fine-tuned on the multi-lingual data if available)}} \\ \midrule
+mBERT* & 59.1$^{\dag}$ & 87.1$^{\dag}$ & 38.8$^{\S}$ & 48.0$^{\S}$ & - & - \\
+mBERT & 57.6 & 87.9 & 48.3 & 57.0 & - & - \\
+XLMR & 58.5 & 87.8 & 45.1 & 53.9 & - & - \\
+MSM & \textbf{60.5} & \textbf{89.0} & \textbf{48.6} & \textbf{57.3} & - & - \\
+\bottomrule
+\end{tabular}
+    }
+    \caption{Retrieval performance comparison on four benchmark datasets. The best performing models are marked bold and the results unavailable are left blank. * means the results are borrowed from published papers: ${\dag}$ from \citet{zhang2022towards}, ${\ddag}$ from \citet{asai-etal-2021-xor}, ${\S}$ from ~\citet{ruder-etal-2021-xtreme}, while others are evaluated using the same pipeline by us for a fair comparison.}
+\label{tab:main}
+\end{table*}
+
+
+
+\section{Experiment Results}
+\subsection{Evaluation Settings}
+
+
+% \noindent{\bf Baselines. }
+% Multilingual BERT~\citep{bert2019} is a tran former model that has been pretrained on the Wikipedias of 104 languages using masked language modelling (MLM).
+% XLMR~\citep{conneau2019unsupervised} uses the same MLM objective and was trained on a magnitude more web data from 100 languages. These models are strong baselines and widely adopted in multilingual scenario.
+
+
+\noindent{\bf Cross-lingual Zero-shot Transfer. } 
+This setting is most widely adopted for the evaluation of multilingual scenarios with English as the source language, as many tasks only have labeled train data available in English. Concretely, the models are fine-tuned on English labeled data and then evaluated on the test data in the target languages. It also facilitates evaluation as models only need to be trained once and can be evaluated on all other languages. 
+For \tydi dataset, the original paper adopt the Natural Questions data~\citep{kwiatkowski-etal-2019-natural} for fine-tuning while later \citet{zhang2022towards} suggests fine-tuning on MS MARCO for better results, so we fine-tune on MARCO when compared with best-reported results and on NQ otherwise. For \xor, we fine-tune on NQ dataset as the original paper~\citep{asai-etal-2021-xor}. For Mewsli-X and LAReQA, we follow the settings in XTREME-R, where Mewsli-X on a predefined set of English-only mention-entity pairs and LAReQA on the English QA pairs from SQuAD v1.1 train set.
+
+
+\noindent{\bf Multi-lingual Fine-tune. } 
+For the tasks where multi-lingual training data is available, we additionally compare the performance when jointly trained on the combined training data of all languages. Following the setting of \tydi and \xor, we pre–fine-tune models as in Cross-lingual Zero-shot Transfer and then fine-tune on multi-lingual data if available. For the Mewsli-X and LAReQA, there is no available multi-lingual labeled data.
+
+
+
+\subsection{Main Results}
+
+% Multilingual BERT~\citep{bert2019} has been pre-trained on the Wikipedia of 104 languages using MLM and XLMR~\citep{conneau2019unsupervised} adopts the same MLM objective and was trained on a magnitude more web data from 100 languages.
+
+In this section, we evaluate our model on diverse cross-lingual and multi-lingual retrieval tasks and compare it with other strong pre-training baselines. 
+Multilingual BERT~\citep{bert2019} pre-trained on multilingual Wikipedia using MLM and XLMR~\citep{conneau2019unsupervised} extend to a magnitude more web data for 100 languages. 
+
+% Both of them are widely adopted in multilingual scenarios including NLU tasks and cross-lingual retrieval~\citep{zhang-etal-2021-mr}.
+
+We report the main results in Table.\ref{tab:main}, and provide more detailed results in Appendix~\ref{ap:across}.
+The effectiveness of our multilingual pre-training method appears clearly as MSM achieves significantly better performance than its counterparts. (1) No matter whether in the cross-lingual zero-shot transfer or multi-lingual fine-tune settings, the performance trend is consistent and MSM achieves impressive improvements on all the tasks, which demonstrates the effectiveness of our proposed MSM. (2) Under the setting of cross-lingual zero-shot transfer, it shows that our MSM outperforms other models by a large margin. Compared to strong XLM-R, MSM improves 7\% MRR@100 on \tydi, 4.3\% R@2k on XOR Retrieve, 1.8\% mAP@20 of Mewsli-X, and 4.2\% mAP@20 of LAReQA. (3) Under the setting of multi-lingual fine-tuning, the performance can be further improved by fine-tuning on multi-lingual train data and MSM can achieve the best results. However, there usually doesn't exist available multi-lingual data (such as \news and \lqa), especially for low-resource languages, and in this case MSM can achieve more gains for its stronger cross-lingual ability.
+
+% The performance trend is consistent with the cross-lingual zero-shot transfer, which further confirms the superiority of our MSM pre-training methods. 
+
+
+
+\begin{table*}[t]
+\centering
+\scalebox{0.72}{
+\begin{tabular}{c|cccccccccccc|c}
+\toprule
+Method & Metrics & AR & BN & EN & FI & ID & JA & KO & RU & SW & TE & TH & AVG \\ \midrule
+ \multicolumn{14}{l}{\emph{Similarity-specialized multi-lingual encoders (with parallel data or labeled data supervision)}} \\ \midrule
+\multirow{2}{*}{DistilmBERT} 
+& MRR@100 & 40.8 & - & 29.9 & 26.7 & 39.7 & 27.0 & 32.2 & 29.4 & 22.0 & - & 26.5 & 30.5 \\
+& Recall@100 & 79.7 & - & 71.0 & 64.1 & 79.7 & 65.0 & 64.4 & 62.6 & 48.2 & - & 60.9 & 66.2 \\ 
+ \midrule
+\multirow{2}{*}{InfoXLM} & MRR@100 & 48.2 & 50.6 & 30.1 & 29.0 & 39.9 & 30.1 & 34.8 & 35.0 & 38.9 & 51.7 & 50.9 & 39.9 \\
+ & Recall@100 & 81.2 & 83.8 & 72.2 & 65.8 & 75.9 & 68.1 & 70.0 & 72.7 & 69.3 & 81.0 & 87.1 & 75.2 \\ \midrule
+\multirow{2}{*}{LaBSE} & MRR@100 & 50.1 & 52.3 & 29.7 & 41.3 & 48.3 & 27.6 & 33.4 & 37.3 & 54.6 & 56.7 & 43.6 & 43.2 \\
+ & Recall@100 & 83.0 & 85.6 & 71.4 & 80.2 & 86.1 & 63.2 & 67.0 & 74.3 & 86.7 & 89.4 & 81.9 & 79.0 \\
+\midrule
+  
+\multicolumn{14}{l}{\emph{Unsupervised pre-train with multi-lingual corpus (Wiki or CC)}} \\ \midrule
+\multirow{2}{*}{mBERT}  & MRR@100 & 45.3 & 38.8 & 29.1 & 28.7 & 35.5 & 29.6 & 29.8 & 32.6 & 27.8 & 40.8 & 25.3 & 33.0 \\
+& Recall@100 & 77.8 & 84.7 & 73.8 & 65.8 & 72.9 & 68.4 & 59.9 & 71.1 & 56.4 & 76.8 & 59.2 & 69.7 \\  \midrule
+\multirow{2}{*}{XLMR} & MRR@100 & 43.8 & 41.2 & 29.3 & 33.2 & 45.4 & 27.0 & 33.4 & 32.2 & 35.3 & 44.5 & 49.7 & 37.7 \\ 
+  & Recall@100 & 77.4 & 81.5 & 68.5 & 72.2 & 81.8 & 61.2 & 66.5 & 66.4 & 63.9 & 75.5 & 85.4 & 72.8 \\ \midrule
+\multirow{2}{*}{XLMR-Long} & MRR@100 & 43.9 & 44.7 & 27.2 & 31.6 & 44.2 & 28.5 & 34.1 & 30.9 & 31.0 & 49.5 & 48.2 & 37.6 \\
+ & Recall@100 & 75.8 & 82.0 & 68.5 & 71.1 & 81.6 & 62.9 & 64.9 & 64.7 & 58.9 & 80.0 & 85.9 & 72.4 \\ \midrule
+\multirow{2}{*}{CROP} & MRR@100 & 46.2 & 39.9 & 27.7 & 34.0 & 47.0 & 26.2 & 32.1 & 31.8 & 41.5 & 55.9 & 46.3 & 38.9 \\
+ & Recall@100 & 80.3 & 84.2 & 70.9 & 73.8 & 85.5 & 63.1 & 68.1 & 70.4 & 72.0 & 86.3 & 85.9 & 76.4 \\
+  \midrule
+ \multirow{2}{*}{MSM} &  MRR@100 & 51.6 & 53.0 & 31.6 & 39.4 & 50.5 & 32.0 & 36.8 & 37.2 & 43.4 & 62.6 & 53.5 & 44.7  \\
+  & Recall@100 & 83.0 & 83.8 & 73.9 & 77.9 & 85.7 & 67.5 & 70.3 & 71.4 & 73.0 & 89.8 & 88.2 & 78.6 \\
+ \bottomrule
+\end{tabular}
+}
+\caption{\textcolor{black}{Performance comparison on \tydi across languages in the cross-lingual zero-shot transfer setting, where all the models are fine-tuned on MS MARCO data. - means it doesn't support BN and TE languages and the average is for the supported languages.}}
+\label{tab:mrtydi}
+\end{table*}
+
+
+
+
+
+\begin{table*}[t]
+\centering
+\scalebox{0.80}{
+\begin{tabular}{c|cccccccc|c}
+\toprule
+Method & Metrics & AR & BN & FI & JA & KO & RU & TE & AVG \\ \midrule
+\multirow{2}{*}{mBERT} & R@2k & 31.1 & 26.6 & 38.5 & 32.4 & 38.6 & 24.9 & 29.1 & 31.6 \\
+ & R@5k & 44.1 & 36.2 & 48.1 & 41.5 & 48.1 & 38.4 & 39.5 & 42.3 \\ \midrule
+\multirow{2}{*}{XLMR} & R@2k & 39.9 & 25.7 & 41.1 & 27.8 & 31.9 & 22.4 & 25.2 & 30.6 \\
+ & R@5k & 49.6 & 34.9 & 50.0 & 34.9 & 41.8 & 30.4 & 34.0 & 39.3 \\ \midrule
+\multirow{2}{*}{CROP} & R@2k & 45.4 & 32.9 & 42.4 & 23.7 & 33.3 & 24.9 & 30.1 & 33.2 \\
+ & R@5k & 53.8 & 42.8 & 49.4 & 34.0 & 42.1 & 31.6 & 38.8 & 41.8 \\ \midrule
+\multirow{2}{*}{ICT} & R@2k & 41.6 & 35.9 & 43.9 & 27.8 & 34.0 & 24.5 & 27.8 & 33.6 \\
+ & R@5k & 52.5 & 46.1 & 51.6 & 39.0 & 42.8 & 32.9 & 38.5 & 43.3 \\ \midrule
+\multirow{2}{*}{MSM} & R@2k & 47.9 & 32.6 & 44.9 & 24.1 & 35.8 & 25.3 & 34.0 & 34.9 \\
+ & R@5k & 58.4 & 41.8 & 51.9 & 36.9 & 44.6 & 37.6 & 42.1 & 44.7 \\ \bottomrule
+\end{tabular}
+}
+\caption{Cross-lingual zero-shot transfer results on XOR Retrieve task. We report R@2k and R@5 metrics on the test sets. All compared methods are unsupervised pre-trained models.}
+\label{tab:xor}
+\end{table*}
+
+
+
+\subsection{Results Across Languages}
+\label{sub:across}
+
+% As shown in the Tab.\ref{tab:mrtydi} and Tab.\ref{tab:xor}, we provide detailed results across languages for \tydi and \xor after fine-tuning on NQ datasets.
+
+\textcolor{black}{
+Table.\ref{tab:mrtydi} show the results across languages on \tydi. 
+The compared models are categorized into two kinds: mBERT, XLMR, CROP and MSM are unsupervised pre-trained models without any supervised data, while others are specialized multilingual encoders~\citep{litschko2021evaluating} trained with parallel data or labeled data. DistilmBERT~\citep{reimers-gurevych-2020-making} distills knowledge from the m-USE~\citep{yang2019multilingual} teacher into a multilingual DistilBERT. InfoXLM~\citep{chi-etal-2021-infoxlm} and LaBSE~\citep{feng-etal-2022-language} encourage bilingual alignment with parallel data via ranking loss. They all use additional supervised data while our MSM only needs multi-lingual data. And in Appendix.\ref{ap:size}, we provide more comparison with these multilingual models. 
+Through the detailed results in Tab.\ref{tab:mrtydi}, we demonstrate that MSM has consistent improvements over others on average results and most languages. LaBSE is slightly better on Recall@100 for it extends to a 500k vocabulary which is twice ours, and it utilizes parallel data. Interestingly though only fine-tuning on English data, MSM also achieves more gains in other languages. For example, MSM improves more than 5\% on recall@100 on AR, FI, RU, and SW compared to XLMR, which clearly shows that MSM leads to better cross-lingual transfer compared to other baselines. 
+}
+
+In Table.\ref{tab:xor}, we mainly compare MSM with unsupervised pre-trained models. We reproduced two strong baselines proposed for monolingual retrieval, i.e. ICT and CROP, by extending them to multi-lingual corpora. We follow the original setting~\citep{lee-etal-2019-latent} for ICT and for CROP follow~\citet{wu2022unsupervised}. It indicates that learning from two views of the same document (i.e. ICT and CROP) can achieve competitive results. Yet compared to them, MSM achieves more gains especially in low-resource languages, which indicates modeling sequential sentence relation across languages is indeed beneficial for cross-lingual 
+transfer.
+\textcolor{black}{More detailed results across different languages on other tasks can be seen in Appendix~\ref{ap:across} and there provides more analysis on multilinguality.}
+
+% DistilmBERT performs poor maybe for it mainly focus on short sentences while Mr. TyDi is passage retrieval.
+
+% It shows that learn from “sentences and contexts” (e.g., ICT) or “different sentences” (e.g., CROP) can achieve competitive results.
+% However, as we stated in Sec.\ref{sec:intro}, it's limited to learning coarse representation and the generated pairs may face the noise.
+
+
+
+\subsection{Analysis of Cross-lingual Ability}
+\label{sec:analysis}
+
+To investigate why MSM can advantage cross-lingual retrieval and how the cross-lingual ability emerges, we design some analytical experiments. Recall that in the zero-shot transfer setting, the pre-trained model is first fine-tuned on English data and then evaluated on all languages, which relies on the cross-lingual transfer ability from \textit{en} to others.
+So in this experiment, we set individual the document encoder for \textit{en} language and other languages to break the sentence relation shared between \textit{en} and others, to see how it impacts the retrieval performance. 
+
+In Table.\ref{tab:sep}, we report the results of different settings: Share All mean the original MSM where the document encoder is shared for all languages, Sep Doc sets two separate document encoder for \textit{EN} and others, and Sep Doc\,+\,Head separates both encoder and projection head. 
+The results clearly show that if \textit{EN} and others don't share the same document encoder, the cross-lingual transfer ability drops rapidly. 
+The previous works on multi-lingual BERTology~\citep{conneau-etal-2020-emerging, artetxe-etal-2020-cross, rogers2020primer} found the shared model can learn the universal word embeddings across languages. Similar to it, our findings indicate that the shared document encoder benefits universal sentence embedding. This experiment further demonstrates that the sequential sentence relation is universal across languages, and modeling this relation is helpful for cross-lingual retrieval.
+
+
+% While contrastive learning from two views of a document only learns the coarse representation, our MSM can model the sequential sentence relation which is universal and essential for cross-lingual retrieval.
+
+% It demonstrates that MSM can learn the shared sentence relation across languages, which is essential and beneficial for cross-lingual transfer capability. 
+
+
+
+\begin{table*}[t]
+\centering
+\scalebox{0.69}{
+\begin{tabular}{c|ccccccccccccccc}
+\toprule
+Method & Metrics & AR & BN & FI & ID & JA & KO & RU & SW & TE & TH & \textbf{EN} & \textbf{OTHS} & \textbf{AVG} \\ \midrule
+\multirow{2}{*}{XLMR} & MRR@100 & 30.8 & 30.2 & 23.5 & 33.5 & 23.5 & 26.6 & 25.7 & 24.0 & 26.6 & 36.3 & 27.1 & 28.1 & 28.0 \\
+ & Recall@100 & 72.3 & 78.4 & 67.0 & 79.8 & 66.5 & 64.7 & 65.0 & 57.2 & 72.7 & 84.6 & 74.3 & 70.8 & 71.1 \\ \midrule
+\multirow{2}{*}{Share All} & MRR@100 & 37.9 & 39.4 & 27.7 & 38.3 & 28.0 & 26.8 & 28.5 & 32.1 & 43.1 & 42.0 & 29.9 & 34.4 & \textbf{34.0} \\
+ & Recall@100 & 77.3 & 82.9 & 70.5 & 83.5 & 67.9 & 61.8 & 68.6 & 69.9 & 83.5 & 84.9 & 73.6 & 75.1 & \textbf{74.9} \\ \midrule
+\multirow{2}{*}{Sep Doc} & MRR@100 & 35.5 & 38.2 & 26.2 & 38.3 & 24.9 & 27.9 & 28.3 & 32.6 & 41.3 & 42.6 & 28.1 & 33.6 & 33.1 \\
+ & Recall@100 & 74.7 & 82.4 & 68.0 & 81.7 & 65.2 & 59.8 & 66.5 & 66.9 & 87.2 & 83.6 & 73.0 & 73.6 & 73.5 \\ \midrule
+\multirow{2}{*}{Sep Doc\,+\,Head} & MRR@100 & 35.8 & 39.7 & 28.8 & 36.5 & 24.7 & 25.1 & 26.9 & 32.0 & 20.8 & 38.8 & 28.0 & 30.9 & 30.6 \\
+ & Recall@100 & 75.4 & 76.1 & 70.2 & 81.7 & 63.5 & 59.5 & 65.6 & 69.1 & 68.2 & 82.2 & 72.4 & 71.2 & 71.3 \\ \bottomrule
+\end{tabular}
+}
+\caption{Performance comparison of zero-shot cross-lingual retrieval when setting individual document encoder (and projection head) for English and other languages. \textit{OTHS} means the average of languages except for \textit{EN}.}
+\label{tab:sep}
+\end{table*}
+
+
+
+\subsection{Ablation Study}
+In this section, we conduct the ablation study on several components in our model. Considering computation efficiency and for a fair comparison, we fine-tune all the pre-trained models on NQ data and evaluate them on the target data.
+% which is a default setting in their original papers~\citep{zhang-etal-2021-mr, asai-etal-2021-xor}.
+
+% \vspace*{0.5\baselineskip} 
+\noindent {\bf Ablation of Loss Function.} 
+We first study the effectiveness of the hierarchical contrastive loss proposed in Eq.\ref{eq:loss}. As shown in Table.\ref{tab:loss}, $Cross\text{-}doc$ means only using cross-doc negatives without the intra-doc negatives. It results in poor performance due to the lack of utilization of intra-doc samples' information. When $w/o$ bias, it leads to a significant decrease for it regards intra-doc sentences as negatives, which would 
+harm the representation space as we stated in Sec.\ref{sec:prediction}. We can change the hyper $\mu$ to tune the impact of intra-doc negatives, and it gets the best results when setting $\mu$ at an appropriate value, which indicates ours can contribute to better representation learning.
+
+\noindent {\bf Impact of Contrastive Negative Size. } We analyze how the number of negatives influences performance and range it from 256 to 4096. As shown in Table.\ref{tab:number}, the performance increase as the negative size become larger and it has diminishing gain if the batch is sufficiently large.
+\textcolor{black}{Interestingly the model performance does not improve when continually increasing batch size, which has been also observed in some work~\citep{cao-etal-2022-exploring, chen2021empirical} on contrastive learning. In our work, it may be due to when the total negative number increases to a large number, the impact of intra-document negatives would be diminished and hurt the performance. By the way, the performance would be harmed by the instability when the batch size is too large~\citep{chen2021empirical}.}
+
+
+
+% It means that the numbers of intra-document negatives is fixed to 32.
+
+% due to the representations from transformer-based language models often reside in a narrow cone.
+
+\begin{table}[t]
+\begin{floatrow}[2]
+\tablebox{\caption{Comparison of different settings for the hierarchical contrastive loss. }
+\label{tab:loss}}{%
+\resizebox{0.44\textwidth}{!}{
+    \begin{tabular}{c|cc|cc}
+    \toprule
+    \multirow{2}{*}{Setting} & \multicolumn{2}{c|}{\tydi} & \multicolumn{2}{c}{XOR Retrieve} \\ \cmidrule(l){2-5} 
+     & \multicolumn{1}{l}{MRR@100} & \multicolumn{1}{l|}{R@100} & R@2k & R@5k \\ \midrule
+     Cross-doc & 32.9 & 73.9 & 33.2 & 41.6 \\ 
+    $w/o$ bias $\alpha$ & 31.1 & 73.1 & 29.8 & 39.9 \\
+    $\mu=0.3$ & 31.7 & 73.3 & 31.0 & 41.5 \\
+    $\mu=0.5$ & \textbf{34.0} & \textbf{74.9} & \textbf{34.9} & \textbf{44.7} \\
+    $\mu=0.7$ & 32.5 & 74.2 & 34.7 & 44.2 \\
+    \bottomrule
+    \end{tabular}
+    }}
+\tablebox{\caption{Impact of contrastive negatives number. Best are marked bold. }
+\label{tab:number}}{%
+\resizebox{0.43\textwidth}{!}{
+    \begin{tabular}{c|cc|cc}
+    \toprule
+    \multirow{2}{*}{Size} & \multicolumn{2}{c|}{\tydi} & \multicolumn{2}{c}{XOR Retrieve} \\ \cmidrule(l){2-5} 
+     & \multicolumn{1}{l}{MRR@100} & \multicolumn{1}{l|}{R@100} & R@2k & R@5k \\ \midrule
+    256 & 31.4  & 73.6 & 33.2 & 42.9 \\
+    512 & \textbf{34.0} & \textbf{74.9} & \textbf{34.9} & \textbf{44.7} \\ 
+    1024 & 32.0 & 73.9 & 32.1 & 42.4 \\ 
+    4096 & 31.8 & 72.8 & 32.3 & 43.2 \\ \bottomrule
+    \end{tabular}
+}}
+\end{floatrow}
+\end{table}
+
+
+
+\begin{table}[t]
+\begin{floatrow}[2]
+\tablebox{\caption{Impact of the projector settings. Best are marked bold. }
+\label{tab:ph}}{%
+\resizebox{0.48\textwidth}{!}{
+    \begin{tabular}{c|cc|cc}
+    \toprule
+    \multirow{2}{*}{Setting} & \multicolumn{2}{c|}{\tydi} & \multicolumn{2}{c}{XOR Retrieve} \\ \cmidrule(l){2-5} 
+     & \multicolumn{1}{l}{MRR@100} & \multicolumn{1}{l|}{R@100} & R@2k & R@5k \\ \midrule
+    $w/o$ PL & 27.0 & 66.1 & 30.3 & 39.1 \\
+    Shared PL & 32.1 & 71.0  & 34.5 & 43.8 \\
+    Asymmetric PL & \textbf{34.0} & \textbf{74.9} & \textbf{34.9} & \textbf{44.7} \\ \bottomrule
+    \end{tabular}
+}}
+\tablebox{\caption{Comparison of different document encoder layers. Best are marked bold. }
+\label{tab:layer}}{%
+\resizebox{0.41\textwidth}{!}{
+    \begin{tabular}{c|cc|cc}
+    \toprule
+    \multirow{2}{*}{Layers} & \multicolumn{2}{c|}{\tydi} & \multicolumn{2}{c}{XOR Retrieve} \\ \cmidrule(l){2-5} 
+     & \multicolumn{1}{l}{MRR@100} & \multicolumn{1}{l|}{R@100} & R@2k & R@5k \\ \midrule
+    1 & 29.7 & 71.4 & 33.1 & 42.2 \\
+    2 & \textbf{34.0} & \textbf{74.9} & \textbf{34.9} & \textbf{44.7} \\
+    4 & 33.3 & 74.4 & 34.3 & 44.9 \\
+    6 & 30.9 & 71.4  & 34.2 & 43.9 \\
+    \bottomrule
+    \end{tabular}
+    }}
+\end{floatrow}
+\end{table}
+
+
+
+
+
+% \vspace*{0.5\baselineskip} 
+\noindent {\bf Impact of Projector Setting.} 
+% Existing work shows that introducing a learnable nonlinear transformation between the representation and the contrastive loss substantially improves the quality of the learned representations.
+Existing work has shown the projection layers~\citep{dong2022exploring, cao-etal-2022-exploring} between the representation and the contrastive loss affect the quality of learned representations.
+We explore the impact of different projection layer under different settings in Tab.\ref{tab:ph}. Referring to Fig.\ref{fig:modelx}, Shared PL means the two projection layers share the same parameters, and Asymmetric PL means not sharing the layers. The results show that using an Asymmetric PL performs better than others and the removal of projection layers badly degrades the performance. One possible reason is that the projection layer can bridge the semantic gap between the representation of different samples in the embedding spaces. 
+
+
+% \vspace*{0.5\baselineskip} 
+\noindent {\bf Impact of Decoder Layers.} 
+We explore the impact of the size of document encoder layers in Table.\ref{tab:layer} and find a two-layer document encoder can achieve the best results. When the document encoder only has one layer, its capability is not enough to model sequential sentence relation, resulting in inefficient utilization of information. When the layer increase to larger, the masked sentence prediction task may depend more on the document encoder's ability and causes degradation of sentence representations, which is also in line with the findings of~\citep{wu2022contextual, lu-etal-2021-less}.
+

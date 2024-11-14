@@ -1,0 +1,68 @@
+\vspace{-.4em}
+\section{Introduction}\label{sec:intro}
+\vspace{-.4em}
+
+
+% Outlines
+%------------------
+% dialog as end-to-end, supervised, it can also be viewed as RL
+% 2. issue with the problem as RL 
+% 3. proposal in this paper (mimic context awareness)
+%-----------------
+% Example: Task-oriented dialogue (TOD) systems, which interact with the users in multiple turns via natural languages to accomplish tasks such as weather inquiry, ticket booking or schedule planning, play important roles in daily life\citep{chen2017survey,kwan2022survey}.  
+% Traditionally, the problem of ToD is decomposed into several sub-tasks \citep{smith1994spoken,young2013pomdp}:
+% natural language understanding (NLU),
+% dialogue state tracking (DST),
+% dialogue management (DM) 
+% and natural language generation (NLG).
+% This pipeline approach, however, requires intensive structural designs and comprehensive data annotation for training \citep{kwan2022survey}.
+
+The bloom of pre-training language models \citep[\eg,][]{devlin2018bert,bart2019,radford2019language,zhang2022opt} have significantly pushed the boundaries of natural language processing (NLP) on real-world tasks.  
+Among all the promising potentials, one important application is the task-oriented dialogue (ToD) systems, which interact with the users in multiple turns via natural languages to accomplish tasks such as weather inquiry, ticket booking, or schedule planning \citep{chen2017survey,kwan2022survey}.
+
+Traditionally, the problem of ToD is decomposed into several sub-tasks \citep{smith1994spoken,young2013pomdp}:
+natural language understanding (NLU) for understanding turn-level user intents or slot values \citep{tur2011spoken,casanueva2020efficient}, 
+dialogue state tracking (DST)  for tracking user belief state across multiple dialogue turns \citep{zhang2019find,zhu2020convlab}, 
+dialogue management (DM) for choosing system actions to take \citep{peng2017composite,zhao2019rethinking}, 
+and natural language generation (NLG) for mapping system actions to natural language responses \citep{wen2015semantically,damd2020}.
+This pipeline approach, however, requires intensive structural designs and comprehensive data annotation for model training \citep{kwan2022survey}.
+Recently, there has been a growing interest in building end-to-end (E2E) ToD agents, which directly
+generate responses based on the natural language conversation mixing user utterances and past responses.
+%, without sub-tasking. 
+% map from the user utterance and dialogue history to system response in natural languages, 
+% \ky{rewrite? I don't get the gist of end-to-end here. Maybe sth like "directly generate responses conditioned on the natural language conversation mixing user input utterances and previous responses, without xxx".}.
+Apart from this structural simplicity, many of the E2E ToD models can utilize the pre-trained language models and are simply trained by supervisedly fine-tuning the pre-trained models on the ToD datasets \citep[\eg,][]{simpletod2020,ham2020end,mintl2020,soloist2021}. 
+
+Due to the intrinsic similarity between dialogues and sequential decision-making, reinforcement learning (RL) methods are naturally employed to train dialogue systems and have achieved some success \citep[\eg,][]{williams2007partially,georgila2011reinforcement,zhao2019rethinking}.
+Since interacting with users during the training process is mostly impractical, offline RL \citep{batchrl2012,offlinetutorial2020}, \ie, RL on static datasets, has recently been adopted to train E2E ToD models \citep[\eg,][]{offlinerldialog2019,jaques2020human,caspi2021,snell2022offline,snell2022context,gptcritic2022}.
+Although this direction already presents promising empirical results, an open question exists on how to properly design the reward function for the underlying (offline) RL.
+Existing works \citep[\eg,][]{wu2019switch,gptcritic2022,snell2022context} manually design a sparse reward function that only indicates whether the agent achieves the goal or not.
+Unfortunately, due to the delayed feedback, learning from such a sparse reward signal is itself challenging for RL agents \citep{andrychowicz2017hindsight,liu2018competitive,aim2021}. 
+% \ky{since a complete conversation typically consists of multiple turns of generating responses}. \ky{Maybe also mention collecting one conversion is time-consuming given the wizard-of-oz approach, which the number of training data small? This indicates we need to use existing data more effectively and efficiently.  }
+When applied to train the more complicated ToD agents, the sparse reward signal could lead to poor empirical performance \citep{takanobu2019guided,wang2020learning}. 
+To address this issue, we aim at answering the following question in this~paper:
+\begin{center}
+    \vspace{-.28em}
+    \textit{How to efficiently \textbf{learn} a reward function and \textbf{leverage} it for training E2E dialogue agents?}
+    \vspace{-.28em}
+\end{center}
+We answer the \textit{first half of this question} by introducing two reward-learning objectives, \rewardnet and \texttt{RewardMLE}, based on the classical learning-to-rank literature \citep{listnet2007,listmle2008}. 
+Our desiderata is a reward function that can ``explain" some non-trivial preference-based ordering among multiple alternative dialogue trajectories, thus potentially allowing the resulting RL-trained ToD agents to have better-than-demo performance.
+We accomplish this goal by learning a parameterized reward function on dialogue turns, from which the accumulated reward of a dialogue trajectory can reflect the preference among multiple alternatives. 
+We answer the \textit{second half of the question} by
+utilizing the learned reward function to guide the training of the E2E ToD system, with special considerations on the training stability.
+% by leveraging the learned reward function to provide a stable policy gradient method to guide the training of the end-to-end ToD agents.
+With these answers to the above question, 
+%Combining the proposed techniques on the training and utilization of the reward function, 
+we % can utilize the proposed techniques to train end-to-end ToD agents, which can
+achieve competitive results on the E2E response-generation task on the widely-used dialogue benchmark MultiWOZ 2.0 \citep{multiwoz2018}. 
+Several ablation studies and analyses are conducted to provide further insights into the proposed techniques.
+% \ky{can you use one sentence to link sparsity with poor performance? e.g, not effectively learning policy from each turn? } 
+
+% GPT-Critic \citep{gptcritic2022} is one of the representative works, where the authors proposed to train an action-value (critic) function under the offline setting, and generate actions based on the critic values that can be further utilized for dialogue agent learning. 
+% Though such direction seems to be promising, it still remains unknown how to design the reward function properly for ToD tasks.
+
+% if no other technique such as relabelling \citep{andrychowicz2017hindsight} is considered to address the issue. 
+
+%\yy{add some more discussion on reward design and learn to motivate, maybe some discussion on caspi}
+% Besides, the common used pairwise preference loss  for reward learning \citep{christiano2017deep,trex2019} can be viewed as a special case of the \rewardnet loss \yy{maybe remove, not important?}.

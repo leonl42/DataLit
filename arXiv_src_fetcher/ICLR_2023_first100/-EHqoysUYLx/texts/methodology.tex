@@ -1,0 +1,171 @@
+\section{Methodology}
+\label{methodology}
+
+\begin{wraptable}[10]{r}{0.6\linewidth}
+\centering
+\vspace{-0.85cm}
+%\small
+%\renewcommand{\arraystretch}{1}
+\caption{Notations adopted in this paper.}
+\label{tb:notations}
+%\begin{sc}
+\begin{tabular}{cc}
+\toprule
+ Symbol & Notations \\ 
+\midrule
+ $\mathcal{C}$\ /\ $C$ & client set\ /\ size of client set \\
+ $\mathcal{P}$\ /\ $P$ & active client set\ /\ size of active client set \\
+ $\mathcal{S}_i$\ /\ $S$ & local dataset\ /\ size of local dataset \\
+ $\theta$\ /\ $\theta_i$ & global parameters\ /\ local parameters \\
+ $\lambda$\ /\ $\lambda_i$ & global dual parameters\ /\ local dual parameters \\
+ $T$\ /\ $t$ & training round\ /\ index of training round\\
+ $K$\ /\ $k$ & local interval\ /\ index of local interval\\
+ $\rho$ & proxy coefficient \\
+\bottomrule
+\end{tabular}
+\end{wraptable}
+
+We first review the \textit{primal dual} methods in FL and demonstrate the ``\textit{dual drift}'' issue. Then, we demonstrate the \textit{A-FedPD} approach to eliminate the ``\textit{dual drift}'' challenge.
+Notations are stated in Table~\ref{tb:notations}. Other symbols are defined when they are first introduced. 
+%We denote $(\cdot)_{i}^t$ as the corresponding variable $(\cdot)$ at round $t$ on the client $i$. 
+We denote $\mathbb{R}$ as the real set and $\mathbb{E}$ as the expectation in the corresponding probability space. Other notations are defined as first stated.
+
+
+\subsection{Preliminaries}
+\textbf{Setups.} In the general and classical federated frameworks, we usually consider the general objective as a finite-sum minimization problem $F(\theta): \mathbb{R}^d\rightarrow \mathbb{R}$,
+\begin{equation}
+    \small
+    \min_\theta F(\theta) = \frac{1}{C}\sum_{i\in\mathcal{C}}F_i(\theta), \quad F_i(\theta)\triangleq \mathbb{E}_{\xi\sim\mathcal{D}_i}f_i(\theta,\xi).
+\end{equation}
+In each client, there exists a local private data set $\mathcal{S}_i$ which is considered a uniform sampling set of the distribution $\mathcal{D}_i$. In FL setups, $\mathcal{D}_i$ is unknown to others for the privacy protection mechanism. Therefore, we usually consider the local \textit{Empirical Risk Minimization~(ERM)} as:
+\begin{equation}
+\label{global_objective}
+    \small
+    \min_\theta f(\theta) = \frac{1}{C}\sum_{i\in\mathcal{C}}f_i(\theta), \quad f_i(\theta)\triangleq \frac{1}{S}\sum_{\xi\in\mathcal{S}_i}f_i(\theta,\xi).
+\end{equation}
+Our desired optimal solution is $\theta^\star=\arg\min F(\theta)$. However, we can only approximate it on the limited dataset as $\theta_{\mathcal{S}}^\star=\arg\min f(\theta)$, which spontaneously introduces the unavoidable biases on its generalization performance. This is one of the main concerns in the field of the current machine learning community. Motivated by this imminent challenge, we conduct a comprehensive study on the performance of \textit{primal dual}-based algorithms in FL and further propose an improvement to enhance its generalization efficiency and stability performance.
+
+\subsection{\textit{Primal Dual}-family in FL}
+\textit{Primal Dual} methods optimize the global objective by decomposing it into several subproblems and iteratively updating local variables incorporated by Lagrangian multipliers~\citep{boyd2011distributed}, which gives it a unique position in solving FL problems. Due to local data privacy, we have to split the global task into several local tasks for optimization on their private dataset. This similarity also provides an adequate foundation for their applications in the FL community. A lot of studies extend it to the general FL framework and achieve considerable success. 
+
+We follow studies~\citep{zhang2021fedpd,durmus2021federated,wang2022fedadmm,gong2022fedadmm,sun2023fedspeed,zhou2023federated,sun2023dynamic,fan2023federated,zhang2024domain} to summarize the original objective Eq.(\ref{global_objective}) as the global consensus reformulation:
+\begin{equation}
+\label{consensus_objective}
+\small
+    \min_{\theta,\theta_i} \frac{1}{C}\sum_{i\in\mathcal{C}}f_i(\theta_i), \quad \text{s.t.} \quad \theta_i=\theta, \quad \forall i\in\mathcal{C}.
+\end{equation}
+By relaxing equality constraints $\theta_i=\theta$, Eq.(\ref{consensus_objective}) is separable across different local clients. \citet{wang2022fedadmm} demonstrate the difference between the solution on the primal problem and dual problem in detail and confirm the equivalence of these two cases in FL. By penalizing the constraint on the local objective $f_i$, we can define the augmented Lagrangian function associated with Eq.(\ref{consensus_objective}) as:
+\begin{equation}
+\label{lagrangian}
+\small
+    \mathcal{L} (\theta_i,\theta,\lambda_i) = \frac{1}{C}\sum_{i\in\mathcal{C}}\left[f_i(\theta_i)\!+\!\langle\lambda_i, \theta_i\!-\!\theta\rangle \!+\! \frac{\rho}{2}\Vert\theta_i\!-\!\theta\Vert^2\right],
+\end{equation}
+where $\rho$ denotes the penalty coefficient. To train the global model, each local client should first minimize the local augmented Lagrangian function and solve for local parameters. Based on updated local parameters, we then update the dual variable to align the Lagrangian function with the consensus constraints. Finally, we minimize the augmented Lagrangian function and solve for the consensus. Objective Eq.(\ref{consensus_objective}) could be solved after multiple alternating updates as:
+\begin{eqnarray}
+\label{FedPD}
+\small
+\begin{cases}
+\ \theta_i^{t+1} & = \quad \arg\min_{\theta_i} \ \mathcal{L} (\theta_i^t,\theta^t,\lambda_i^t) \quad i\in\mathcal{C}, \\
+\ \lambda_i^{t+1} & =\quad \lambda_i^{t} + \rho(\theta_i^{t+1} - \theta^{t}), \\
+\ \theta^{t+1} & =\quad \frac{1}{C}\sum_{i\in\mathcal{C}}(\theta_i^{t+1} + \frac{1}{\rho}\lambda_i^{t+1}).\\
+\end{cases}
+\end{eqnarray}
+We then review the classical \textit{federated primal dual} methods.
+
+\textbf{\textit{FedPD}}. \citet{zhang2021fedpd} propose a general federated framework from the primal-dual optimization perspective which can be directly summarized as Eq.(\ref{FedPD}). As an underlying method in the federated \textit{primal dual}-family, it requires all local clients to participate in the training per round, which also significantly reduces communication efficiency.
+
+\textbf{\textit{FedADMM}}. \citet{wang2022fedadmm} extend the theory of the primal-dual optimization in FL and prove the equivalence between \textit{FedDR}~\citep{tran2021feddr} and \textit{FedADMM}. Furthermore, it considers the complete format of composite objective $f(\theta_i) + g(\theta)$. To optimize the composite objective, after the iterations of Eq.(\ref{FedPD}), it additionally solves the proximal step on the function $g(\theta)$:
+\begin{eqnarray}
+\label{FedADMM}
+\small
+\begin{cases}
+\ \theta_i^{t+1} & = \quad \arg\min_{\theta_i} \ \mathcal{L} (\theta_i^t,\theta^t,\lambda_i^t) + g(\theta^t) \quad i\in\mathcal{P}^t, \\
+\ \lambda_i^{t+1} & =\quad \lambda_i^{t} + \rho(\theta_i^{t+1} - \theta^t), \\
+\ \overline{\theta}^{t+1} & =\quad \frac{1}{P}\sum_{i\in\mathcal{P}^t}(\theta_i^{t+1} + \frac{1}{\rho}\lambda_i^{t+1}), \\
+\ \theta^{t+1} &=\quad \arg\min g(\theta^t) + \frac{1}{2\rho}\Vert \theta^t -\overline{\theta}^{t+1} \Vert^2.\\
+\end{cases}
+\end{eqnarray}
+\textit{FedADMM} introduces a more general update with the regularization term $g(\theta)$ and supports the partial participation training mechanism, which also brings a great application value of primal-dual methods to the FL community. When $g(\cdot)\equiv 0$, it degrades to the partial \textit{FedPD} by $\theta^{t+1} = \overline{\theta}^{t+1}$. When $\mathcal{P}^t\neq\mathcal{C}$, ``\textit{dual drift}'' brings great distress for training.
+
+\textbf{\textit{FedDyn}}. \citet{durmus2021federated} utilize the insight of primal-dual optimization to introduce a dynamic regularization term to solve the local augmented Lagrangian function, which is actually the dual variable in \textit{FedADMM}. Differently, they propose a global dual variable $\lambda^t$ to update global parameters $\theta^t$ instead of only active local dual variables $\lambda_i^t$~($i\in\mathcal{P}^t$):
+\begin{eqnarray}
+\label{FedDyn}
+\small
+\begin{cases}
+\ \theta_i^{t+1} & = \quad \arg\min_{\theta_i} \ \mathcal{L} (\theta_i^t,\theta^t,\lambda_i^t) \quad i\in\mathcal{P}^t, \\
+\ \lambda_i^{t+1} & =\quad \lambda_i^{t} + \rho(\theta_i^{t+1} - \theta^t), \\
+\ \lambda^{t+1} &=\quad \lambda^{t} + \rho\frac{1}{C}\sum_{i\in\mathcal{P}^t}(\theta_i^{t+1} - \theta^t), \\
+\ \theta^{t+1} &=\quad \frac{1}{P}\sum_{i\in\mathcal{P}^t}\theta_i^{t+1} + \frac{1}{\rho}\lambda^t.\\
+\end{cases}
+\end{eqnarray}
+Compared with \textit{FedADMM}, although the global dual variable further corrects the primal parameters, it still hinders the training efficiency, which must rely on the anachronistic historical directions of the local dual variables. Moreover, the global dual variable always updates slowly, which results in consensus constraints that are more difficult to satisfy when solving local subproblems.
+
+\textbf{\textit{Dual drift}}. \citet{kang2024fedand} have indicated that the update mismatch between primal and dual variables leads to a ''drift''. Here, we provide a detailed analysis of the key differences caused by this mismatch. When adopting partial participation, each client is activated at a very low probability, especially on a large scale of edged devices, which widely leads to very high hysteresis between global parameters $\theta$ and local dual variable $\lambda_i$. For instance, at round $t$, we select a subset $\mathcal{P}^t$ to participate in current training and then update the global parameters by $\theta^{t+1} = \arg\min_{\theta} \ \mathcal{L} (\theta_i^{t+1},\theta^t,\lambda_i^t)$ for $i\in\mathcal{P}^t$. Then at round $t+1$, when a client $i\notin \{\mathcal{P}^\tau\}_{\tau=t_0+1}^{t}$~$(t_0\ll t)$ that has not been involved in training for a long time is activated, its local dual variable $\lambda_i^{t_0}$ may severely mismatch the current global parameters $\theta^t$. This triggers that the local subproblem $\mathcal{L} (\theta_i^{t+1},\theta^{t+1},\lambda_i^{t_0})$ fail to be optimized properly and even become completely distorted in extreme scenarios, yielding a ``\textit{dual drift}'' issue. 
+
+\subsection{A-FedPD Method}
+
+As introduced in the last part, ``\textit{dual drift}'' problem usually results in the unstable optimization of each local subproblem under partial participation.
+To further mitigate the negative effects of \textit{dual drift} problems and improve the training efficiency, we propose a novel \textit{A-FedPD} method (see Algorithm \ref{algorithm:dual_update}), which aligns the virtual dual variables of unparticipated clients via global average models.
+
+Specifically, we solve dual variables for unified management and distribution. At round $t$, we select an active client set $\mathcal{P}^t$ and send the corresponding variables to each active client. Then local client solves the subproblem with $K$ stochastic gradient descent steps and sends the last state $\theta_{i,K}^t$ back to the global server. On the global server, it first aggregates the updated parameters as $\overline{\theta}^{t+1}$. Then it performs the updates of the dual variables. For each active client $i\in\mathcal{P}^t$, it equally updates the local dual variable as vanilla \textit{FedPD}. For the unparticipated clients $i\notin \mathcal{P}^t$, they update the virtual dual variable with the aggregated parameters $\overline{\theta}^{t+1}$. Finally, we can update the global model with the aggregated parameters and averaged dual variables. Since each client virtually updates, we can directly use the global average as the output. Repeat this training process for a total of $T$ communication rounds to output the final global average model. 
+
+\begin{algorithm}[t]
+\small
+	\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+	\renewcommand{\algorithmicensure}{\textbf{Output:}}
+	\caption{A-FedPD Algorithm}
+    \begin{multicols}{2}
+	\begin{algorithmic}[1]
+		\REQUIRE $\theta^0$, $\theta_i^0$, $T$, $K$, $\lambda_i^0$, $\rho$
+		\ENSURE global average model\\
+            \STATE \textbf{Initialization} : $\theta_i^0=\theta^0$, $\lambda_i^0=0$.
+            \FOR{$t = 0, 1, 2, \cdots, T-1$}
+            \STATE randomly select active clients set $\mathcal{P}^t$ from $\mathcal{C}$
+            \FOR{client $i \in \mathcal{P}^t$ \textbf{in parallel}}
+            \STATE receive $\lambda_i^t, \theta^t$ from the global server
+            %\STATE (A2) {\color{red}{$\lambda_i^{t+1} = \lambda_i^t + \rho(w_i^{t+1} - w^t)$}}
+            \STATE $\theta_i^{t+1} = \textit{LocalTrain}(\lambda_i^t, \theta^t, \eta^t, K)$
+            %\STATE $\lambda_i^{t+1} = \lambda_i^t + \rho(w_i^{t+1} - w^t)$
+            \STATE send $\theta_i^{t+1}$ to the global server 
+            \ENDFOR
+            %\STATE $\lambda^{t+1} = \lambda^t + \frac{1}{C}\sum_{i\in \mathcal{N}^t}\rho(w_{i}^{t+1}-w^t)$
+            \STATE $\overline{\theta}^{t+1} = \frac{1}{P}\sum_{i\in\mathcal{P}^t}\theta_i^{t+1}$
+            \STATE $\lambda_i^{t+1}=\textit{D-Update}(\lambda_i^t, \theta^t, \theta_i^{t+1}, \overline{\theta}^{t+1}, \mathcal{P}^t)$
+            \STATE $\overline{\lambda}^{t+1} = \frac{1}{C}\sum_{i\in\mathcal{C}}\lambda_i^{t+1}$
+            \STATE $\theta^{t+1} = \overline{\theta}^{t+1} + \frac{1}{\rho} \overline{\lambda}^{t+1}$
+            \ENDFOR
+            \STATE return global average model
+	\end{algorithmic}
+    \label{algorithm}
+    \textit{$\diamondsuit$ LocalTrain}: (Optimize Eq.(\ref{lagrangian}))
+    \begin{algorithmic}[1]
+	\REQUIRE $\lambda_i^t$, $\theta^t$, $\eta^t$, $K$
+	\ENSURE $\theta_{i,K}^t$
+        \FOR{$k = 0, 1, 2, \cdots, K-1$}
+        \STATE calculate the stochastic gradient $g_{i,k}^t$
+        \STATE $\theta_{i,k+1}^t = \theta_{i,k}^t - \eta^t(g_{i,k}^t + \lambda_i^t + \rho(\theta_{i,k}^t - \theta^t))$
+        \ENDFOR
+	\end{algorithmic}
+	\label{algorithm:local_update}
+
+    \vspace{0.4cm}
+    \textit{$\diamondsuit$ D-Update}:~(update dual variables)
+    \begin{algorithmic}[1]
+    \REQUIRE $\lambda_i^t, \theta^t, \theta_i^{t+1}, \overline{\theta}^{t+1}, \mathcal{P}^t$
+	\ENSURE $\lambda_i^{t+1}$
+    \IF{$i\in\mathcal{P}^t$}
+    \STATE $\lambda_i^{t+1} = \lambda_i^{t} + \rho_t(\theta_i^{t+1} - \theta^t)$
+    \ELSE 
+    \STATE $\lambda_i^{t+1} = \lambda_i^{t} + \rho_t(\overline{\theta}^{t+1} - \theta^t)$
+    \ENDIF
+    \end{algorithmic}
+\label{algorithm:dual_update}
+\end{multicols}
+\vspace{-0.3cm}
+\end{algorithm}  
+
+Because of the central storage and management of the dual variables on the global server, it significantly reduces storage requirements for lightweight-edged devices, i.e., mobile phones. For the unparticipated clients, we use their unbiased estimations $\mathbb{E}\left[w_i^{t+1}\vert \ w^{t}\right]=\mathbb{E}_{\mathcal{P}^t}\left[\frac{1}{P}\sum_{i\in\mathcal{P}^t}w_i^{t+1}\vert \ w^{t}\right]$ to construct the virtual dual update, which maintains a continuous update of local dual variables. For the global averaged dual variable $\overline{\lambda}$, we can reformulate its update as $\overline{\lambda}^{t+1}=\overline{\lambda}^t + \rho(\overline{\theta}^{t+1} - \theta^t)$ which also could be approximated as a virtual all participation case. This efficiently alleviates the \textit{dual drift} between $\theta^t$ and $\lambda_i^t$ and also ensures fast iteration of the global dual variable in the training, which constitutes an efficient federated framework. 
+
+% \textbf{\textit{Diminished biases.}} The true dual update of each local client is $\lambda_i^{t+1} = \lambda_i^t + \rho(\theta_i^{t+1} - \theta^t)$. The gap between the true update and our virtual update is $\rho(\theta_i^{t+1} - \overline{\theta}^{t+1})$. When the local subproblem is well solved under $t\rightarrow\infty$, as analyzed by \citet{durmus2021federated}, the local objective aligns with the global one, which implies $\sum_i\nabla f_i(\theta_i^\infty)\rightarrow\sum_i\nabla f_i(\theta^\infty)=0$. Then $\theta_i^\infty\rightarrow\theta^\infty\rightarrow\overline{\theta}^{\infty}$ as local dual variables are also well solved to zero. Final estimation bias decreases as optimization goes and diminishes to a very low value, which aligns with the global consensus.
+
+

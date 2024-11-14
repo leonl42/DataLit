@@ -1,0 +1,35 @@
+\section{Related Work}
+
+
+\subsection{Wider Networks}
+
+\citet{cnn_wide} and \citet{cnn_wide_v_deep} respectively show and investigate how widening and making shallower ResNet CNNs \citep{resnet} can improve their performance.
+Transformers also use residual connections, so this helps motivate our investigation.
+
+\citet{go_wide} find that wider layers in Transformers (in both attention and sequence features) can improve performance on vision and natural language tasks.
+However, they use a mixture-of-experts layer instead of the typical feed-forward network at the output of the Transformer encoder.
+They do this because a much larger dimension of sequence features means the number of parameters in the feed-forward layer would increase greatly.
+As we are only increasing the attention feature dimension we do not face this issue.
+
+\citet{deeper_vs_wider} investigate masked autoencoder training and how it can help reduce the problem of over smoothing in training deep Transformer networks - embeddings of tokens converging to be similar at deeper layers.
+They explore the optimal configuration of the Transformer when using masked autoencoding to pretrain it, and then fine-tune it on specific tasks.
+They find that for vision Transformers, it is better to pretrain with a deep autoencoder rather than a wide one.
+As we are not using pretrainining and pretrained embedings, their results are not directly comparable to our own.
+
+
+\subsection{Architecture optimization for Transformers}
+
+A lot of research in the Transformer field focused on finding a more efficient attention mechanism \citep{linear_tfm, linformer, bigbird, local_tfm, longformer, performer, reformer, sinkhorn, sparse_tfm, synthesizer}, as the original dot-product attention has quadratic complexities with respect to input sequence length.
+Long Range Arena (LRA, \citet{lra}) compares and contrasts these methods, noting that in absence of pretrained embeddings and model parameters, the best attention mechanism is task dependent.
+Thus there is no clear best attention mechanism.
+Because of this we test different attention mechanisms on a variety of tasks with no pretrained embeddings or model parameters.
+This makes clear that our findings are largely independent of attention mechanism and task, and contextualise going wide as a general design decision.
+
+The application of Neural Architecture Search (NAS) to Transformer models has also been explored.
+Both Neural Architecture Transformer (NAT) \cite{guo2019nat} and Hardware-aware Transformers \cite{wang2020hat} use NAS to search for models that are more hardware efficient. 
+\citet{so2019evolved} use evolutionary search to optimize components and connections inside an encoder or decoder layer.
+\citet{tfm_nas_efficient} apply RankNAS \citep{rank_nas} to cosFormer \citep{cosformer} and standard Transformers \citep{tfm}.
+They perform a search of the hyperparameters on a cosFormer network and compare these to the same method applied to the standard Transformer.
+\citet{tfm_nas_one_shot} searches the hyperparameter space of a BERT \citep{bert} model architecture heterogeneously to find an optimal efficient network.
+These previous experiments have not varied or searched over different numbers of layers in the Transformer encoder, which is a key factor in what we investigate.
+

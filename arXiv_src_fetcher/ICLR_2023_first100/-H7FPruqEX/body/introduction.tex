@@ -1,0 +1,89 @@
+\section{INTRODUCTION}
+\label{sec:intro}
+
+Model-free reinforcement learning has made many impressive breakthroughs in a wide range of Markov Decision Processes (MDP) ~\citep{alpha_star,ftw,agent57}.
+Overall, the methods could be cast into two categories, value-based methods such as DQN~\citep{dqn} and Rainbow~\citep{rainbow}, and  policy-based methods such as TRPO~\citep{trpo}, PPO~\citep{ppo} and IMPALA~\citep{impala}.  
+% \haosen{we may need a more detailed description here.}
+
+% \jjf{Model-free reinforcement learning methods have recently mastered
+% a wide variety of domains through trial and error
+% learning}
+
+Value-based methods learn state-action values and select the action according to their values. 
+The main target of value-based methods is to approximate the fixed point of the Bellman equation through the generalized policy iteration (GPI) ~\citep{sutton}, which generally consists of policy evaluation and policy improvement. 
+One characteristic of the value-based methods is that unless a more accurate state-action value is estimated by iterations of the policy evaluation, the policy will not be improved. 
+% So the policy improvement of each policy iteration is limited.
+Previous works equip value-based methods with many carefully designed structures to achieve more promising reward learning and sample efficiency ~\citep{dueling_q,priority_q,r2d2}.
+
+Policy-based methods learn a parameterized policy directly without consulting state-action values.
+One characteristic of policy-based methods is that they incorporate a policy improvement phase in every training step, while  
+in contrast,  the value-based methods only change the policy after the action corresponding to the highest state-action values is changed. 
+In principle, policy-based methods perform policy improvement more frequently than value-based methods.
+% \haosen{a past reviewer misunderstood this claim that he think value-based method use greedy method to select action, which is more greedy than policy based method, but here we mean that value-based method changed their policy only when one action's estimation value is higher than another, but policy based method changed their probability every updates. Maybe we need a clearer way to say this.}
+
+% Nevertheless, policy-based methods easily fall into a sub-optimal solution, where the entropy of current policy drops to zero ~\citep{sac}, and suffer from high variance caused by environment and stochastic policy.
+% The actor-critic methods introduce a value function as the baseline to reduce the variance of the policy gradient ~\citep{a3c}, but maintain the other characteristics unchanged.
+% \haosen{delete description about AC }
+
+% To mitigate such problem, ~\citep{trpo,ppo} propose the trust region scheme to optimize a certain surrogate objective function.
+% ~\citep{sql,sac} involve a maximum entropy framework to maximize state values as well as maximize the entropy of the policy.
+
+We notice that value-based and policy-based methods locate at the two extremes of GPI, where value-based methods won't improve the policy until a more accurate policy evaluation is achieved, while policy-based methods improve the policy for every training step even when the policy evaluation hasn't converged. To mitigate the defect of each, we pursuit a technique that is capable of balancing  between the two extremes flexibly. 
+We first study the gradients between policy improvement and policy evaluation and notice that they show a positive correlation statistically during the entire training process. To find out if there exists a way that the gradients of the policy improvement and the policy evaluation are parallel, we propose CASA, \textbf{C}ritic \textbf{AS} an \textbf{A}ctor, {\colorred which satisfies a weaker compatible condition \citep{sutton1999policy} and enhances gradient consistency between policy improvement and policy evaluation.}
+
+With further delving into the properties of CASA, we find CASA is an innovative combination of value-based and policy-based methods. 
+When the policy-based methods are equipped with CASA, the collapse to the sub-optimal solution as the entropy goes to zero is prevented by the evaluation of the state-action values, which encourages exploration.  
+When the value-based methods are equipped with CASA, the policy improvement via policy gradient is equivalent to the evaluation of the state-action values and a self-bootstrapped policy improvement, which enhances exploitation.
+
+% In this paper, we propose CASA, \textbf{C}ritic \textbf{AS} an \textbf{A}ctor, an innovative combination of the value-based and the policy-based methods.
+% In general, CASA builds on the actor-critic design that estimates state values $V$, state-action values $Q$ and policy $\pi$ simultaneously.
+% It integrates a consistent path between the policy evaluation and the policy improvement. It guarantees that 
+% \textbf{i)} the policy evaluation is equivalent to a compensational policy improvement for the function approximation error;
+% \changnan{\textbf{i)} the policy improvement is equivalent to a self-boosted policy evaluation, which enhances exploitation;}
+% \textbf{ii)} the policy evaluation regularizes the policy improvement, which means that CASA does not need any entropy regularization to prevent the policy from collapse.
+% \changnan{\textbf{ii)} the policy evaluation regularizes the policy improvement, which encourages exploration and CASA does not need any entropy regularization to prevent the policy from collapse.}
+
+To enable CASA for a large scale off-policy learning, we introduce Doubly-Robust Trace (DR-Trace), which
+% CASA is capable of large scale training.
+% Due to the fact that large scale training needs off-policy learning, we introduce Doubly-Robust Trace (DR-Trace), which 
+exploits doubly-robust estimator ~\citep{dr} and guarantees the synchronous convergence of the state-action values and the state values. 
+
+% We report our score on Arcade Learning Environment (ALE) ~\citep{ale,ale2}.Our method outperforms several strong baselines on 200 million (200M) training scale.
+
+Our main contributions are as follows:
+% \changnan{tl dr; todo check this later} \haiyan{random inputs..need revise}
+\begin{enumerate}[label=(\roman*),leftmargin=*]
+\item We present a novel method CASA which {\colorred enhances gradient consistency} between policy evaluation and policy improvement and present extensive studies on the behavior of the gradients.
+% \haiyan{plus DrTrace?} 
+% \changnan{not necessary, when using r+V-Q to bootstrap, the dynamic ode of Q is very complicated (haven't solve yet, or cannot be solved in close-form), we just weaken this part }
+\item We demonstrate CASA could be freely applied to both policy-based and value-based algorithms with motivating examples.
+\item We present extensive empirical study on Atari benchmark , where our conflict averse algorithm brings substantial improvements over the baseline methods. 
+\end{enumerate}
+% \begin{itemize}
+% \setlength{\topsep}{0pt}
+% \setlength{\itemsep}{0pt}
+% \setlength{\partopsep}{0pt}
+% \setlength{\parsep}{0pt}
+% \setlength{\parskip}{0pt}
+% % \vspace{-0.15cm}
+%     \changnan{contribution deleted.}
+%     % \item We propose an actor-critic design, which consists of three intringuing perspectives: (\textbf{i}) the policy evaluation and the policy improvement avoid a conflict in GPI steps; (\textbf{ii}) the policy evaluation compensates function approximation error;
+%     % (\textbf{iii}) the policy evaluation regularizes the policy improvement from collapse.
+%     % % \vspace{-0.3cm}
+%     % % \begin{itemize}
+%     % % \setlength{\topsep}{0pt}
+%     % % \setlength{\itemsep}{0pt}
+%     % % \setlength{\partopsep}{0pt}
+%     % % \setlength{\parsep}{0pt}
+%     % % \setlength{\parskip}{0pt}
+%     % %     \item [\textbf{i)}] the policy evaluation and the policy improvement share a consistent path,
+%     % %     \item [\textbf{ii)}] the policy evaluation compensates function approximation error,
+%     % %     \item [\textbf{iii)}] the policy evaluation regularizes the policy improvement from collapse.
+%     % % \end{itemize}
+%     % \item We propose DR-Trace, which incorporates Doubly Robust into a large scale training manner, and prove that the convergence of DR-Trace under the design of CASA is guaranteed.
+%     % % \item We propose an entropy control mechanism to adaptively adjust the exploration rate of the behavior policies.
+%     % \item We present extensive empirical evaluation results to compare our proposed method with several decent model-free reinforcement learning approaches on Arcade Learning Environment (ALE) ~\citep{ale,ale2}. Our method could outperform several strong baseline approaches on 200 million (200M) training scale.
+% \end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

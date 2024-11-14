@@ -1,0 +1,62 @@
+
+%\section{Computation and Communication Overheads in ReLU Computation} \label{sec:ReluOverhead}
+%
+%The computation and communication (between server and client in two party computation settings) overheads of individual  ReLU and convolution (Conv) operation is shown in Table \ref{tab:ReluOverheads}. These (amortized) values are calculated according to the Table 1 and Table 3 in  DELPHI \cite{mishra2020delphi}. Clearly, ReLU operation has orders of magnitude higher computation and communication overheads (especially in online phase) compared to the convolution operations. Therefore, removing ReLUs from networks (with minimal impact on accuracy)  is a paramount importance for the private inference. 
+%\input{42AppendixTable_ReluOverheadComp}
+
+
+\section{Channel Scaling Vs. Feature map Scaling} \label{secAppendix:ChannelVsFmapScaling}
+
+
+For extremely lower ReLU budgets, we use a combination of channel scaling and fmaps' resolution scaling. Since reducing  fmaps' resolution (each spatial dimensions of fmaps) by 2$\times$ ($\rho$=0.5) decreases the ReLU count by 4$\times$, we first use channel scaling ($\alpha$ = 0.5) for reducing the ReLU count by 2$\times$. Further, for 4$\times$ reduction in ReLU count, we prefer to use fmaps' resolution scaling ($\rho$=0.5) over channel scaling ($\alpha$=0.25) since the former results in more accurate networks, as illustrated in Table \ref{tab:AlphaVsRhoComp}. Unlike fmap resolution scaling, channel scaling reduces the parameter count along with the ReLU count, which may reduce the expressive power of a network. Hence, the network is more accurate with fmaps' resolution scaling.  
+  
+\input{Tables/45AppendixTable_AlphaVsRhoComp}
+
+
+
+
+\section{VGGNet DeepReDuce Pareto Points} \label{SecAppendix:ParetoPointsVGG16}
+
+We do not remove ReLUs from fully connected (FC) layers as FC account only 8.192K ReLUs and training networks without FC ReLUs is challenging. The results are shown in Table \ref{tab:ReluCriticalityVGG16}. Unlike ResNets and MobileNets, ReLUs in $S_5$ are least critical and that of the $S_1$ is moderate. 
+
+\input{Tables/53RebuttalTable_ReluCriticalityVGG16}
+
+The ReLU optimizations step for the Pareto points in Figure \ref{fig:ParetoFrontierVGG16} are listed in Table \ref{tab:ParetoPointsVGG16}.  Models are the ReLU-optimized versions (Thinned and Reshaped) of two Culled networks: (1) stages $S_4$ and $S_5$ are Culled and (2) stages $S_1$, $S_4$ and $S_5$ are Culled. 
+
+\input{Tables/54AppendixTable_ParetoPointsVGG16}
+
+
+
+\section{ReLUs' Criticality and Pareto Points for MobileNets} \label{SecAppendix:ParetoPointsMV1}
+
+
+We evaluate the ReLUs' criticality in MobileNetV1 \cite{howard2017mobilenets} and MobileNetV2 \cite{sandler2018mobilenetv2}) on the CIFAR-100. The results are shown in Table \ref{tab:CriticalityInMobileNets}.  We observed the similar trend as ResNet18 and ResNet34 on CIFAR-100/TinyImageNet (shown in Tables \ref{tab:ReluHeteroR18} and \ref{tab:ResNetBlockDropout}), accuracy differs significantly across stages and $S_1$ ($S_4$) ReLUs are least (most) critical.
+\input{Tables/56AppendixTable_ReLUCriticalityMobileNets}
+
+
+The Pareto points of DeepReDuce models for MobileNetV1 (CIFAR-100) are shown in Figure \ref{fig:ParetoFrontierMV1}. The optimization steps for all DeepReDuce models are list in the Table \ref{tab:ParetoPointsMV1}. 
+
+
+First, in step 1 of DeepReDuce (Figure \ref{fig:BlockDiagramDeepReDuce}), we Culled the least critical stage $S_1$. In step 2 of ReLU Thinning, we had two ways to remove the ReLUs from alternate layers, either from $3\times3$ depthwise convolution layer or $1\times1$ pointwise convolution layer. When downsampling is performed in $3\times3$ depthwise convolution layer, the ReLU count of both the layers are not equal. More precisely, \#ReLUs in the $1\times1$ pointwise convolution is twice as that in the preceding $3\times3$ depthwise conv. 
+
+
+We empirically found that removing ReLUs from $3\times3$ depthwise conv layer yields more accurate iso-ReLU models. We suspect this is because $3\times 3$ depthwise convolutions perform filtering (feature learning) and $1\times1$ pointwise convolutions perform feature aggregation \cite{howard2017mobilenets}, the ReLUs in the former layer is more critical for accuracy. 
+
+
+\input{Tables/55AppendixTable_ParetoPointsMV1}
+
+
+\section{ReLU Criticality in ResNet56} \label{SecAppendix:ReluCriticalityInR56}
+
+We examine the stage-wise criticality of ReLUs in ResNet56 and results are shown in Table \ref{tab:ReluCriticalityR56}. 
+
+
+\input{Tables/47AppendixTable_ReluCriticalityR56}
+
+
+\section{Layer-wise Distribution of ReLUs} \label{secAppendix:LayerWiseOpsInDNNs}
+
+We show the layer-wise distribution of FLOPs, parameters, and ReLU count in the standard networks such as ResNet34 \cite{he2016deep}, VGG16 \cite{simonyan2014very}, MobileNetV1 \cite{howard2017mobilenets}, and MobileNetV2 \cite{sandler2018mobilenetv2} in Figure \ref{fig:LayerWiseReluInOtherDNNs}. Consistent with ResNet18 (Figure \ref{fig:LayerWiseReluInDNNs}), the FLOPs are evenly distributed, more parameters are used in deeper layers, and ReLUs are mostly in initial layers of the networks. Thus, the ReLU reduction in initial layers has a significantly greater impact on the overall ReLU count of these networks. Moreover, the stark difference between the ReLU distribution and FLOPs/parameter distribution indicates that ReLU optimization cannot be ensured through the popular FLOPs/parameters pruning techniques. 
+
+\input{Plots/41AppendixFigure_OpsDistributionInDNNs}
+

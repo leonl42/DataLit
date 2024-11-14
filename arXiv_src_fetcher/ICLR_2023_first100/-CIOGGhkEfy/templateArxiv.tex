@@ -1,0 +1,175 @@
+\documentclass{article}
+
+\usepackage{iclr2023_conference,times}
+
+\pdfoutput=1
+
+\usepackage{PRIMEarxiv}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}
+\usepackage{fancyhdr}       % header
+\usepackage{graphicx}       % graphics
+\graphicspath{{media/}}     % organize your images and other figures under media/ folder
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{cleveref}
+\usepackage{adjustbox}
+\usepackage{booktabs}
+\usepackage{algorithm2e}
+\usepackage{graphicx}
+
+%Header
+\pagestyle{fancy}
+\thispagestyle{empty}
+\rhead{ \textit{ }} 
+
+% Update your Headers here
+% \fancyhead[RE]{Firstauthor and Secondauthor} % Firstauthor et al. if more than 2 - must use \documentclass[twoside]{article}
+
+
+
+  
+%% Title
+\title{Augmentation Backdoors}
+
+\author{
+  Joseph Rance \\
+  University of Cambridge \\
+  \texttt{jr879@cam.ac.uk} \\
+  %% examples of more authors
+   \And
+  Yiren Zhao \\
+  University of Cambridge \&\\ Imperial College London \\
+  \texttt{yiren.zhao@cl.cam.ac.uk} \\
+   \And
+  Ilia Shumailov \\
+  University of Oxford \\
+  \texttt{ilia.shumailov@cl.cam.ac.uk} \\
+   \And
+  Robert Mullins \\
+  University of Cambridge \\
+  \texttt{Robert.Mullins@cl.cam.ac.uk} \\
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+
+\begin{document}
+\maketitle
+\setcitestyle{authoryear, aysep={,}}
+
+\input{sections/abstract}
+\input{sections/introduction}
+\input{sections/relatedwork}
+\input{sections/methodology}
+\input{sections/evaluation}
+\input{sections/conclusion}
+\input{sections/ethics}
+\input{sections/reproducibility}
+
+\bibliographystyle{iclr2023_conference}
+\bibliography{references}
+
+\newpage
+\section*{Appendix}
+\appendix
+\section{AugMix backdoor algorithm}
+
+\begin{algorithm}
+\caption{AugMix backdoor}\label{alg:two}
+\SetKwInOut{Input}{input}
+\SetKwFunction{gb}{getbatnetbatch}
+\SetKwFunction{SGD}{SGD}
+\Input{batch $B$, transforms $T$, iterations $n$, surrogate model $M$, loss function $L$}
+\texttt{\\}
+$w\gets$\text{ random samples from Dirichlet(}$1$\text{) in shape (len(}$B$\text{), len(}$T$))\;
+$m\gets$\text{ random samples from Beta(}$\alpha, \alpha$\text{) in shape (len}($T$)\;
+\texttt{\\}
+$U\gets$ apply BADNET backdoor to $B$\;
+$l_u\gets L(M(U$.inputs), $U$.labels)\;
+$g_u\gets$ backpropagate gradients from $l_u$ to weights of $M$
+\texttt{\\}
+\For{$n$ iterations}{
+    $V\gets$ apply AugMix to $B$.inputs, using weights $w$[i], $m$[i] for $B$.inputs[i]\;
+    $l_v\gets L(M(V$.inputs), $V$.labels)\;
+    $g_v\gets$ backpropagate gradients from $l_v$ to weights of $M$\;
+    \texttt{\\}
+    $E\gets||g_u-g_v||^p$\;
+    $g_E\gets$ backpropagate gradients from $E$ to $w$ and $m$\;
+    \texttt{\\}
+    $w,m\gets$\SGD($[w, m],g_E$)\;
+}
+\Return{$V$}\;
+\end{algorithm}
+
+\section{Datasets}
+
+\textbf{MNIST} The MNIST dataset \citep{mnist} consists of 60000 train images and 10000 test images. Each 28x28 pixel greyscale image displays a single digit between 0 and 9 inclusive. The class of the image is the digit it contains.
+
+\textbf{Omniglot} The Omniglot dataset \citep{omniglot} consists of 1623 classes of handwritten characters from 50 different alphabets, with each class containing 20 samples. We downscale the dataset to 28x28 greyscale images and reduce the number of classes to 50. We split each class into 15 train images and 5 test images.
+
+\textbf{CIFAR-10} The CIFAR-10 dataset \citep{cifar} consists of 50000 train images and 10000 test images, both equally split into 10 classes. Each 32x32 pixel colour image displays a subject from one of the 10 classes.
+
+\textbf{CIFAR-100} The CIFAR-100 dataset \citep{cifar} is similar to the CIFAR-10 dataset, but with 100 classes of 500 train and 100 test images.
+
+\section{Models}
+
+\textbf{ResNet} We use a ResNet-50 classifier for the CIFAR-10 dataset \citep{resnet}, and the WideResNet variant implementation at \href{https://github.com/meliketoy/wide-resnet.pytorch}{https://github.com/meliketoy/wide-resnet.pytorch} to train our CIFAR-100 classifier.
+
+\textbf{DenseNet} We use the DenseNet \citep{densenet} implementation at \href{https://github.com/amurthy1/dagan\_torch}{https://github.com/amurthy1/dagan\_torch} to train our Omniglot classifier.
+
+\textbf{CNN} We use a CNN with two convolutional layers for our MNIST classifiers. The architecture of our classifiers is detailed in Table 4.
+
+\section{Hardware systems}
+
+The testing of our GAN and AugMix backdoors was carried out on a hardware system with 4x NVIDIA GeForce GTX 1080 Ti. The simple transform backdoor training was carried out on NVIDIA T4 GPUs.
+
+% idk what this does but it makes the table go to the top
+\makeatletter
+\setlength{\@fptop}{0pt}
+\makeatother
+
+\begin{table}[ht!]
+\caption{Architecture of the classifier we trained on the MNIST dataset}
+\centering
+\adjustbox{scale=1.0}{\begin{tabular}{c|ccccc}
+\hline
+& input & filter shape & stride & output & activation \\
+\hline
+Conv0 & (1, 28, 28) & (8, 1, 5, 5) & 1 & (8, 24, 24) & ReLU \\
+Pool0 & (8, 28, 28) & Max, (2, 2) & 2 & (8, 12, 12) & \\
+Conv1 & (8, 12, 12) & (16, 8, 5, 5) & 1 & (16, 8, 8) & ReLU \\
+Pool1 & (16, 8, 8) & Max, (2, 2) & 2 & (16, 4, 4) & \\
+Dense0 & (16, 4, 4) & & & (128) & ReLU \\
+Dense1 & (128) & & & (96) & ReLU \\
+Dense2 & (96) & & & (10) & \\
+\hline
+\end{tabular}}
+\end{table}
+
+
+\end{document}

@@ -1,0 +1,136 @@
+\section{Projected Policy Gradient}\label{sec:ppg}
+Under the  simplex (or direct) parameterization,
+$$
+\pi =\left\{\left( \pi_s \right) _{s\in \mathcal{S}}\,\,|\,\, \pi_s\in \Delta \left( \mathcal{A} \right)\right\},
+$$
+ the policy gradient is given by \cite{pg}
+\begin{align*}
+    \nabla _{\pi _s}V^{\pi}\left( \mu \right) =\frac{d_{\mu}^{\pi}\left( s \right)}{1-\gamma}Q^{\pi}(s, \cdot).
+\end{align*}
+Thus, the update of the projection policy gradient  (PPG) under the simplex parameterization is given by
+\begin{align*}
+\pi^{k+1}_s &= \argmax_{p\in\Delta}\left\{\eta_k\left\langle\frac{d_{\mu}^k(s)}{1-\gamma} Q^{\pi}\left( s,\cdot \right),p-\pi_s^k \right\rangle-\frac{1}{2}\|p-\pi_s^k\|_2^2\right\}\\
+&=\mathrm{Proj}_{\Delta(\mathcal{A})}\left(\pi_s^k+\eta_s^k\,Q^k(s,\cdot)\right),
+\end{align*}
+where $\eta_s^k = \frac{\eta_k}{1-\gamma}d_\mu^k(s)$, and $\mathrm{Proj}_{\Delta(\mathcal{A})}\left(\cdot\right)$ denotes the projection onto the probability simplex.
+
+
+As already mentioned in the introduction, the $O(1/\sqrt{k})$ sublinear convergence of PPG with constant step size has been
+established in \cite{Agarwal_Kakade_Lee_Mahajan_2019,bhabdari2024or} while this  rate has been improved  to $O(1/k)$ in \cite{Xiao_2022,Zhang_Koppel_Bedi_Szepesvari_Wang_2020}. The analyses in those works are overall conducted under the optimization framework and relies particularly on the smoothness constant of the state value function. Thus, the sublinear convergence can only be established for small step sizes therein. However, as $\eta\rightarrow\infty$, it is easy to see that PPG tends to be the PI method. Since PI always converges, it is natural to anticipate PPG also converges for large step sizes.  Motivated by this observation, the $O(1/k)$ sublinear convergence of PPG under any constant step size  has been investigated and established in \cite{ppgliu}. To overcome the step size barrier hidden the classical optimization analysis framework, an elementary analysis route has been adopted. The overall idea in \cite{ppgliu} is to measure how large the policy improvement of PPG in each state is compared with the policy improved of PI, and establish the bound of the following form:
+\begin{align*}
+    \mathcal{T}^{k+1}V^k(s)-V^k(s)\geq f\left(\mathcal{T}V^k(s)-V^k(s)\right),
+\end{align*}
+where we note that the policy improvement of PI is given by $\mathcal{T}V^k(s)-V^k(s)$. More precisely, the following result (which expresses $\mathcal{T}^{k+1}V^k(s)-V^k(s)$ and $\mathcal{T}V^k(s)-V^k(s)$ explicitly) has been established.
+\begin{lemma}[Improvement Lower Bound \protect{\cite[Theorem~3.2]{ppgliu}}]\label{lem:ppg-improvement}
+Let $\eta_k>0$ be step size in the $k$-th iteration of PPG. Then,
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\geq \frac{\left(\max_a A^k_{s,a}\right)^2}{\max_a A^k_{s,a}+\frac{2+5|\mathcal{A}|}{\eta_s^k}}.
+\end{align*}
+\end{lemma}
+\noindent The establishment of this lemma relies essentially on the explicit formula for the projection:
+\begin{align*}
+    \mathrm{Proj}_{\Delta(\mathcal{A})}(y) = (y+\lambda\cdot \bm{1})_+,
+\end{align*}
+where $\lambda$ is a constant such that $\sum_a(y_a+\lambda)_+=1.$ 
+
+Given the above lemma, recalling the definitions of $\mathcal{L}_{k}^{k+1}$ and $\mathcal{L}_k^*$ in \eqref{eq:Lk-non} and \eqref{eq:Lstar-non}, it is not hard to obtain that 
+\begin{align*}
+    \mathcal{L}_k^{k+1} & = \frac{1}{1-\gamma}\mathbb{E}_{s\sim d_\rho^*}\left[\sum_{a}\pi^{k+1}_{s,a}A^k_{s,a}\right]\\
+    &\geq \frac{1}{1-\gamma}\mathbb{E}_{s\sim d_\rho^*}\left[\frac{\left(\max_a A^k_{s,a}\right)^2}{\max_a A^k_{s,a}+\frac{2+5|\mathcal{A}|}{\eta^k_s}}\right]\\
+    &\geq \frac{1}{1-\gamma}\frac{\left(\mathbb{E}_{s\sim d_\rho^*}\left[\max_a A^k_{s,a}\right]\right)^2}{\mathbb{E}_{s\sim d_\rho^*}\left[\max_a A^k_{s,a}\right]+\frac{2+5|\mathcal{A}|}{\eta_k\,\tilde{\mu}}}\\
+    &\geq \frac{(1-\gamma)(\mathcal{L}_k^*)^2}{(1-\gamma)\mathcal{L}_k^*+C_1(\eta_k)} \numberthis \label{eq:ppg-improvement02} \\
+    &\geq \frac{(1-\gamma)(\mathcal{L}_k^*)^2}{1+C_1(\eta_k)},
+\end{align*}
+where $C_1(\eta_k):=\frac{2+5|\mathcal{A}|}{\eta_k\,\tilde{\mu}}$. In the above derivation, the fact $\eta_s^k\geq \eta_k\,\tilde{\mu}$ and the Jensen inequality are used in the third line, the monotonicity of the function and the fact $\mathbb{E}_{s\sim d_\rho^*}\left[\max_a A^k_{s,a}\right]\geq (1-\gamma)\mathcal{L}_k^*$ are used in the fourth line, and the last line follows from $0\le \mathcal{L}_k^*=V^*(\rho)-V^k(\rho)\leq \frac{1}{1-\gamma}$. As already mentioned in Remark~\ref{remark:sublinear}, letting $\eta_k=\eta$ and invoking Theorem~\ref{thm:sublinear-general} yields the $O(1/k)$ sublinear convergence of PPG.
+
+In addition to the sublinear convergence, it is also shown in \cite{ppgliu} that PPG terminates in a finite number of iterations based on the following property. 
+\begin{lemma}[\protect{\cite[Lemma~4.2]{ppgliu}}]\label{lem:ppg-finite}
+Consider PPG with constant step size $\eta_k=\eta$ \textup{(}in this case $\eta_s^k$ is simplified to $\eta_s$\textup{)}.
+If the state value of $\pi^k$ satisfies 
+    \begin{align*}
+\|V^*-V^k\|_\infty \leq \frac{\Delta}{2}\frac{\eta_s\Delta}{1+\eta_s\Delta},
+\end{align*}
+then $\pi^{k+1}$ is an optimal policy.
+\end{lemma}
+In this section we  first extend the analysis in \cite{ppgliu} to further show that PPG with a constant step size indeed displays a linear convergence before termination.
+\begin{theorem}[Linear Convergence for any Constant Step Size]\label{thm:PPG-linear}
+    Consider PPG with any constant step size $\eta>0$. One has 
+    \begin{align*}
+    V^*(\rho )-V^k(\rho )\le \left( 1-(1-\gamma )\left\| \frac{d_{\rho}^{*}}{\rho} \right\| _{\infty}^{-1}\cdot \frac{(1-\gamma )C_2\left( \eta \right)}{(1-\gamma )C_2\left( \eta \right) +C_1(\eta )} \right) ^k\left( V^*(\rho )-V^0(\rho ) \right),
+    \end{align*}
+where $
+C_1\left( \eta \right) :=\frac{2+5\left| \mathcal{A} \right|}{\eta \tilde{\mu}}$ is defined as above and $
+C_2\left( \eta \right) :=\frac{\tilde{\rho}\,\Delta }{2}\frac{\eta \,\tilde{\mu}\,\Delta}{1+\eta \,\tilde{\mu}\,\Delta}$. 
+\end{theorem}
+
+\begin{proof}
+    Let $T$ be the iteration at which PPG terminates with the optimal policy (i.e., $\pi^T$ is an output optimal policy). Then by Lemma~\ref{lem:ppg-finite},
+\begin{align*}
+\|V^*-V^k\|_\infty > \frac{\Delta}{2}\frac{\eta_s\Delta}{1+\eta_s\Delta},\quad \mbox{if }k\leq T-2.
+\end{align*}
+It follows that $\forall\, k\leq T-2$,
+\begin{align*}
+\mathcal{L}_k^* & = V^*(\rho) - V^k(\rho)\geq \tilde{\rho}\,\|V^*-V^k\|_\infty > \frac{\Delta}{2}\frac{\eta_s\Delta}{1+\eta_s\Delta}\tilde{\rho} \geq \frac{\Delta}{2}\frac{\eta\,\tilde{\mu}\,\Delta}{1+\eta\,\tilde{\mu}\,\Delta}\tilde{\rho}:=C_2(\eta),
+\end{align*}
+where the last inequality follows from $\eta_s\geq \eta\,\tilde{\mu}$. Combining it with \eqref{eq:ppg-improvement02} gives 
+\begin{align*}
+\mathcal{L} _{k}^{k+1}&\ge \frac{(1-\gamma )(\mathcal{L} _{k}^{*})^2}{(1-\gamma )\mathcal{L} _{k}^{*}+C_1(\eta )}
+\\
+\,\,      &=\left( 1-\frac{C_1(\eta)}{(1-\gamma )\mathcal{L} _{k}^{*}+C_1(\eta)} \right) \cdot \mathcal{L} _{k}^{*}
+\\
+\,\,      &\ge \left( 1-\frac{C_1(\eta )}{(1-\gamma )C_2\left( \eta \right) +C_1(\eta )} \right) \cdot \mathcal{L} _{k}^{*}
+\\
+\,\,      &=\frac{(1-\gamma )C_2\left( \eta \right)}{(1-\gamma )C_2\left( \eta \right) +C_1(\eta )}\cdot \mathcal{L} _{k}^{*}.
+\end{align*}
+Then the claim follows immediately from Theorem~\ref{thm:linear-global}.
+\end{proof}
+
+\begin{remark} Considering the  case $\eta \rightarrow \infty$, one has
+$$
+C_1\left( \eta \right) \rightarrow 0\qquad \mathrm{and}\qquad C_2\left( \eta \right) \rightarrow \frac{\tilde{\rho}\,\Delta }{2}.
+$$    
+Then the linear convergence rate of PPG becomes
+ $1-(1-\gamma )\left\| \frac{d_{\rho}^{*}}{\rho} \right\| _{\infty}^{-1}$,
+which matches the convergence rate of PI provided $\left\| \frac{d_{\rho}^{*}}{\rho} \right\| _{\infty}^{-1}=1$ \textup{(}for example when $\rho$ is the stationary distribution under the optimal policy\textup{)}. Indeed, $1-(1-\gamma )\left\| \frac{d_{\rho}^{*}}{\rho} \right\| _{\infty}^{-1}$ is the rate that can be obtained if we analyse the convergence of PI based on the performance difference lemma instead of the  $\gamma$-contraction of the Bellman optimality operator.
+\end{remark}
+%%%%%%%%%%%%%
+Next, we present a non-adaptive increasing step size selection rule for PPG, with improved linear convergence rate.
+\begin{theorem}[Linear Convergence for Non-Adaptive Increasing Step Size]\label{thm:PPG-linear-adaptive}
+    Letting $C_3>0$ be any constant, assume the step size of PPG satisfies \begin{align*}
+\eta_k\geq \frac{2+5|\mathcal{A}|}{\tilde{\mu}}\frac{1-\gamma}{C_3}\left(1+\frac{1-\gamma}{C_3}\right)^{k+1}.
+\end{align*}
+ Then one has
+\begin{align*}
+V^*(\rho) - V^k(\rho)\leq \frac{1}{1-\gamma}\left(1-(1-\gamma)\left\|\frac{d_\rho^*}{\rho}\right\|_\infty^{-1}\frac{(1-\gamma)}{1-\gamma+C_3}\right)^k.
+\end{align*}
+\end{theorem}
+
+\begin{proof}
+    The proof is by induction. It is obvious that the result  holds for $k=0$. Assume it is true for $k\leq t$. First, the bound on $\eta_t$ implies that
+    \begin{align*}
+C_1(\eta_t)&\leq \frac{C_3}{1-\gamma}\left(1-\frac{(1-\gamma)}{1-\gamma+C_3}\right)^{t+1}\\
+&\leq \frac{C_3}{1-\gamma}\left(1-(1-\gamma)\left\|\frac{d_\rho^*}{\rho}\right\|_\infty^{-1}\frac{(1-\gamma)}{1-\gamma+C_3}\right)^{t+1}.
+\end{align*}
+Assume 
+\begin{align*}
+V^*(\rho)-V^t(\rho)\geq\frac{1}{1-\gamma}\left(1-(1-\gamma)\left\|\frac{d_\rho^*}{\rho}\right\|_\infty^{-1}\frac{(1-\gamma)}{1-\gamma+C_3}\right)^{t+1}.
+\end{align*}
+Otherwise, the result holds automatically by monotonicity. It follows that 
+\begin{align*}
+C_1(\eta_t)\leq C_3\,\mathcal{L}_t^*.
+\end{align*}
+Inserting this inequality into 
+\eqref{eq:ppg-improvement02}
+yields 
+\begin{align*}
+\mathcal{L}_t^{t+1}\geq \frac{1-\gamma}{1-\gamma+C_3}\mathcal{L}_t^*.
+\end{align*}
+Then the application of Theorem~\ref{thm:linear-global} implies that 
+\begin{align*}
+\mathcal{L}_{t+1}^*\leq \left(1-(1-\gamma)\left\|\frac{d_\rho^*}{\rho}\right\|_\infty^{-1}\frac{1-\gamma}{1-\gamma+C_3}\right)\mathcal{L}_t^*,
+\end{align*}
+which completes the proof by the  induction hypothesis.
+\end{proof}
+\begin{remark}
+    It is shown in \textup{\cite{Bhandari_Russo_2021}} that PPG with exact line search can also achieve the linear convergence. The analysis therein simply uses the fact that the new value function obtained by exact linear search is at least as large as that for the PI policy. Note that assumption on the exact line search is not realistic.
+\end{remark}

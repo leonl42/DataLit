@@ -1,0 +1,42 @@
+\section{Molecular Pretraining with Complementary Featurizations} %
+
+
+As with generic self-supervised learning pipelines, the \themodel framework is divided into two stages, pretraining and fine-tuning.
+In the first stage, given an unlabeled dataset, we train an encoding function that learns representations with the four featurization techniques.
+In the subsequent fine-tuning phase, we take the weights of the encoders from the pretrained model and tune the model on molecules with annotations of particular properties in a supervised fashion.
+
+We next introduce the \themodel pretraining framework in detail.
+We first use obtain four ``view'' representations based on the aforementioned four featurizations.
+Then, we integrate these four embeddings to compute a final representation for each molecule through an attention network.
+Finally, we pretrain the whole model using a contrastive objective.
+
+\subsection{Representation Aggregation from Multiple Featurizations} %
+
+Since each featurization technique reflects the molecule from one certain aspect, we take weighted average of every view embedding to obtain a comprehensive final representation:
+\begin{equation}
+	\bm{z}_i = \sum_{m \in \mathcal{M}}\alpha^m \bm{z}^m_i,
+	\label{eq:attention-aggregation}
+\end{equation}
+where \(\mathcal{M} = \{\text{2D}, \text{3D}, \text{FP}, \text{SM}\}\) is the set of all views.
+We leverage an attention network \cite{Bahdanau:2015vz} that learns to adjust the contribution of each view.
+Formally, the attention coefficient \(\alpha^m\) denoting the contribution of the \(m\)-th view is computed by:
+\begin{equation}
+	\alpha^m = \frac{\exp(w^m)}{\sum_{m' \in \mathcal{M}} \exp(w^{m'})},\qquad\qquad w^m = \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \bm{q}^\top \cdot \tanh\left( \bm{W}\frac{\bm{z}_i^m}{\|\bm{z}_i^m\|_2} + \bm{b}\right),
+\end{equation}
+where \(\bm{q}, \bm{b} \in \mathbb{R}^{D}\), \(\bm{W} \in \mathbb{R}^{D\times D}\) are trainable parameters in the attention network, and \(\mathcal{B}\) denotes the set of molecules in the current training batch.
+Note that we perform \(\ell_2\) normalization on all embeddings to regularize the scale across different views when computing the attention scores.
+
+\subsection{Contrastive Objectives for Pretraining}
+Finally, we train the model using a contrastive objective by aligning the aggregated embedding with all view-specific embeddings.
+Particularly, for one molecule \(i\), we designate its four view embeddings \(\bm{z}_i^m\) as the anchors and the aggregated embeddings \(\bm{z}_i\) as the positive instance. Other aggregated embeddings \(\{\bm{z}_j\}_{i \neq j}\) in the same batch are then chosen as the negative samples.
+Following prior studies \cite{Chen:2020wj,He:2020tu,Bachman:2019wp,Zhu:2020vf,You:2020ut,Zhu:2021tu}, we leverage the Information Noice Contrastive Estimation (InfoNCE) objective, which can be formally written as:
+\begin{equation}
+	\mathcal{L} = \frac{1}{|\mathcal{B}|} \sum_{i \in \mathcal{B}} \left[ \frac{1}{|\mathcal{M}|} \sum_{m \in \mathcal{M}} -\log \frac{\exp(\theta(\bm{z}_i^m, \bm{z}_i)/\tau)}{\sum_{j \in \mathcal{B}} \exp(\theta(\bm{z}_i^m, \bm{z}_j) / \tau)} \right],
+	\label{eq:objective}
+\end{equation}
+where the critic function \(\theta\) computes the likelihood scores of contrastive pairs and the hyperparameter~\(\tau\) adjusts the dynamic range of the likelihood scores of contrastive pairs.
+Specifically, the critic function \(\theta\) performs non-linear transformation via an MLP function \(g\) \cite{Chen:2020wj} and then measures their cosine similarity:
+\begin{equation}
+	\theta(\bm{x}, \bm{y}) = \frac{g(\bm{x})^\top g(\bm{y})}{\|g(\bm{x})\|_2\|g(\bm{y})\|_2}.
+\end{equation}
+After pretraining the model with the self-supervised objective function \(\mathcal{L}\), we fine-tune the model weights of view encoders along with the attentive representation aggregation module with the supervision of downstream tasks at a smaller learning rate.

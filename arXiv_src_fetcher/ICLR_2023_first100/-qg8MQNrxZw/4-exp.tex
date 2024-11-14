@@ -1,0 +1,241 @@
+\input{ADE20k}
+\input{city.tex}
+\section{Experiments}
+\label{Exp}
+We evaluate our method on semantic segmentation, image classification and object detection tasks.
+First, we describe implementation details and compare results with state of the art.
+We then conduct a series of ablation studies to validate the design of SeaFormer.
+Each proposed component and important hyper-parameters are examined thoroughly.
+
+\subsection{Experimental setup}
+\label{sec:experimental_setup}
+\subsubsection{Dataset} We perform semantic segmentation experiments over ADE20K~\cite{zhou2017scene}, CityScapes~\cite{cordts2016cityscapes}, Pascal Context~\cite{mottaghi2014role} and COCO-Stuff~\cite{caesar2018coco}.
+The mean of intersection over union (mIoU) is set as the evaluation metric. 
+We convert full-precision models to TNN~\cite{contributors2020tnn} and measure latency on an ARM-based device with a single Qualcomm Snapdragon 865 processor.
+
+\paragraph{ADE20K} ADE20K dataset covers 150 categories, containing 25K images that are split into 20K/2K/3K for \textit{Train}, \textit{val} and \textit{test}.
+
+\paragraph{CityScapes} CityScapes is a driving dataset for semantic segmentation. It consists of 5000 fine annotated high-resolution images with 19 categories.
+
+\paragraph{PASCAL Context} dataset has 4998 scene images for training and 5105 images for testing. There are 59 semantic labels and 1 background label.
+
+\paragraph{COCO-Stuff} dataset augments COCO dataset with pixel-level stuff annotations. There are 10000 complex images selected from COCO. The training set and test set consist of 9K and 1K images respectively.
+
+\subsubsection{Implementation details}
+We set ImageNet-1K~\cite{deng2009imagenet} pretrained network as the backbone, and training details of ImageNet-1K are illustrated in the last subsection. 
+For semantic segmentation, the standard BatchNorm~\cite{ioffe2015batch} layer is replaced by synchronized BatchNorm.
+Our implementation is based on public codebase \texttt{mmsegmentation}~\cite{contributors2020mmsegmentation}.
+We follow the batch size, training iteration scheduler and data augmentation strategy of TopFormer~\cite{zhang2022topformer} for a fair comparison.
+
+\paragraph{ADE20K} The initial learning rate is 0.0005 for batch size 32 or 0.00025 for batch size 16. The weight decay is 0.01. 
+A “poly” learning rate scheduled with factor 1.0 is adopted.
+
+\paragraph{Cityscapes} The initial learning rate is 0.0003 and the weight decay is 0.01.
+The comparison of Cityscapes contains full-resolution and half-resolution.
+For the full-resolution version, the training images are randomly scaled and then cropped to the fixed size of 1024 × 1024. 
+For the half-resolution version, the training images are resized to 1024 × 512 and randomly scaling, the crop size is 1024 × 512. 
+
+\paragraph{Pascal Context} The initial learning rate is 0.0002 and the weight decay is 0.01. A poly learning rare scheduled with factor 1.0 is used. 
+
+\paragraph{COCO-Stuff} The initial learning rate is 0.0002 and the weight decay is 0.01. A poly learning rare scheduled with factor 1.0 is used. 
+
+During inference, we set the same resize and crop rules as TopFormer to ensure fairness.
+
+\subsection{Comparison with state of the art}
+
+\paragraph{ADE20K}
+Table~\ref{ade20k_table} shows the results of SeaFormer and previous efficient backbones on ADE20K \textit{val} set. 
+The comparison covers Params, FLOPs, Latency and mIoU. 
+As shown in Table~\ref{ade20k_table}, SeaFormer outperforms these efficient approaches with comparable or less FLOPs and lower latency. 
+Compared with specially designed mobile backbone, TopFormer, which sets global self-attention as its semantics extractor, SeaFormer achieves higher segmentation accuracy with lower latency. 
+And the performance of SeaFormer-B++ surpasses MobileNetV3 by a large margin of +8.3\% mIoU with lower latency (-16\%). The results demonstrate that our SeaFormer layers improve the representation capability significantly.
+
+
+
+\paragraph{Cityscapes}
+From the table~\ref{table_city}, it can be seen that SeaFormer-B++ is 1.3 points better than SeaFormer-B with only a slight increase in latency, showing the benefit of our efficient architecture design with multiple SeaFormer layers embedded in.
+It is worth noting that with less computation cost and latency, our SeaFormer-S and SeaFormer-S++ even outperform TopFormer-B. This result further confirms the performance and efficiency of our model when processing high-resolution input images.
+
+\paragraph{Pascal Context}
+We compare SeaFormer with the previous approaches on Pascal Context validation set in Table~\ref{pascal_table}. We evaluate the performance over 59 categories and 60 categories (including background). From the results, it can be seen that SeaFormer-S++ is +1.2\% mIoU higher (46.31\% vs.45.08\%) than SeaFormer-S with similar latency. 
+
+\paragraph{COCO-Stuff}
+We compare SeaFormer with the previous approaches on COCO-Stuff validation set in Table~\ref{coco-stuff_table}. From the results, it can be seen that SeaFormer-S++ is +1.2\% mIoU higher (34.04 \vs 32.82) than SeaFormer-S with similar computation cost.
+\input{voc.tex}
+\input{coco-stuff.tex}
+
+
+\subsection{Ablation studies}
+In this section, we ablate different self-attention implementations and some important design elements in the proposed model, including our squeeze-enhanced Axial attention module (SEA attention) and fusion block on ADE20K dataset.
+
+\paragraph{The influence of components in SEA attention}
+We conduct experiments with several configurations, including detail enhancement kernel only, squeeze Axial attention only, and the fusion of both. 
+As is shown in Table~\ref{ablate_attn}, only detail enhancement or squeeze Axial attention achieves a relatively poor performance, and enhancing squeeze Axial attention with detail enhancement kernel brings a performance boost with a gain of 2.3\% mIoU on ADE20K. 
+The results indicate that enhancing global semantic features from squeeze Axial attention with local details from convolution optimizes the feature extraction capability of Transformer block. 
+For enhancement input, there is an apparent performance gap between upconv(x) and conv(x). And we conclude that increasing the channels will boost performance significantly.
+Comparing concat[qkv] and upconv(x), which also correspond to w/ or w/o convolution weight sharing between detail enhancement kernel and squeeze Axial attention, we can find that sharing weights makes our model improve inference efficiency with minimal performance loss (35.8 \vs 35.9).
+As for enhancement modes, multiplying features from squeeze Axial attention and detail enhancement kernel outperforms add enhancement by +0.4\% mIoU. 
+\input{ablate_transformer}
+\input{ablate_adaqueeze}
+
+\paragraph{Comparison with different self-attention modules}
+\input{swin.tex}
+To eliminate the impact of our architecture and demonstrate the effectiveness and generalization ability of SEA attention, we ran experiments on Swin Transformer~\cite{liu2021swin} by replacing window attention in Swin Transformer with different attention blocks.
+We set the same training protocol, hyper-parameters, and model architecture configurations as Swin for a fair comparison. 
+When replacing window attention with CCAttention (CCNet) or DoubleAttention (A2-Nets), they have much lower FLOPs than SeaFormer and other attention blocks. 
+Considering that we may not be able to draw conclusions rigorously, we doubled the number of their Transformer blocks (including MLP).
+As ACmix has the same architecture configuration as Swin, we borrow the results from the original paper. 
+From Table~\ref{table_swin}, it can be seen that SeaFormer outperforms other attention mechanisms with lower FLOPs and latency.
+
+\paragraph{Effective and efficiency of SEA attention}
+To verify the effectiveness and efficiency of SEA attention based on our designed pipeline, we experiment with convolution, Global attention, Local attention, Axial attention and three convolution enhanced attention methods including our SEA attention, ACmix and MixFormer. 
+The ablation experiments are organized in seven groups.
+Since the resolution of computing attention is relatively small, the window size in Local attention, ACmix, and MixFormer is set to 4.
+We adjust the channels when applying different attention modules to keep the FLOPs aligned and compare their performance and latency.
+The results are illustrated in Table~\ref{table_attn}.
+
+As demonstrated in the table, SEA attention outperforms the counterpart built on other efficient attentions.
+Compared with global attention, SEA attention outperforms it by +1.2\% Top1 accuracy on ImageNet-1K and +1.6 mIoU on ADE20K with less FLOPs and lower latency. 
+Compared with similar convolution enhanced attention works, ACmix and MixFormer, our SEA attention obtains better results on ImageNet-1K and ADE20K with similar FLOPs but lower latency. 
+The results indicate the effectiveness and efficiency of SEA attention module.
+\input{ablate_attn.tex}
+
+\paragraph{The influence of squeeze and expand method}
+To evaluate different squeeze and expand strategies within the SEA attention framework, we conducted a structured series of ablation studies. These were divided into three groups based on the method used, focusing on maintaining consistent FLOPs, latency, and comparative performance on the ImageNet-1K and ADE20K datasets.
+
+Table~\ref{ablate_adasqueeze} summarizes the outcomes. Notably, the `Adaptive squeeze and Adaptive expand` method excelled, achieving 69.8\% Top1 accuracy on ImageNet-1K and 36.8 mIoU on ADE20K. This method outperformed the `Mean pooling` and `Max pooling` methods combined with `Broadcast` expansion, both of which showed similar FLOPs and latency but lower performance metrics.
+
+\paragraph{The influence of fusion block design}
+We set four fusion methods, including "Add directly", "Multiply directly", "Sigmoid add" and "Sigmoid multiply". \textbf{X} directly means features from context branch and spatial branch \textbf{X} directly. 
+Sigmoid \textbf{X} means feature from context branch goes through a sigmoid layer and \textbf{X} feature from spatial branch.
+
+From the Table~\ref{table_fusion} we can see that replacing sigmoid multiply with other fusion methods hurts performance. 
+Sigmoid multiply is our optimal fusion block choice.
+\input{ablate_fusion}
+\input{ablate_embdim}
+
+\paragraph{The influence of the width in fusion block}
+To study the influence of the width in fusion block, we perform experiments with different embedding dimensions in fusion blocks on SeaFormer-Base, M denotes the channels that spatial branch and context branch features mapping to in two fusion blocks. Results are shown in Table~\ref{table_embdim_posbias}.
+
+\input{imagenet}
+\subsection{Image classification}
+\label{sec:imgnet_training}
+We conduct experiments on ImageNet-1K~\cite{deng2009imagenet}, which contains 1.28M training images and 50K validation images from 1,000 classes. We employ an AdamW~\cite{kingma2014adam} optimizer for 600 epochs using a cosine decay learning rate scheduler. A batch size of 1024, an initial learning rate of 0.064, and a weight decay of 2e-5 are used. The results are illustrated in Table~\ref{imagenet_table}. Compared with other efficient approaches, SeaFormer++ achieves a relatively better trade-off between latency and accuracy.
+
+\input{heatmap_vis}
+\input{seg_results_2}
+
+\section{Object detection}
+To further demonstrate the generalization ability of our proposed SeaFormer++ backbone on other downstream tasks, we conduct object detection task on COCO dataset. 
+
+We use RetinaNet~\cite{lin2017focal} (one-stage) as the detection framework and follow the standard settings to use SeaFormer++ as backbone to generate e feature pyramid at multiple scales. All models are trained  on train2017 split for 12 epochs (1×) from ImageNet pretrained weights.
+
+From the table~\ref{table_coco_obj} We can observe that our SeaFormer++ achieves superior results on detection task which further demonstrates the strong generalization ability of our method.
+\input{coco_obj}
+
+\input{seg_results}
+
+\subsection{Latency statistics}
+\input{latency_proportion.tex}
+We make the statistics of the latency of the proposed SeaFormer-Tiny, as shown in Figure~\ref{lat}, the shared STEM takes up about half of the latency of the whole network (49\%). 
+The latency of the context branch is about a third of the total latency (34\%), 
+whilst the actual latency of the spatial branch is relatively low (8\%) due to sharing early convolution layers with the context branch.
+Our light segmentation head (8\%) also contributes to the success of building a light model.
+
+\section{Performance under different precision of the models}
+Following TopFormer, we measure the latency in the submission paper on a single Qualcomm Snapdragon 865, and only an ARM CPU core is used for speed testing. No other means of acceleration, e.g., GPU or quantification, is used. We provide a more comprehensive comparison to demonstrate the necessity of our proposed method. We test the latency under different precision of the models.
+From the table~\ref{table_diff_precision}, it can be seen that whether it is full precision or half precision the performance of SeaFormer is better than that of TopFormer.
+\input{dif_precision_latency}
+
+\section{Visualization}
+
+\subsection{Attention heatmap}
+To demonstrate the effectiveness of detail enhancement in our squeeze-enhanced Axial attention (SEA attention),
+we ablate our model by removing the detail enhancement. 
+We visualize the attention heatmaps of the two models in Figure~\ref{heatmap_vis}.
+Without detail enhancement, attention heatmaps from solely SA attention appears to be axial strips while our proposed SEA attention is able to activate the semantic local region accurately, which is particularly significant in the dense prediction task.
+
+\subsection{Prediction results}
+We show the qualitative results and compare with the alternatives on the ADE20K validation set from two different perspectives. 
+First we compare with a mobile-friendly rival TopFormer~\cite{zhang2022topformer} with similar FLOPs and latency in Figure~\ref{vis_results_2}. 
+Besides, we compare with the Transformer-based counterpart SegFormer-B1~\cite{xie2021segformer} in Figure~\ref{vis_results}.
+In particular, our SeaFormer-L has lower computation cost than the SegFormer-B1.
+As shown in both figures, we demonstrate better segmentation results than both the mobile counterpart and Transformer-based approach.
+
+\section{Multi-resolution distillation based on feature up-sampling}
+\subsection{Experimental setup} We perform multi-resolution distillation experiments over ADE20K~\cite{zhou2017scene}. The mean of intersection over union (mIoU) is set as the evaluation metric. 
+We convert full-precision models to TNN~\cite{contributors2020tnn} and measure latency on an ARM-based device with a single Qualcomm Snapdragon 865 processor.
+We set ADE20K fine-tuned network with original resolution input in section~\ref{Exp} as the teacher model and ImageNet-1K~\cite{deng2009imagenet} pretrained network as the backbone of the student model.
+The input resolution of the student model is halved by average pooling.
+
+The standard BatchNorm~\cite{ioffe2015batch} layer is replaced by synchronized BatchNorm.
+The implementation of multi-resolution distillation is based on public codebase \texttt{mmsegmentation}~\cite{contributors2020mmsegmentation}.
+We follow the batch size, training iteration scheduler and data augmentation strategy of TopFormer~\cite{zhang2022topformer} and section~\ref{Exp} for a fair comparison.
+The initial learning rate is 0.0005 for batch size 32 or 0.00025 for batch size 16. The weight decay is 0.01. 
+A “poly” learning rate scheduled with factor 1.0 is adopted.
+During inference, we set the same resize and crop rules as TopFormer to ensure fairness.
+
+\subsection{Comparison with state of the art}
+Table~\ref{ade20k_table} shows the results of SeaFormer++ (KD) and previous efficient backbones on ADE20K \textit{val} set. 
+The comparison covers Params, FLOPs, Latency and mIoU. 
+As shown in Table~\ref{ade20k_table}, SeaFormer++ (KD) outperforms these efficient approaches with extremely less FLOPs and lower latency. 
+
+\subsection{Ablation studie}
+This study conducts ablation experiments to evaluate various upsampling modules and loss function configurations for reducing computational demands and maintaining performance in visual tasks. It aims to identify efficient upsampling strategies and optimal loss combinations that preserve model accuracy. Experiments were standardized on the ADE20K validation set to ensure fair comparison and result reliability. The research compares the efficacy of techniques like bilinear interpolation, lightweight MobileNetV2-based upsampling, and standard convolutional upsampling, assessed by mean Intersection over Union (mIoU) and computational impact. Adjusting loss functions, including classification loss, cross-model classification loss, feature similarity loss, and output similarity loss, further analyzes their role in knowledge distillation effectiveness. These experiments offer insights into balancing efficiency and performance in model design, providing a methodology for exploring model enhancements under computational constraints and guiding optimal configurations for accurate visual recognition in practical applications.
+
+\paragraph{Impact of upsample module design}
+We compare three different upsampling strategies: direct bilinear interpolation, MobileNetV2-based upsample module, and standard convolution-based upsample module.
+\begin{table}[ht]
+\centering
+\begin{tabular}{lcccc}
+\hline
+
+\hline
+
+\hline
+Upsampling Module & \#Params & FLOPs &  mIoU & Latency \\
+\hline
+Direct Interpolation & 1.7M & 0.3G & 33.7 & 20ms\\
+MobileNetV2-based upsample module & 2.3M & 0.3G & 35.5 & 22ms \\
+tandard convolution-based upsample module & 2.7M & 0.4G & 35.7 & 30ms\\
+\hline
+
+\hline
+
+\hline
+\end{tabular}
+\caption{Ablation study results of the upsampling modules.}
+\label{tab:upsampling_ablation}
+\end{table}
+In this section, the effects of three upsampling strategies on model performance were compared. The direct interpolation approach, while requiring the least parameters (1.7M) and computational effort (0.3G FLOPs), resulted in the lowest mIoU (33.7\%) and the least latency (20ms), suggesting limited complexity handling. The MobileNetV2-based lightweight upsampling improved mIoU to 35.5\% with a slight latency increase to 22ms, offering a balanced performance enhancement. The standard convolution-based module, although yielding the highest mIoU (35.7\%), did so at the cost of increased parameters (2.7M), computation (0.4G FLOPs), and latency (30ms). These findings highlight a trade-off between performance and speed in upsampling choices, with the MobileNetV2-based module providing an optimal balance for dense prediction tasks on resource-constrained devices.
+
+\paragraph{Impact of loss function}
+We incrementally add four loss function components—classification loss, output similarity loss, feature similarity loss, and cross-model classification loss—to assess their contribution to model performance.
+\begin{table}[ht]
+\centering
+\begin{tabular}{ccccc}
+\hline
+
+\hline
+
+\hline
+Cls loss & Out loss & Feat loss & Cross loss &  mIoU \\
+\hline
+\checkmark & & & &  32.5\\
+\checkmark &\checkmark & & &  33.7\\
+\checkmark &\checkmark &\checkmark & &  34.7\\
+\checkmark &\checkmark &\checkmark &\checkmark &  35.5\\
+\hline
+
+\hline
+
+\hline
+\end{tabular}
+\caption{Ablation study results of loss function design.}
+\label{tab:loss_ablation}
+\end{table}
+Through ablation studies, this experiment evaluates the performance impact of different loss functions in semantic segmentation, involving "classification loss," "output similarity loss," "feature similarity loss," and "cross-model classification loss," with mIoU as the evaluation metric. Starting from a baseline mIoU of 32.5 with just classification loss, performance sequentially improves with the addition of output and feature similarity losses, highlighting the benefits of aligning student and teacher model outputs and features for accuracy. The highest mIoU of 35.5 is achieved with the inclusion of cross-model classification loss, emphasizing the effectiveness of combining various constraints on the student model. The results underscore the individual and collective contributions of each loss function to semantic segmentation tasks, particularly the significance of model alignment for substantial performance gains, and the synergistic enhancement of model performance through integrated loss function design.
+
+
+
+

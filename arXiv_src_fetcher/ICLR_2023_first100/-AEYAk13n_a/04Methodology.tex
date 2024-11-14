@@ -1,0 +1,58 @@
+\section{Methodology}
+\label{sec:Methodology}
+
+{\bf Network architecture:}
+We apply DeepReDuce to standard ResNet18/34 architectures as defined in~\cite{he2016deep}, and also, on the non-residual networks VGGNet \cite{simonyan2014very} and MobileNets \cite{howard2017mobilenets}. 
+%Since the datasets we use (CIFAR-100 and TinyImageNet) have smaller resolution images than ImageNet, we do not perform down sampling after the Conv1 layer or the first stage .
+
+To show DeepReDuce networks outperform shallower ResNets we trained
+ResNet10 and ResNet9 in Table~\ref{tab:ShallowNetComp}.
+In these networks we removed half of the residual Blocks in each stage of ResNet18
+(each stage now has only one residual Block).
+Furthermore, for ResNet9, there is only one $3\times3$ convolution layer in the first residual Block of $S_1$.  
+All other comparisons with state-of-the-art use reported results from respective papers.
+ 
+\input{Tables/34Table_ParetoPoints}
+  
+
+{\bf Training process:}
+Networks are trained using the following parameters:
+an initial learning rate of $0.1$, 
+mini-batch size of 128,
+the momentum of $0.9$ (fixed), and 
+$0.0004$ weight decay factor. 
+We train networks for 120 epochs on both CIFAR-100 and TinyImageNet datasets. 
+%\fixme{we train all tiny image net models for 120 epochs?}. 
+The learning rate is reduced by a factor of $10$ every $30^{th}$ epoch. For training on CIFAR-10, we use cosine learning and train the networks for 150 epochs. 
+
+When using knowledge distillation, we set the hyper-parameters,
+temperature and relative weight to cross-entropy loss on hard targets 
+as $4$ and $0.9$, respectively~\cite{hinton2015distilling,zagoruyko2016paying,cho2019efficacy}. 
+For a fair comparison, we train all the networks with the same hyper-parameters 
+and use the baseline model (without any ReLU dropping) as the teacher during KD.
+For example, all the DeepReDuce-optimized ResNet18 networks and smaller ResNets,
+such as ResNet10 and ResNet9, are trained with the baseline Full-ReLU ResNet18 as a teacher.
+
+\input{Tables/37Table_R18OnTinyImageNet}
+
+{\bf Dataset:}
+We perform our experiments on the CIFAR-100 \cite{2012KrizhevskyCIFAR} and TinyImageNet \cite{le2015tiny,yao2015tiny} datasets.  
+CIFAR-100 has 100 output classes with 100 training and test images (resolution $32\times32$) per class.
+TinyImageNet has 200 output classes with 500 training and 50 test/validation images (resolution $64\times64$) per class. 
+We note that prior work on private inference~\cite{mishra2020delphi} has largely used smaller datasets like MNIST and CIFAR-10 in their evaluations, largely because the high costs of private inference make evaluations on large-scale images difficult.
+%TinyImagenet is the most complex dataset used for private inference evaluations to date.
+
+\textbf{Private inference protocol:}
+We use the DELPHI~\cite{mishra2020delphi} protocol for private inference. 
+DELPHI uses a secret sharing for linear layers and garbled circuits (GC) for ReLU layers. 
+DELPHI optimizes the linear layer computations by moving cryptographic operations to an offline (preprocessing) phase. 
+The protocol creates secret shares of the model weights during the offline phase (known before the client's input is available) and performs all linear operations over secret-shared data during the online phase.
+
+\textbf{Threat model:}
+We assume the same system setup and threat model as used by DELPHI~\cite{mishra2020delphi}, MiniOnn~\cite{liu2017oblivious}, and CryptoNAS~\cite{ghodsi2020cryptonas}.
+This model assumes an honest-but-curious adversary.
+We refer the interested reader to the referenced work for more details 
+as we make no protocol changes and provide the exact same security guarantees.
+
+
+

@@ -1,0 +1,258 @@
+\section{Softmax Natural Policy Gradient}
+\label{sec:softmaxNpg}
+Softmax NPG can be viewed as a preconditioned version of softmax PG in the parameter domain, see for example \cite{kakade2002npg,Agarwal_Kakade_Lee_Mahajan_2019}. Here we only present the update of softmax NPG in the policy domain,
+\begin{align*}
+\pi^{k+1}_{s,a}&\propto{\pi^k_{s,a}\exp(\eta\, A^k_{s,a})}\\
+&\propto {\pi^k_{s,a}\exp(\eta\, Q^k_{s,a})}.%\numberthis\label{eq:softmaxNPG}
+\end{align*}
+It is worth noting that NPG can be viewed as the policy mirror ascent method under the KL-divergence:
+\begin{align*}
+\pi_s^{k+1} = \argmax_{p\in\Delta(\mathcal{A})}\left\{{\eta}\left(\langle Q^{k}(s,\cdot),p\rangle \right)-\mathrm{KL}(p\|\pi^k_s)\right\}.
+\end{align*}
+Thus, it is easy to see that as $\eta\rightarrow\infty$, NPG is also close to PI.
+
+
+Let $Z_s^k=\sum_{a'} \pi^k_{s,a'}\exp(\eta\,A^k_{s,a'})$ be the normalization factor such that 
+\begin{align*}
+\pi^{k+1}_{s,a}=\frac{\pi^k_{s,a}\exp(\eta\, A^k_{s,a})}{Z_s^k},\numberthis\label{eq:softmaxNPG}
+\end{align*}
+ one has  
+\begin{align*}
+\log\frac{\pi^{k+1}_{s,a}}{\pi^k_{s,a}}=\eta\,A^k_{s,a}-\log Z_s^k.\numberthis\label{eq:softmaxNPG-starting-point}
+\end{align*}
+Taking expectation with respect to $\pi^k_{s}$ on both sides yields 
+\begin{align*}
+\log Z_s^k = \mathrm{KL}(\pi^k_s\|\pi^{k+1}_s),
+\end{align*}
+while taking expectation with respect to $\pi^{k+1}_s$ yields 
+\begin{align*}
+\mathrm{KL}(\pi^{k+1}_s\|\pi^k_s) = \eta\, \mathbb{E}_{a\sim \pi^{k+1}(\cdot|s)}\left[A^k_{s,a}\right] - \mathrm{KL}(\pi^k_s\|\pi^{k+1}_s).
+\end{align*}
+It follows that
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}=\frac{1}{\eta}\mathrm{KL}(\pi^{k+1}_s\|\pi^k_s)+\frac{1}{\eta}\mathrm{KL}(\pi^k_s\|\pi^{k+1}_s).\numberthis\label{eq:softmaxNPG-identity01}
+\end{align*}
+Moreover, taking expectation with respect to $\pi^*_s$ on both sides of \eqref{eq:softmaxNPG-starting-point} yields
+\begin{align*}
+\mathrm{KL}(\pi_s^*\|\pi_s^k)-\mathrm{KL}(\pi^*_s\|\pi_s^{k+1})&=\eta \sum_a \pi^*_{s,a}A^k_{s,a}-\log Z_s^k\\
+&=\eta \sum_a \pi^*_{s,a}A^k_{s,a}-\mathrm{KL}(\pi^k_s\|\pi^{k+1}_s).
+\end{align*}
+Combining the above two inequalities together yields
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a} = \sum_a\pi^*_{s,a}A^k_{s,a} +\frac{1}{\eta}\mathrm{KL}(\pi^*_s\|\pi_s^{k+1})-\frac{1}{\eta}\mathrm{KL}(\pi_s^*\|\pi_s^k)+\frac{1}{\eta}\mathrm{KL}(\pi^{k+1}_s\|\pi^k_s).\numberthis\label{eq:softmaxNPG-identity02}
+\end{align*}
+Indeed, recalling the definitions of $\mathcal{L}_k^{k+1}$ and $\mathcal{L}_k^*$ in \eqref{eq:Lk-non} and \eqref{eq:Lstar-non}, the above equality immediately implies that 
+\begin{align*}
+    \mathcal{L}_k^{k+1}\geq \mathcal{L}_k^*-\frac{1}{\eta\,(1-\gamma)}\left(\mathbb{E}_{s\sim d_\rho^*}\left[\mathrm{KL}(\pi_s^*\|\pi_s^k)\right]-\mathbb{E}_{s\sim d_\rho^*}\left[\mathrm{KL}(\pi_s^*\|\pi_s^{k+1})\right]\right).
+\end{align*}
+Together with Theorem~\ref{thm:sublinear-global-error}, the sublinear convergence of softmax NPG can be established, as shown in \cite{Agarwal_Kakade_Lee_Mahajan_2019}.
+\begin{theorem}[\protect{\cite[Theorem~16]{Agarwal_Kakade_Lee_Mahajan_2019}}]\label{thm:softmaxNPG-sublinear}
+    For any constant step size $\eta>0$, softmax NPG converges sublinearly,
+    \begin{align*}
+        V^*(\rho)-V^k(\rho) \leq \frac{1}{k}\left[\frac{1}{(1-\gamma)^2}+\frac{\mathrm{KL}(\pi_s^*\|\pi_s^{0})}{\eta\,(1-\gamma)}\right].
+    \end{align*}
+\end{theorem}
+In addition to the global sublinear convergence, the local linear convergence has been established in \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021} based on the contraction of the sub-optimal probability $b_s^k$ at each state and Lemma~\ref{lem:bsk-bounds}. In this section, we are going to show the global linear convergence of softmax NPG. To this end, we need to consider the convergence in two phases, which requires us to establish two improvement lower bounds.
+%%%%
+\begin{lemma}[Improvement Lower Bound I]\label{lem:softmaxNPG-improvement-lower01}
+For softmax NPG with any constant step size $\eta>0$, one has 
+\begin{align*}
+\sum_a \pi^{k+1}_{s,a}A^k_{s,a} \geq \left[1-\frac{1}{1+\pi_s^k(\mathcal{A}_s^k)\left(\exp\left(\eta\,\Delta_s^k\right)-1\right)}\right]\max_a A^k_{s,a},
+\end{align*}
+where $ \Delta_s^k=\max_a A^k_{s,a}-\max_{a'\not\in\mathcal{A}_s^k}A^k_{s,a'}$, $\calA^k_s := \argmax_{a\in\calA} \; A^k(s,a)$ and $\pi^k_s(\mathcal{A}^k_s)=\sum_{a\in\mathcal{A}_s^k}\pi^k(a|s)$.
+\end{lemma}
+\begin{proof}
+    Define the policy $\xi^k_-(\cdot|s)$ as 
+\begin{align*}
+\xi^k_-(a|s)=\begin{cases}
+0 & \mbox{if }a\in\mathcal{A}_s^k,\\
+{\pi^k(a|s)}/{(1-\pi_s^k(\mathcal{A}_s^k))}&\mbox{if }a\not\in\mathcal{A}_s^k.
+\end{cases}
+\end{align*}
+ Noting that $\sum_a\pi^k_{s,a}A^k_{s,a}=0$, one has 
+\begin{align*}
+\pi^k_s(\mathcal{A}^k_s)\max_a A^k_{s,a} +(1-\pi^k_s(\mathcal{A}_s^k))\,\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[A^k_{s,a'}\right]=0.\numberthis\label{eq:npg-tmp01}
+\end{align*}
+By the definition of $\pi^{k+1}_{s,a}$ in the NPG update, one has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a} A^k_{s,a} &= \sum_a \frac{\pi^k_{s,a}\exp(\eta\, A^k_{s,a})}{Z_s^k}A^k_{s,a}\\
+&=\frac{\mathbb{E}_{a\sim \pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)A^k_{s,a}\right]}{\mathbb{E}_{a\sim\pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]}.
+\end{align*}
+The numerator can be bounded as follows: 
+\begin{align*}
+\mathbb{E}_{a\sim \pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)A^k_{s,a}\right]&=\pi_s^k(\mathcal{A}_s^k)\exp\left(\eta\,\max_a A^k_{s,a}\right)\max_a A^k_{s,a}+(1-\pi_s^k(\mathcal{A}_s^k))
+\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)A^k_{s,a'}\right]\\
+&\geq \pi_s^k(\mathcal{A}_s^k)\exp\left(\eta\,\max_a A^k_{s,a}\right)\max_a A^k_{s,a}\\
+&+(1-\pi_s^k(\mathcal{A}_s^k))
+\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\,\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[A^k_{s,a'}\right]\\
+&=\pi_s^k(\mathcal{A}_s^k)\left[\exp\left(\eta\,\max_a A^k_{s,a}\right)-\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\right]\max_a A^k_{s,a},
+\end{align*}
+where the first inequality is due to Lemma~\ref{lem:positive-covariance} and the last equality comes from \eqref{eq:npg-tmp01}. The denominator can be rewritten  as 
+\begin{align*}
+\mathbb{E}_{a\sim\pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]& = \pi_s^k(\mathcal{A}_s^k)\exp\left(\eta\,\max_a A^k_{s,a}\right)+(1-\pi_s^k(\mathcal{A}_s^k))\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\\
+&=\pi_s^k(\mathcal{A}_s^k)\left[\exp\left(\eta\,\max_aA^k_{s,a}\right)-\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\right]+\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right].
+\end{align*}
+Therefore, 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a} A^k_{s,a}&\geq \left[1-\frac{1}{1+\pi_s^k(\mathcal{A}_s^k)\left(\frac{\exp\left(\eta\,\max_a A^k_{s,a}\right)}{\mathbb{E}_{a'\sim \xi^k_-(\cdot|s)}\left(\exp\left(\eta\,A^k_{s,a'}\right)\right)}-1\right)}\right]\max_a A^k_{s,a}\\
+&\geq \left[1-\frac{1}{1+\pi_s^k(\mathcal{A}_s^k)\left(\exp\left(\eta\,\Delta_s^k\right)-1\right)}\right]\max_a A^k_{s,a},
+\end{align*}
+which completes the proof.
+\end{proof}
+%%%%%%%%%
+\begin{lemma}[Improvement Lower Bound II]\label{lem:softmaxNPG-improvement-lower02}
+    Let $\varepsilon \in(0,\Delta/2)$. If $\|V^*-V^k\|_\infty\leq \varepsilon$, then for softmax NPG with any constant step size $\eta>0$, one has
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\geq \left[1-\frac{1}{1+(1-b_s^k)\left(\exp(\eta\,(\Delta-\varepsilon))-1\right)}\right]\sum_a\pi^{k,*}_{s,a}A^k_{s,a},
+\end{align*}
+{where $\pi^{k,*}$ is an optimal policy.}
+\end{lemma}
+\begin{proof}
+    First define the following two polices based on $\mathcal{A}_s^*$:
+\begin{align*}
+\xi^k(a|s) =\begin{cases}
+\pi^k(a|s)/(1-b_s^k)&\mbox{if }a\in\mathcal{A}_s^*,\\
+0&\mbox{if }a\not\in\mathcal{A}_s^*,
+\end{cases}
+\end{align*}
+and 
+\begin{align*}
+\xi^k_-(a|s) = \begin{cases}
+0 & \mbox{if }a\in\mathcal{A}_s^*,\\
+\pi^k(a|s)/b_s^k & \mbox{if }a\not\in\mathcal{A}_s^*.
+\end{cases}
+\end{align*}
+Again, it follows from $\sum_a\pi^k_{s,a}A^k_{s,a}=0$ that
+\begin{align*}
+(1-b_s^k)\,\mathbb{E}_{a\sim \xi^k(\cdot|s)}\left[A^k_{s,a}\right]+b_s^k\,\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[A^k_{s,a'}\right]=0.
+\end{align*}
+Therefore,
+\begin{align*}
+&\mathbb{E}_{a\sim \pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)A^k_{s,a}\right]\\
+&=(1-b_s^k)\,\mathbb{E}_{s\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)A^k_{s,a}\right]+b_s^k\,\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)A^k_{s,a'}\right]\\
+&\geq (1-b_s^k)\,\mathbb{E}_{s\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]\mathbb{E}_{s\sim\xi^k(\cdot|s)}\left[A^k_{s,a}\right]+b_s^k\,\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[A^k_{s,a'}\right]\\
+&=(1-b_s^k)\,\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[A^k_{s,a}\right]\left(\mathbb{E}_{s\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]-\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\right).
+\end{align*}
+In addition,  
+\begin{align*}
+&\mathbb{E}_{a\sim\pi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]\\
+&=(1-b_s^k)\,\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]+b_s^k\,\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\\
+&= (1-b_s^k)\left(\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]-\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]\right)+\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right].
+\end{align*}
+By the assumption $\|V^*-V^k\|_\infty\leq\varepsilon$, it is easy to see that $\|A^*-A^k\|_\infty\leq\varepsilon$, implying that 
+\begin{align*}
+\forall a\in\mathcal{A}_s^*:&\quad -\varepsilon\leq A^k(s,a)\leq \varepsilon, \quad\\
+\forall a'\not\in\mathcal{A}_s^*:&\quad A^k(s,a')\leq -\Delta+\varepsilon.
+\end{align*}
+Since $A^k_{s,a'}\leq 0,\,\forall a'\not\in\mathcal{A}_s^*$,  there must hold $\mathbb{E}_{a\sim \xi^k(\cdot|s)}\left[A^k_{s,a}\right]\geq 0$.
+Together with the expressions in the above two inequalities, we have 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}&\geq \left[1-
+\frac{1}{1+(1-b_s^k)\left(\frac{\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]}{\mathbb{E}_{a'\sim\xi^k_-(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a'}\right)\right]}-1\right)}\right]\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[A^k_{s,a}\right]\\
+&\geq  \left[1-\frac{1}{1+(1-b_s^k)\left(\exp(\eta\,(\Delta-\varepsilon))-1\right)}\right]\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[A^k_{s,a}\right],
+\end{align*}
+where the last inequality follows from the above property and $$\mathbb{E}_{a\sim\xi^k(\cdot|s)}\left[\exp\left(\eta\,A^k_{s,a}\right)\right]\geq \exp\left(\eta\,\mathbb{E}_{a\sim \xi^k(\cdot|s)}\left[A^k_{s,a}\right]\right)\geq 1.$$ The proof is completed since $\xi^k$ is an optimal policy.
+\end{proof}
+%%%%%%%
+\begin{theorem}[Global Linear Convergence]\label{thm:softmaxNPG-global-linear}
+    For softmax NPG with any constant step size $\eta>0$, one has
+    \begin{align*}
+\left\|V^*-V^k\right\|_\infty&\leq \left\|V^*-V^0\right\|_\infty\prod_{t=0}^{k-1}\left(1-(1-\gamma)\left[1-\frac{1}{1+C^t}\right]\right)\\
+&\leq \left\|V^*-V^0\right\|_\infty\left(1-(1-\gamma)\left[1-\frac{1}{1+\inf_t C^t}\right]\right)^k,
+\end{align*}
+where $C^t=\min_s C_s^t$ and 
+\begin{align*}
+C_s^t=\begin{cases}
+\pi_s^t(\mathcal{A}_s^t)\left(\exp\left(\eta\,\Delta_s^k\right)-1\right)&\mbox{ if }\|V^*-V^t\|_\infty> \varepsilon,\\
+(1-b_s^t)\left(\exp(\eta\,(\Delta-\varepsilon))-1\right) & \mbox{ if }\|V^*-V^t\|_\infty\leq \varepsilon.
+\end{cases}
+\end{align*}
+\end{theorem}
+\begin{proof}
+    Together  with Theorem~\ref{thm:linear-infinity-02}, the improvement lower bounds I and II imply the global linear convergence of softmax NPG. Note that $\inf_t C^t$ exists since $b_s^t\rightarrow 0$ as softmax NPG converges.
+\end{proof}
+%%%%
+
+%%%%
+It is not hard to see that the following dynamic convergence result solely based on the improvement bound I holds for all the $k$,
+\begin{align*}
+    \left\|V^*-V^k\right\|_\infty\leq \left\|V^*-V^0\right\|_\infty\prod_{t=0}^{k-1}\left(1-(1-\gamma)\left[1-\frac{1}{1+\min_s\{\pi_s^t(\mathcal{A}_s^t)\left(\exp\left(\eta\,\Delta_s^k\right)-1\right)\}}\right]\right)
+    \numberthis\label{eq:dynamic-rate}
+\end{align*}
+Next we consider a  bandit example  which shows that the above  dynamic is indeed tight, i.e., the equality can be achieved.
+\begin{example}
+For simplicity, consider a bandit problem with one state $s$ and two actions $\{a_1,a_2\}$. Assume 
+\begin{align*}
+r(s,a_1) = 1 \quad\mbox{and}\quad r(s,a_2)=0.
+\end{align*}
+Thus, $a_1$ is the optimal action. For any $\pi$, we have 
+\begin{align*}
+Q^\pi(s,a_1) = 1, \quad Q^\pi(s,a_2)=0,\quad V^\pi(s) = \pi_{a_1},\\
+A^\pi(s,a_1) = 1- \pi_{a_1},\quad A^\pi(s,a_2) = - \pi_{a_1}, \quad\Delta_s^\pi = 1.
+\end{align*}
+It is also clear that $V^*(s) =1$.
+
+The update of NPG at $a_1$ is given by 
+\begin{align*}
+\pi^{k+1}_{a_1} = \frac{\pi^k_{a_1}\exp\left(\eta\,(1-\pi^k_{a_1})\right)}{Z^k},
+\end{align*}
+where 
+\begin{align*}
+Z^k = \pi^k_{a_1}\exp\left(\eta\,(1-\pi^k_{a_1})\right) + (1-\pi^k_{a_1})\exp\left(-\eta\,\pi^k_{a_1}\right).
+\end{align*}
+It can be verified directly that  
+\begin{align*}
+\left(V^*(s)-V^{k+1}(s)\right)\left(1+\pi_{a_1}^k(e^\eta-1)\right) = 1-\pi_{a_1}^k = V^*(s)-V^k(s).
+\end{align*}
+Consequently,
+\begin{align*}
+V^*(s)-V^k(s)&= \left(V^*(s)-V^0(s)\right)\prod_{t=0}^{k-1}\frac{1}{1+\pi_{a_1}^t(e^\eta-1)}.
+\end{align*}
+Noting that $\gamma=0$, $\pi^t_s(\mathcal{A}_s^t)=\pi_{a_1}^t$ and $\Delta_s^t=1$, it shows that \eqref{eq:dynamic-rate} holds with equality for this example.
+\end{example}
+
+Note that  the best global linear rate that can be expected from Theorem~\ref{thm:softmaxNPG-global-linear} is $\gamma$ no matter how $\eta$ varies. As is already already mentioned, as $\eta\rightarrow\infty$, softmax NPG approaches PI. Since PI has a local quadratic linear convergence \cite{PI-super},  one might expect softmax NPG to have a faster linear convergence rate as $\eta\to\infty$. In \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021}, such a local linear convergence has been established. 
+\begin{theorem}[\protect{\cite[Theorem~3.1]{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021}}]\label{thm:softmaxNPG-fast-local} For any constant step size $\eta$, $\rho \in \Delta(\mathcal{S})$ and  arbitrary constant $\lambda > 1$, there exists a time $T(\lambda) \in \mathbb{N}$  such that 
+$$
+\forall\, k\ge T\left( \lambda \right) :\qquad V^*\left( \rho \right) -V^k\left( \rho \right) \le \left( \exp \left\{ -\eta\, \Delta \left( 1-\frac{1}{\lambda} \right) \right\} \right) ^{k-T\left( \lambda \right)}\left\| \frac{1}{d_{\rho}^{T\left( \lambda \right)}} \right\| _{\infty}\left( V^*\left( \rho \right) -V^{T\left( \lambda \right)}\left( \rho \right) \right).
+$$
+    
+\end{theorem}
+Note that Theorem~\ref{thm:softmaxNPG-fast-local} is presented in a slightly different form from the one presented in \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021} which only requires a little adjustment in the proof.
+In \cite{Khodadadian_Jhunjhunwala_Varma_Maguluri_2021}, the lower bound on the local linear convergence rate for the bandit problem is also established. At the end of this section, we will show a lower bound for the general MDP problem which overall matches the upper bound.
+\begin{theorem}[Lower Bound of Local Linear Convergence for Any MDP]
+For any constant step size $\eta>0$ and an arbitrary constant $\sigma>0$, there exists a time $T(\sigma)$ such that 
+\begin{align*}
+\forall\,k\geq T(\sigma):\quad V^*(\rho)-V^k(\rho)\geq \tilde{\rho}\,\Delta \min_{s,a}\pi^{T(\sigma)}(a|s)\exp\left(-\eta(\Delta+\sigma)(k-T(\sigma))\right).
+\end{align*}
+ 
+\end{theorem}
+
+\begin{proof}
+    Let $s_0=\arg\min_{s}\{\max_a Q^*(s,a)-\max_{a\not\in\mathcal{A}_s^*}Q^*(s,a)\}$ and $a_0\in \arg\max_{a}Q^*(s_0,a)$. According to the definition of $\Delta$, one has 
+\begin{align*}
+A^*(s_0,a_0)=-\Delta.
+\end{align*}
+Now we consider the ratio $\pi^{k+1}(s_0,a_0)/\pi^k(s_0,a_0)$. By the update of softmax NPG,
+\begin{align*}
+\frac{\pi^{k+1}(a_0|s_0)}{\pi^k(a_0|s_0)}&=\frac{\exp(\eta\, A^k(s_0,a_0))}{\mathbb{E}_{a\sim\pi^k(\cdot|s_0)}\left[\exp(\eta\,A^k(s_0,a))\right]}\geq \exp\left(\eta\left(A^k(s_0,a_0)-\max_aA^k(s_0,a)\right)\right).
+\end{align*}
+Since $A^k\rightarrow A^*$, for any $\sigma>0$, there exists $T(\sigma)$ such that
+\begin{align*}
+\forall\,k\geq T(\sigma):\quad \|A^k-A^*\|_\infty\leq \sigma/2,
+\end{align*}
+which implies that 
+\begin{align*}
+A^k(s_0,a_0)&\geq A^*(s_0,a_0)-\sigma/2\geq -\Delta-\sigma/2,\\
+\max_a A^k(s_0,a)&\leq\max_a A^*(s_0,a)+\sigma/2\leq \sigma/2. 
+\end{align*}
+It follows that 
+\begin{align*}
+\forall\,k\geq T(\sigma):\quad \frac{\pi^{k+1}(a_0|s_0)}{\pi^k(a_0|s_0)}\geq \exp\left( -\eta\left(\Delta+\sigma\right)\right).
+\end{align*}
+By Lemma~\ref{lem:bsk-bounds},
+\begin{align*}
+V^*(\rho)-V^k(\rho)\geq \Delta\,\mathbb{E}_{s\sim \rho}\left[b_s^k\right]\geq \tilde{\rho}\,\Delta\,\pi^k(a_0|s_0),
+\end{align*}
+and the  claim follows immediately. 
+\end{proof}

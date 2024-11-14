@@ -1,0 +1,308 @@
+\section{Softmax Policy Gradient}\label{sec:softmaxPG}
+The softmax parameterization is in the form of 
+\begin{align*}
+\pi_\theta(a|s) = \frac{\exp(\theta_{s,a})}{\sum_{a'\in\mathcal{A}}\exp(\theta_{s,a'})},\quad 
+\mbox{where }\theta=(\theta_{s,a})\in\R^{|\mathcal{S}|\times |\mathcal{A}|}.
+\end{align*}
+Under this parameterization, by the chain rule, it is easy to see that the policy gradient with respect to $\theta$ is given by
+  \begin{align*}
+        \frac{\partial V^{\pi_\theta}(\mu)}{\partial \theta_{s,a}} = \frac{1}{1-\gamma} d^{\pi_\theta}_\mu(s)\, \pi_\theta(a|s) A^{\pi_\theta}(s,a).\numberthis\label{eq:softmax-gradient}
+    \end{align*}
+Thus, the update of softmax PG in the parameter space is given by 
+\begin{align*}
+\theta_{s,a}^{k+1} = \theta^k_{s,a}+\eta_s^k\,\pi^k_{s,a}A^k_{s,a},
+\end{align*}
+where $\eta_s^k=\frac{\eta_k}{1-\gamma}d_\mu^k(s)$.
+In the policy domain, the update can be written as 
+\begin{align*}
+\pi^{k+1}_{s,a}= \frac{\pi^k_{s,a}\exp\left(\eta_s^k\pi^k_{s,a}A^k_{s,a}\right)}{Z_s^k},\numberthis\label{eq:softmaxPG}
+\end{align*}
+ where $Z_s^k=\sum_{a'} \pi_{s,a'}^k\exp\left(\eta_s^k\,\pi^k_{s,a'}A^k_{s,a'}\right)$ is the normalization factor. 
+For ease of notation, we will let $\hat{A}^k_{s,a}=\pi^k_{s,a}A^k_{s,a}$  in this section. It is evident that 
+\begin{align*}
+\sum_{a\in\mathcal{A}}\hat{A}^k_{s,a}=0.
+\end{align*}
+
+ The $O(1/k)$ sublinear convergence has been established for softmax PG with constant step size in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020}. The analysis therein is essentially based on the smoothness and the gradient domination property of the value function, and thus requires the step size to be sufficiently small. In addition, an adaptive step size based on the norm of the gradient has been proposed in \cite{mei2021normalized}, with which softmax PG can achieve linear convergence.
+ In this section, we will establish the $O(1/k)$ sublinear convergence of softmax PG to any constant step size. Additionally, a new adaptive step size selection rule will also be introduced.
+ 
+ In contrast to the optimization analysis framework adopted in \cite{Mei_Xiao_Szepesvari_Schuurmans_2020}, the idea of analysis here is more elementary and similar to the one used in Section~\ref{sec:ppg}. That being said, the extension is by no means trivial since the update of softmax PG is substantially different with that of PPG. In particular, we will establish the improvement lower bound of $ \mathcal{T}^{k+1}V^k(s)-V^k(s)$ for softmax PG in terms of a function of $\max_a|\hat{A}^k_{s,a}|$ in contrast to $\max_aA^k_{s,a}$ due to the existence of $\pi_{s,a}^k$ in the exponent in \eqref{eq:softmaxPG}. Moreover, as noted after Lemma~\ref{lem:ppg-improvement}, the establishment of the improvement lower bound in terms of $\max_aA^k_{s,a}$ for PPG relies heavily on the explicit formula for the projection which is not applicable for softmax PG. Instead, a complete different route is adopted to establish the improvement lower bound for softmax PG. Moreover, the improvement upper bound is also established which enables us to show that the $O(1/k)$ sublinear convergence rate is tight for softmax PG with any constant step size.
+%%%%%%%%%%%
+\subsection{Improvement Lower and Upper Bounds}
+We begin with a novel identity that plays an important role in the establishment of the improvement lower and upper  bounds.
+\begin{lemma}[Improvement Identity]\label{lem:softmax-identity}
+For any state $s$, the improvement of softmax PG with step size $\eta_k$ in the $k$-th iteration  is equal to
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a} = \frac{1}{2|\mathcal{A}|Z_s^k}\sum_{a,a'}\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right).\numberthis\label{eq:softmaxPG-identity}
+\end{align*}
+
+\end{lemma}
+\begin{proof}
+    The identity follows from a direct computation:
+    \begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a} & = \sum_a\frac{\pi^{k+1}_{s,a}}{\pi^k_{s,a}}\hat{A}^k_{s,a}\\
+& =\frac{1}{Z_s^k}\sum_a \hat{A}^k_{s,a}\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\\
+& = \frac{|\mathcal{A}|}{Z_s^k}\sum_a \frac{1}{|\mathcal{A}|}\hat{A}^k_{s,a}\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\\
+& = \frac{|\mathcal{A}|}{Z_s^k}\mathbb{E}_{a\sim U} \left[\hat{A}^k_{s,a}\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\right]\\
+& = \frac{|\mathcal{A}|}{Z_s^k}\mathrm{Cov}_{a\sim U} \left(\hat{A}^k_{s,a}, \; \exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\right)\\
+& =  \frac{|\mathcal{A}|}{2\,Z_s^k}\mathbb{E}_{a\sim U,a'\sim U} \left[\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right)\right]\\
+&=\frac{1}{2|\mathcal{A}|Z_s^k}\sum_{a,a'}\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right),
+\end{align*}
+where $U$ represents the uniform distribution on $\calA$, the fifth equality follows from $\sum_a \hat{A}^k_{s,a}=0$, and the sixth equality follows from Lemma~\ref{lem:covariance-identity}.
+\end{proof}
+
+\begin{lemma}[Improvement Lower Bound]\label{lem:softmaxPG-improvement-lower}
+    For any state $s\in\mathcal{S}$, the improvement of softmax PG with step size $\eta_k$ in the $k$-th iteration has the following lower bound:
+    \begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\geq \frac{1}{|\mathcal{A}|}\left(\max_a|\hat{A}^k_{s,a}|\right)
+\left(1-\exp\left(-\eta_k\,\tilde{\mu}\max_a|\hat{A}^k_{s,a}|\right)\right).
+\end{align*}
+\end{lemma}
+\begin{proof}
+    Noting that the term
+\begin{align*}
+\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right)
+\end{align*}
+in the identity \eqref{eq:softmaxPG-identity} is always non-negative, one has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a} &= \frac{1}{2|\mathcal{A}|Z_s^k}\sum_{a,a'}\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right)\\
+&\geq  \frac{1}{|\mathcal{A}|Z_s^k}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\left(\exp\left(\eta_s^k\,\max_a\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\min_a\hat{A}^k_{s,a}\right)\right)\\
+&\geq \frac{1}{|\mathcal{A}|}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\left(1-\exp\left(-\eta_s^k\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\right)\right)\\
+&\geq \frac{1}{|\mathcal{A}|}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\left(1-\exp\left(-\eta_k\,\tilde{\mu}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\right)\right)\\
+&\geq \frac{1}{|\mathcal{A}|}\max_a|\hat{A}^k_{s,a}|\left(1-\exp\left(-\eta_k\,\tilde{\mu}\max_a|\hat{A}^k_{s,a}|\right)\right).
+\end{align*}
+Here, the third line follows from 
+\begin{align*}
+Z_s^k=\sum_a \pi_{s,a}^k\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\leq \exp\left(\eta_s^k\max_a\hat{A}^k_{s,a}\right),
+\end{align*}
+the fourth line follows from $\eta_s^k\geq \eta_k\,\tilde{\mu}$, the fifth line follows from $f(x)=x(1-\exp(-cx))$  ($c>0$) is non-negative, monotonically increasing on $[0,\infty)$ and 
+\begin{align*}
+\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\geq \max_a|\hat{A}^k_{s,a}|
+\end{align*}
+since $\sum_a\hat{A}^k_{s,a}=0$.
+\end{proof}
+
+\begin{lemma}[Improvement Upper Bound]\label{lem:softmaxPG-improvement-upper}
+    For any state $s\in\mathcal{S}$, the improvement of softmax PG with step size $\eta_k$ in the $k$-th iteration has the following upper bound:
+    \begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\leq \left(\exp\left(\frac{2\eta_k}{(1-\gamma)^2}\right)-1 \right)|\mathcal{A}|(1-\gamma)\left(\max_a|\hat{A}^k_{s,a}|\right)^2.
+\end{align*}
+\end{lemma}
+\begin{proof}
+    The proof also begins with the identity \eqref{eq:softmaxPG-identity} as follows:
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a} &= \frac{1}{2|\mathcal{A}|Z_s^k}\sum_{a,a'}\left(\hat{A}^k_{s,a}-\hat{A}^k_{s,a'}\right)\left(\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\hat{A}^k_{s,a'}\right)\right)\\
+&\leq \frac{|\mathcal{A}|}{2Z_s^k}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\left(\exp\left(\eta_s^k\,\max_a\hat{A}^k_{s,a}\right)-\exp\left(\eta_s^k\,\min_a\hat{A}^k_{s,a}\right)\right)\\
+&\leq \frac{|\mathcal{A}|}{2}\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\left(\exp\left(\eta_s^k\left(\max_a\hat{A}^k_{s,a}-\min_a\hat{A}^k_{s,a}\right)\right)-1\right)\\
+&\leq  |\mathcal{A}|\max_a|\hat{A}^k_{s,a}| \left(\exp\left(2\,\eta_s^k\max_a|\hat{A}^k_{s,a}|\right)-1\right)\\
+& \leq  |\mathcal{A}|\max_a|\hat{A}^k_{s,a}| \left(\exp\left(\frac{2\,\eta_k}{1-\gamma}\max_a|\hat{A}^k_{s,a}|\right)-1\right),
+\end{align*}
+where the third line follows from
+\begin{align*}
+Z_s^k=\sum_a \pi_{s,a}^k\exp\left(\eta_s^k\,\hat{A}^k_{s,a}\right)\geq \exp\left(\eta_s^k\min_a\hat{A}^k_{s,a}\right).
+\end{align*}
+Noticing that $\max_a|\hat{A}^k_{s,a}|\leq \frac{1}{1-\gamma}$, together with the fact
+\begin{align*}
+\exp\left(\frac{2\eta_k}{1-\gamma}x\right)-1\leq \left(\exp\left(\frac{2\eta_k}{(1-\gamma)^2}\right)-1\right)(1-\gamma)\,x,\quad \mbox{for }x\in\left[0,\frac{1}{1-\gamma}\right],
+\end{align*}one further has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\leq \left(\exp\left(\frac{2\,\eta_k}{(1-\gamma)^2}\right)-1\right)(1-\gamma)|\mathcal{A}|\left(\max_a|\hat{A}^k_{s,a}|\right)^2.
+\end{align*}
+The proof is now complete.
+\end{proof}
+%%%%%%%%%%%
+\subsection{Convergence Results}
+% global 
+% sublinear and lower bound
+% linear for adapstepsize
+We first present the global convergence of softmax PG for any step size sequence $\eta_k$ as long as $\inf_k\eta_k\geq \alpha$ for some $\alpha>0$. The proof overall follows the route in~\cite{Agarwal_Kakade_Lee_Mahajan_2019} and is presented in Appendix~\ref{sec:proof-softmaxPG-global} where we only point out how to generalize the proof in~\cite{Agarwal_Kakade_Lee_Mahajan_2019} to any step size sequence.
+\begin{theorem}[Global Convergence]\label{thm:softmaxPG-global}
+    Consider softmax PG with step size $\eta_k$ in the $k$-th iteration. Assume $\inf_k\eta_k\geq \alpha$ for some $\alpha>0$. Then the produced state values  converge to the optimal one,
+    \begin{align*}
+        \forall \, s\in\calS: \quad \lim_{k\rightarrow\infty}V^k(s) = V^*(s).
+    \end{align*}
+\end{theorem}
+
+Recall that $b_s^k=\sum_{a\not\in\mathcal{A}_s^*}\pi^k(a|s)$ is the probability of $\pi^k$ on the non-optimal actions. We define 
+\begin{align}
+\kappa =\mathop {\mathrm{inf}} \limits_{k\ge 0,s\in \mathcal{S}}\min \left( 1-b_{s}^{k} \right) .
+\label{def:kappa}
+\end{align}
+It follows immediately from the global convergence of softmax PG and the left inequality of Lemma~\ref{lem:bsk-bounds}
+that $\kappa>0$. It is worth mentioning that $\kappa$  can be very small for softmax PG on certain MDP problems, as demonstrated in \cite{li2023exponential}.
+ In the rest of this section, we present the sublinear convergence rate and the corresponding lower bound for softmax PG with any constant step size, as well as a new adaptive step size that enables softmax PG to converge linearly.  
+\begin{theorem}[Sublinear Convergence for any Constant Step Size]\label{thm:softmaxPG-sublinear}
+    For any  constant step size $\eta>0$, softmax PG converges sublinearly, 
+    \begin{align*}
+V^*(\rho)-V^k(\rho)\leq \frac{1}{k}\frac{1}{\tilde{\rho}\,(1-\gamma)^3}\frac{|\mathcal{A}|}{\kappa^2}\left(\max_s|\mathcal{A}_s^*|\right)^2\left(1+\frac{1-\gamma}{\eta\,\tilde{\mu}}\right).
+\end{align*}
+ In particular, if the optimal policy is unique, i.e., $|\mathcal{A}_s^*|=1$,  one has
+\begin{align*}
+V^*(\rho)-V^k(\rho)\leq \frac{1}{k}\frac{1}{(1-\gamma)^3}\frac{|\mathcal{A}|}{\kappa^2}\left\|\frac{d_\rho^*}{\rho}\right\|_\infty\left(1+\frac{1-\gamma}{\eta\,\tilde{\mu}}\right).
+\end{align*}
+\end{theorem}
+\begin{proof}
+    By the improvement lower bound, one has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}&\geq \frac{1}{|\mathcal{A}|}\left(\max_a|\hat{A}^k_{s,a}|\right)
+\left(1-\exp\left(-\eta\,\tilde{\mu}\max_a|\hat{A}^k_{s,a}|\right)\right)\\
+&\geq \frac{1}{|\mathcal{A}|}(1-\gamma)\left(1-\exp\left(-\frac{\eta\,\tilde{\mu}}{1-\gamma}\right)\right)\left(\max_a|\hat{A}^k_{s,a}|\right)^2\\
+&\geq \frac{1}{|\mathcal{A}|}(1-\gamma)\left(1-\exp\left(-\frac{\eta\,\tilde{\mu}}{1-\gamma}\right)\right)\left(\frac{1}{|\mathcal{A}_s^*|}\sum_{a\in\mathcal{A}_s^*}\hat{A}^k_{s,a}\right)^2\\
+&=\frac{1}{|\mathcal{A}|}(1-\gamma)\left(1-\exp\left(-\frac{\eta\,\tilde{\mu}}{1-\gamma}\right)\right)\left(\frac{1-b_s^k}{|\mathcal{A}_s^*|}\sum_{a\in\mathcal{A}_s^*}\frac{\pi^k_{s,a}}{1-b_s^k}{A}^k_{s,a}\right)^2\\
+&\geq \frac{\kappa^2}{|\mathcal{A}|}(1-\gamma)\left(1-\exp\left(-\frac{\eta\,\tilde{\mu}}{1-\gamma}\right)\right)\left(\max_s|\mathcal{A}_s^*|\right)^{-2}\left(\sum_{a}\xi^k_{s,a}{A}^k_{s,a}\right)^2\\
+&:=C\left(\sum_{a}\xi^k_{s,a}{A}^k_{s,a}\right)^2.
+\end{align*}
+where the second line follows from
+\begin{align*}
+1-\exp\left(-\eta\,\tilde{\mu}\,x\right)\geq (1-\gamma)\left(1-\exp\left(-\frac{\eta\,\tilde{\mu}}{1-\gamma}\right)\right)x,\quad\mbox{for }x\in\left[0,\frac{1}{1-\gamma}\right],
+\end{align*}
+and $\xi^k$ is defined as 
+\begin{align*}
+\xi^k(a|s)=\begin{cases}
+\frac{\pi^k(a|s)}{1-b_s^k}& \mbox{if }a\in\mathcal{A}_s^*,\\
+0 &\mbox{otherwise}.
+\end{cases}
+\end{align*}
+Noticing that $\xi^k$ is indeed an optimal policy, under this policy, one has 
+\begin{align*}
+\mathcal{L}_k^{k+1} &= \frac{1}{1-\gamma}\mathbb{E}_{s\sim d_\rho^{\xi^k}}\left[\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\right]\\
+&\geq \frac{C}{1-\gamma}\mathbb{E}_{s\sim d_\rho^{\xi^k}}\left[\left(\sum_{a}\xi^k_{s,a}{A}^k_{s,a}\right)^2\right]\\
+&\geq \frac{C}{1-\gamma}\left(\mathbb{E}_{s\sim d_\rho^{\xi^k}}\left[\sum_{a}\xi^k_{s,a}{A}^k_{s,a}\right]\right)^2\\
+&=C(1-\gamma)\left(\mathcal{L}_k^*\right)^2.
+\end{align*}
+The proof of the first result is completed by noting that $\exp(-x)\leq 1/(1+x)$ for $x\geq 0$ and then utilizing Theorem~\ref{thm:sublinear-general}. The second result follows immediately by noting that $|\mathcal{A}_s^*|=1$ and $1/\vartheta=\|\frac{d_\rho^*}{\rho}\|_\infty$ in Theorem~\ref{thm:sublinear-general}.
+\end{proof}
+
+
+\begin{remark}
+   By utilizing the smoothness and gradient dominance property of $V^{\pi_\theta}(\mu)$, 
+    the following sublinear convergence rate has been established for $\eta< 2/L$ with $L$ being the smoothness constant of $V^{\pi_\theta}(\mu)$. Consider the case where the optimal policy is unique.  For $\eta=1/L=(1-\gamma)^3/8$, the best rate obtained in \textup{\cite[Theorem~4]{Mei_Xiao_Szepesvari_Schuurmans_2020}} is
+\begin{align*}
+V^*\left( \rho \right) -V^{k}\left( \rho \right) \le \frac{1}{k}\frac{1}{\left( 1-\gamma \right) ^5}\frac{16\left| S \right|}{\kappa^2}\left\| \frac{d_{\mu}^{*}}{\mu} \right\| _{\infty}^{2}\left\|\frac{\rho}{\mu}\right\|_\infty.
+%\label{related_work:Softmax_pg:sublinear}
+\end{align*}
+In contrast, our result for this particular step size is 
+\begin{align*}
+V^*(\rho)-V^k(\rho)\leq \frac{1}{k}\frac{1}{(1-\gamma)^5}\frac{16|\mathcal{A}|}{\kappa^2}\left\|\frac{d_\rho^*}{\rho}\right\|_\infty\left\|\frac{1}{\mu}\right\|_\infty,
+\end{align*}
+which does not rely on $|\mathcal{S}|$ but on $|\mathcal{A}|$. In addition, if $\eta\geq \frac{1-\gamma}{\tilde{\mu}}$, our result reduces to 
+\begin{align*}
+V^*(\rho)-V^k(\rho)\leq \frac{1}{k}\frac{1}{(1-\gamma)^3}\frac{2|\mathcal{A}|}{\kappa^2}\left\|\frac{d_\rho^*}{\rho}\right\|_\infty\left\|\frac{1}{\mu}\right\|_\infty,
+\end{align*}
+which has better dependency on $1-\gamma$.
+\end{remark}
+
+
+
+%%%%%%%%
+\begin{theorem}[Sublinear Lower Bound for any Constant Step Size]\label{thm:softmaxPG-sublinear-lowers}
+For any  constant step size $\eta>0$ and a given constant $\sigma\in(0,1)$, there exists a time $T(\sigma)$ such that the state value sequence generated by softmax PG satisfies
+\begin{align*}
+\forall\,k\geq T(\sigma):\quad V^*(\rho) - V^k(\rho)\geq \frac{1}{k}\frac{\tilde{\rho}^3(1-\sigma)(1-\gamma)}{2|\mathcal{A}|^3}\left\|\frac{1}{d_\rho^*}\right\|_\infty^{-1}\left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)^{-1}.
+\end{align*}
+\end{theorem}
+\begin{proof}
+    By the improvement upper bound one has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}&\leq \left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)|\mathcal{A}|(1-\gamma)\left(\max_a|\hat{A}^k_{s,a}|\right)^2\\
+&\leq  \left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)|\mathcal{A}|^3(1-\gamma)\left(\max_a\hat{A}^k_{s,a}\right)^2\\
+&\leq \left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)|\mathcal{A}|^3(1-\gamma)\left(\max_a{A}^k_{s,a}\right)^2,
+\end{align*}
+where the second line follows from $\max_a|\hat{A}^k_{s,a}|\leq |\mathcal{A}|\max_a\hat{A}^k_{s,a}$ since $\sum_a\hat{A}^k_{s,a}=0$. It follows that 
+\begin{align*}
+\mathcal{L}_k^{k+1}&\leq \left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)|\mathcal{A}|^3\mathbb{E}_{s\sim d_\rho^*}\left[\left(\max_a{A}^k_{s,a}\right)^2\right]\\
+&\leq \frac{|\mathcal{A}|^3}{(1-\gamma)\tilde{\rho}}\left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)\left(\mathbb{E}_{s\sim d_\rho^*}\left[\max_a{A}^k_{s,a}\right]\right)^2\\
+&\leq \frac{|\mathcal{A}|^3}{(1-\gamma)\,\tilde{\rho}^3}\left(\exp\left(\frac{2\eta}{(1-\gamma)^2}\right)-1\right)\left(\mathcal{L}_k^*\right)^2,
+\end{align*}
+where the second line follows from 
+\begin{align*}
+\left(\mathbb{E}_{s\sim d_\rho^*}\left[\max_a A^k_{s,a}\right]\right)^2&=\left(\sum_sd_\rho^*(s)\max_aA^k_{s,a}\right)^2\\
+&\geq\sum_s (d_\rho^*(s))^2\left(\max_a A^k_{s,a}\right)^2\\
+&\geq (1-\gamma)\tilde{\rho}\sum_sd_\rho^*(s)\left(\max_a A^k_{s,a}\right)^2\\
+&=(1-\gamma)\tilde{\rho}\,\mathbb{E}_{s\sim d_\rho^*}\left[\left(\max_a A^k_{s,a}\right)^2\right].
+\end{align*}
+and the third line follows from Lemma~\ref{lem:LstarvsLmax}.
+The proof is then completed by utilizing Theorem~\ref{thm:sublinear-upper}.
+\end{proof}
+\begin{remark}
+Under a  step size condition that guarantees the monotonicity of $V^k(\mu)$, a local sublinear lower bound of the following form has been established in \textup{\cite{Mei_Xiao_Szepesvari_Schuurmans_2020}},
+\begin{align*}
+        V^*(\mu) - V^k(\mu) \geq \frac{1}{k} \cdot \frac{(1-\gamma)^5 \Delta^2}{12\eta^2 + 3(\eta+1)(1-\gamma)^3}, \quad \mbox{for $k$ being sufficiently large}.
+\end{align*}
+Compared with this bound, our bound does not rely on $\Delta$ which can be arbitrarily small \textup{\cite{Johnson_Pike-Burke_Rebeschini_2023}}.
+\end{remark}
+%%%%%%%%%
+\begin{theorem}[Linear Convergence for Adaptive Step Size]\label{thm:softmaxPG-linear}
+    Let 
+\begin{align*}
+{\mathcal{S}^k}=\left\{s:\,\max_a|\hat{A}^k_{s,a}|>0\right\}=\left\{s:\,\max_a\hat{A}^k_{s,a}>0\right\}. 
+\end{align*}
+Without loss of generality, assume $\mathcal{S}^k\neq \emptyset$.  For any constant $C>0$, if the step size $\eta_k$ satisfies 
+\begin{align*}
+\eta_k\geq \frac{C}{\min_{s\in\mathcal{S}^k}\max_a|\hat{A}^k_{s,a}|},
+\end{align*}
+then softmax PG achieves a linear convergence, 
+\begin{align*}
+V^*(\rho) - V^k(\rho) \leq \left(1-(1-\gamma)\tilde{\rho}\frac{\kappa}{|\mathcal{A}|\,\max_a|\mathcal{A}_s^*|}\left(1-\frac{1}{C\,\tilde{\mu}+1}\right)\right)^k\left(V^*(\rho)-V^0(\rho)\right).
+\end{align*}
+In particular, if the policy is unique, then 
+\begin{align*}
+V^*(\rho) - V^k(\rho) \leq \left(1-(1-\gamma)\left\|\frac{d_\rho^*}{\rho}\right\|_\infty^{-1}\frac{\kappa}{|\mathcal{A}|}\left(1-\frac{1}{C\,\tilde{\mu}+1}\right)\right)^k\left(V^*(\rho)-V^0(\rho)\right).
+\end{align*}
+
+\end{theorem}
+
+\begin{proof}
+    Recall the improvement lower bound as follows:
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\geq \frac{1}{|\mathcal{A}|}\left(\max_a|\hat{A}^k_{s,a}|\right)
+\left(1-\exp\left(-\eta_k\,\tilde{\mu}\max_a|\hat{A}^k_{s,a}|\right)\right).
+\end{align*}
+For $s\in\mathcal{S}^k$, since $\eta_k\geq \frac{C}{\max_a|\hat{A}^k_{s,a}|}$, one has 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}\geq \frac{1}{|\mathcal{A}|}\left(\max_a|\hat{A}^k_{s,a}|\right)
+\left(1-\exp\left(-C\,\tilde{\mu}\right)\right).\numberthis\label{eq:softmaxPG-adaptive-tmp01}
+\end{align*}
+For $s\notin\mathcal{S}^k$, one has $\max_a|\hat{A}^k_{s,a}|=0$. Noting that $\pi^k_{s,a}>0$, it follows that $A^k_{s,a}=0,\,\forall a$ and the above inequality holds automatically. Therefore, for any $s$, 
+\begin{align*}
+\sum_a\pi^{k+1}_{s,a}A^k_{s,a}&\geq \frac{1}{|\mathcal{A}|}
+\left(1-\exp\left(-C\,\tilde{\mu}\right)\right)\left(\max_a|\hat{A}^k_{s,a}|\right)\\
+&\geq \frac{1}{|\mathcal{A}|}
+\left(1-\exp\left(-C\,\tilde{\mu}\right)\right)\left(\frac{1}{|\mathcal{A}_s^*|}\sum_{a\in\mathcal{A}_s^*}|\hat{A}^k_{s,a}|\right)\\
+&=\frac{1}{|\mathcal{A}|}
+\left(1-\exp\left(-C\,\tilde{\mu}\right)\right)\left(\frac{1-b_s^k}{|\mathcal{A}_s^*|}\sum_{a}\xi^k_{s,a}|{A}^k_{s,a}|\right)\\
+&\geq \frac{\kappa}{|\mathcal{A}|}\left(\max_s|\mathcal{A}_s^*|\right)^{-1}
+\left(1-\exp\left(-C\,\tilde{\mu}\right)\right)\left(\sum_{a}\xi^k_{s,a}|{A}^k_{s,a}|\right)\\
+&\geq \frac{\kappa}{|\mathcal{A}|}\left(\max_s|\mathcal{A}_s^*|\right)^{-1}
+\left(1-\frac{1}{C\,\tilde{\mu}+1}\right)\left(\sum_{a}\xi^k_{s,a}|{A}^k_{s,a}|\right)\\
+&\geq \frac{\kappa}{|\mathcal{A}|}\left(\max_s|\mathcal{A}_s^*|\right)^{-1}
+\left(1-\frac{1}{C\,\tilde{\mu}+1}\right)\left(\sum_{a}\xi^k_{s,a}{A}^k_{s,a}\right).
+\end{align*}
+Taking expectation with respect to $d_\rho^{\xi^k}$ yields that 
+\begin{align*}
+\mathcal{L}_k^{k+1} \geq \frac{\kappa}{|\mathcal{A}|}\left(\max_s|\mathcal{A}_s^*|\right)^{-1}
+\left(1-\frac{1}{C\,\tilde{\mu}+1}\right)\,\mathcal{L}_k^*.
+\end{align*}
+The proof is completed by using Theorem~\ref{thm:linear-global} and noting that $\left\| \frac{d^{\xi^k}_\rho}{\rho} \right\|^{-1} \geq \tilde{\rho}$.
+\end{proof}
+    
+
+
+\begin{remark} %The global convergence of softmax PG can be established if the policy sequence $\{\pi^k:k\in \mathbb{N}\}$ satisfies following conditions
+%\begin{itemize}
+%    \item $
+%\forall k\in \mathbb{N} ,s\in \mathcal{S} :\sum_{a\in \mathcal{A}}{\pi _{s,a}^{k+1}A_{s,a}^{k}}\ge 0
+%$
+%    \item $
+%\forall s\in \mathcal{S} ,a\in \mathcal{A} :  \underset{k\rightarrow +\infty}{\lim}\left| \hat{A}_{s,a}^{k} \right|=0.
+%$
+%\end{itemize}
+It follows easily from \eqref{eq:softmaxPG-adaptive-tmp01} and the performance difference lemma that $\sum_{a\in \mathcal{A}}{\pi _{s,a}^{k+1}A_{s,a}^{k}}\ge 0$ and $\underset{k\rightarrow +\infty}{\lim}| \hat{A}_{s,a}^{k} |=0$. Thus, $\eta_k$ is lower bounded. The application of Theorem~\ref{thm:softmaxPG-global} also implies the global convergence of softmax PG with the adaptive step size and  thus $\kappa>0$. 
+It is worth noting that  the adaptive step size $
+\eta _k={\eta}/{\left\| \nabla _{\theta}V^{\pi _{\theta _k}}\left( \mu \right) \right\| _2}$ is considered in  \textup{\cite{Mei_Xiao_Dai_Li_Szepesvari_Schuurmans_2020}} and the following linear convergence rate has been established for softmax PG,
+$$
+V^*\left( \rho \right) -V^{k}\left( \rho \right) \le \frac{\underset{\pi \in \Pi}{\max}\left\| \frac{d_{\rho}^{\pi}}{\mu} \right\| _{\infty}}{1-\gamma}\left( \exp \left\{ -\frac{\left( 1-\gamma \right) ^2\kappa}{12\left( 1-\gamma \right) +16\left( \underset{\pi \in \Pi}{\max}\left\| \frac{d_{\mu}^{\pi}}{\mu} \right\| _{\infty}-\left( 1-\gamma \right) \right)}\frac{1}{\left| \mathcal{S} \right|}\left\| \frac{d_{\mu}^{*}}{\mu} \right\| _{\infty}^{-1} \right\} \right) ^k,
+$$
+provided the optimal policy $\pi^*$ is unique and $
+\eta =(1-\gamma)/\left({6\left( 1-\gamma \right) +8\left( \underset{\pi \in \Pi}{\max}\left\| \frac{d_{\mu}^{\pi}}{\mu} \right\| -\left( 1-\gamma \right) \right)}\right)$. 
+\end{remark}

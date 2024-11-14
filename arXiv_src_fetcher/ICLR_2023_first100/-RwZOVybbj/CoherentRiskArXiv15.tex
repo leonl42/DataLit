@@ -1,0 +1,661 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%% NIPS 2015                               %%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{article} % For LaTeX2e
+\usepackage{nips15submit_e}
+\usepackage{xr}
+%\usepackage[outdir=./]{epstopdf}
+\usepackage{epstopdf}
+\externaldocument{appendix}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{times}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{Policy Gradient for Coherent Risk Measures}
+
+\author{
+Aviv Tamar \\
+Electrical Engineering Department\\
+The Technion - Israel Institute of Technology\\
+%Haifa, Israel 32000 \\
+\texttt{avivt@tx.technion.ac.il} \\
+\And
+Yinlam Chow \\
+Institute for Computational \& \\Mathematical Engineering (ICME) \\
+Stanford University\\
+%Stanford CA, USA 94305 \\
+\texttt{ychow@stanford.edu} \\
+\And
+Mohammad Ghavamzadeh \\
+Adobe Research \& INRIA\\
+%345 Park Avenue, San Jose CA, USA 95110 \\
+\texttt{ghavamza@adobe.com} \\
+\And
+Shie Mannor \\
+Electrical Engineering Department\\
+The Technion - Israel Institute of Technology\\
+%Haifa, Israel 32000 \\
+\texttt{shie@ee.technion.ac.il} \\
+}
+
+\newcommand{\mpmargin}[2]{{\color{orange}#1}{\marginpar{\color{orange}\raggedright\scriptsize [MP] #2 \par}}}
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\newcommand{\citet}{\cite}
+\newcommand{\citealt}{\cite}
+\newcommand{\citep}{\cite}
+
+\nipsfinalcopy % Uncomment for camera-ready version
+
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\newcommand{\TODO}[1]{(\textbf{TODO: {#1}})}
+
+\input{defs}
+\input{coherent_risk_var}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Several authors have recently developed risk-sensitive policy gradient methods that augment the standard expected cost minimization problem with a measure of \emph{variability} in cost. These studies have focused on \emph{specific} risk-measures, such as the variance or conditional value at risk (CVaR). In this work, we extend the policy gradient method to \emph{the whole class} of coherent risk measures, which is widely accepted in finance and operations research, among other fields. We consider both static and time-consistent dynamic risk measures. For static risk measures, our approach is in the spirit of \emph{policy gradient} algorithms and combines a standard sampling approach with convex programming. For dynamic risk measures, our approach is \emph{actor-critic} style and involves explicit approximation of value function. Most importantly, our contribution presents a \emph{unified} approach to risk-sensitive reinforcement learning that generalizes and extends previous results.
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+% Risk is important, also for MDPs
+Risk-sensitive optimization considers problems in which the objective involves a \emph{risk measure} of the random cost, in contrast to the typical \emph{expected} cost objective. Such problems are important when the decision-maker wishes to manage the \emph{variability} of the cost, in addition to its expected outcome, and are standard in various applications of finance and operations research. In reinforcement learning (RL) \cite{sutton_reinforcement_1998}, risk-sensitive objectives have gained popularity as a means to regularize the variability of the total (discounted) cost/reward in a Markov decision process (MDP).
+
+% Many risk measures have been studied, Coherent risk is a popular *unified* approach
+Many risk objectives have been investigated in the literature and applied to RL, such as the celebrated Markowitz mean-variance model~\cite{Markowitz59PS}, Value-at-Risk (VaR) and Conditional Value at Risk (CVaR)~\citep{moody2001learning,tamar2012policy,prashanth2013actor,delage_percentile_2010,chow2014cvar,tamar2015optimizing}. The view taken in this paper is that the preference of one risk measure over another is \emph{problem-dependent} and depends on factors such as the cost distribution, sensitivity to rare events, ease of estimation from data, and computational tractability of the optimization problem. However, the highly influential paper of Artzner et al.~\citet{artzner1999coherent} identified a set of natural properties that are desirable for a risk measure to satisfy. Risk measures that satisfy these properties are termed \emph{coherent} and have obtained widespread acceptance in financial applications, among others. We focus on such coherent measures of risk in this work.
+
+% time consistency is also important
+For sequential decision problems, such as MDPs, another desirable property of a risk measure is \emph{time consistency}. A time-consistent risk measure satisfies a ``dynamic programming" style property: if a strategy is risk-optimal for an $n$-stage problem, then the component of the policy from the $t$-th time until the end (where $t<n$) is also risk-optimal (see principle of optimality in~\citealt{Ber2012DynamicProgramming}). The recently proposed class of dynamic Markov coherent risk measures~\citep{ruszczynski2010risk} satisfies both the coherence and time consistency properties.
+
+% We extend RL to coherent risk
+In this work, we present policy gradient algorithms for RL with a coherent risk objective. Our approach applies to \emph{the whole class} of coherent risk measures, thereby generalizing and unifying previous approaches that have focused on individual risk measures.  We consider both \emph{static} coherent risk of the total discounted return from an MDP and  time-consistent {\em dynamic} Markov coherent risk.
+%
+%Our proposed algorithm for the static risk is in the spirit of \emph{policy gradient} algorithms~\citep{baxter2001infinite}, while the one for the dynamic risk is \emph{actor-critic} style~\citep{konda2000actor}.
+%
+Our main contribution is formulating the risk-sensitive policy-gradient under the coherent-risk framework. More specifically, we provide:
+%\vspace{-10pt}
+\begin{itemize}
+\item A new formula for the gradient of static coherent risk that is convenient for approximation using sampling.
+\item An algorithm for the gradient of general static coherent risk that involves sampling with convex programming and a corresponding consistency result.
+\item A new policy gradient theorem for Markov coherent risk, relating the gradient to a suitable \emph{value function} and a corresponding actor-critic algorithm.
+%\item A corresponding actor-critic algorithm for the gradient of dynamic Markov coherent risk, with function approximation in the value function. We prove consistency of the gradient, and analyze sensitivity to approximation errors in the value-function.
+\end{itemize}
+Several previous results are special cases of the results presented here; our approach allows to re-derive them in greater generality and simplicity.
+
+\paragraph{Related Work}
+Risk-sensitive optimization in RL for specific risk functions has been studied recently by several authors.~\citet{borkar2001sensitivity} studied exponential utility functions,~\citet{moody2001learning},~\citet{tamar2012policy},~\citet{prashanth2013actor} studied mean-variance models,~\citet{chow2014cvar},~\citet{tamar2015optimizing} studied CVaR in the static setting, and~\citet{petrik2012approximate},~\citet{chow_mpc_14} studied dynamic coherent risk for systems with linear dynamics. Our paper presents a general method \emph{for the whole class} of coherent risk measures (both static and dynamic) and is not limited to a specific choice within that class, nor to particular system dynamics.
+
+
+Reference~\cite{osogami2012robustness} showed that an MDP with a dynamic coherent risk objective is essentially a robust MDP. The planning for large scale MDPs was considered in ~\citet{tamar2014robust}, using an approximation of the value function. For many problems, approximation in the policy space is more suitable (see, e.g.,~\citealt{MarTsi98}). Our sampling-based RL-style approach is suitable for approximations both in the policy and value function, and scales-up to large or continuous MDPs. We do, however, make use of a technique of~\citet{tamar2014robust} in a part of our method.
+
+Optimization of coherent risk measures was thoroughly investigated by Ruszczynski and Shapiro~\cite{ruszczynski2006optimization} (see also~\citealt{Shapiro2009}) for the stochastic programming case in which the policy parameters do not affect the distribution of the stochastic system (i.e.,~the MDP trajectory), but only the reward function, and thus, this approach is not suitable for most RL problems. For the case of MDPs and dynamic risk,~\citet{ruszczynski2010risk} proposed a dynamic programming approach. This approach does not scale-up to large MDPs, due to the ``curse of dimensionality". For further motivation of risk-sensitive policy gradient methods, we refer the reader to~\citet{moody2001learning,tamar2012policy,prashanth2013actor,chow2014cvar,tamar2015optimizing}.
+
+%In particular, for the special case of CVaR, we obtain similar results to~\citet{tamar2015optimizing}, but under weaker assumptions and simpler derivations.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\vspace{-0.1in}
+\section{Preliminaries}
+\label{sec:background}
+%\vspace{-0.1in}
+
+Consider a probability space $(\Omega, \mathcal F,\pprob)$, where $\Omega$ is the set of outcomes (sample space), $\mathcal F$ is a $\sigma$-algebra over $\Omega$ representing the set of events we are interested in, and $\pprob \in \mathcal B$, where $\mathcal B:=\left\{ \xi: \int_{\omega\in\Omega} \xi(\omega)=1, \xi\geq 0 \right\}$ is the set of probability distributions, is a probability measure over $\mathcal F$ parameterized by some tunable parameter $\theta \in \mathbb R^{K}$. In the following, we suppress the notation of $\param$ in $\param$-dependent quantities.
+
+To ease the technical exposition, in this paper we restrict our attention to finite probability spaces, i.e.,~$\Omega$ has a finite number of elements. Our results can be extended to the $L_p$-normed spaces without loss of generality, but the details are omitted for brevity.
+
+Denote by $\cZ$ the space of random variables $Z:\Omega\mapsto (-\infty,\infty)$ defined over the probability space $(\Omega, \mathcal F, \pprob)$. In this paper, a random variable $Z\in \cZ$ is interpreted as a cost, i.e.,~the smaller the realization of $Z$, the better. For $Z,W\in\mathcal Z$, we denote by $Z\leq W$ the point-wise partial order, i.e.,~$Z(\omega)\leq W(\omega)$ for all $\omega\in \Omega$. We denote by $\mathbb E_{\xi}[Z]\doteq \sum_{\omega\in\Omega}\pprob(\omega)\xi(\omega)Z(\omega)$ a $\xi$-weighted expectation of $Z$.%We now give a brief definition of MDPs.
+
+An MDP is a tuple $\mdp=(\St,\Ac,C,P,\gamma,x_0)$, where $\St$ and $\Ac$ are the state and action spaces; $C(x)\in[-C_{\max},C_{\max}]$ is a bounded, deterministic, and state-dependent cost; $P(\cdot|x,a)$ is the transition probability distribution; $\gamma$ is a discount factor; and $x_0$ is the initial state.\footnote{Our results may easily be extended to random costs, state-action dependent costs, and random initial states.} Actions are chosen according to a $\param$-parameterized stationary Markov\footnote{For the dynamic Markov risk we study, an optimal policy is stationary Markov, while this is not necessarily the case for the static risk. Our results can be extended to history-dependent policies or stationary Markov policies on a state space augmented with the accumulated cost. The latter has shown to be sufficient for optimizing the CVaR risk~\cite{bauerle2011markov}.} policy $\pol(\cdot|x)$. We denote by $x_0,a_0,\dots,x_T,a_T$ a trajectory of length $T$ drawn by following the policy $\pol$ in the MDP.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{-0.1in}
+\subsection{Coherent Risk Measures}
+\label{subsec:coherent}
+\vspace{-0.1in}
+% Static coherent riskier
+A \emph{risk measure} is a function $\rho:\cZ \to \mathbb R$ that maps an uncertain outcome $Z$ to the extended real line $\reals \cup\{ +\infty,-\infty\}$, e.g.,~the expectation $\Exp{Z}$ or the conditional value-at-risk (CVaR) $\min_{\nu\in\mathbb R}\big\{\nu + \frac{1}{\alpha}\mathbb E\big[(Z-\nu)^+\big]\big\}$.
+%   - Coherent risk axioms
+A risk measure is called \emph{coherent}, if it satisfies the following conditions for all $Z,W\in\mathcal Z$~\cite{artzner1999coherent}:
+%
+\begin{description}
+\item[A1] Convexity: $\forall\lambda\in[0,1],\;\rho\big(\lambda Z + (1-\lambda)W\big)\leq \lambda\rho(Z) + (1-\lambda)\rho(W)$;
+\item[A2] Monotonicity:  if $Z\leq W$, then $\rho(Z)\leq\rho(W)$;
+\item[A3] Translation invariance: $\forall a\! \in \!\mathbb R,\;\rho(Z+a)=\rho(Z) + a$;
+\item[A4] Positive homogeneity: if $\lambda\geq0$, then $\rho(\lambda Z) = \lambda \rho(Z)$.
+\end{description}
+%
+Intuitively, these condition ensure the ``rationality" of single-period risk assessments: A1 ensures that diversifying an investment will reduce its risk; A2 guarantees that an asset with a higher cost for every possible scenario is indeed riskier; A3, also known as `cash invariance', means that the deterministic part of an investment portfolio does not contribute to its risk; the intuition behind A4 is that doubling a position in an asset doubles its risk.
+We further refer the reader to~\citet{artzner1999coherent} for a more detailed motivation of coherent risk.
+%   - Coherent risk as min-max problem over the set U
+
+The following representation theorem~\cite{Shapiro2009} shows an important property of coherent risk measures that is fundamental to our gradient-based approach.
+%
+\begin{theorem}
+\label{thm:rep}
+A risk measure $\rho:\mathcal Z \rightarrow \mathbb R$ is coherent if and only if there exists a convex bounded and closed set $\U \subset \mathcal B$ such that\footnote{When we study risk in MDPs, the risk envelop $\U(P_\theta)$ in Eq.~\ref{eq:coherent_as_optimization} also depends on the state $x$.
+}%We drop this dependency for simplicity in the case of static risk analysis.}
+%
+\begin{equation}
+\label{eq:coherent_as_optimization}
+\rho(Z)=\max_{\xi\,:\,\xi P_\theta\in \U(P_\theta)} \mathbb E_{\xi}[Z].
+\end{equation}
+\end{theorem}
+%
+%TODO - do we need this weakly* closed comment?
+\vspace{-5pt}
+The result essentially states that any coherent risk measure is an expectation w.r.t.~a worst-case density function $\xi P_\theta$, chosen adversarially from a suitable set of test density functions $\U(P_\theta)$, referred to as \emph{risk envelope}. Moreover, it means that any coherent risk measure is \emph{uniquely represented} by its risk envelope. Thus, in the sequel, we shall interchangeably refer to coherent risk-measures either by their explicit functional representation, or by their corresponding risk-envelope.
+
+%   - The set U in our representation (constraints)
+In this paper, we assume that the risk envelop $\U(P_\theta)$ is given in a canonical convex programming formulation, and satisfies the following conditions.
+%
+\begin{assumption}[The General Form of Risk Envelope]\label{assume:risk_envelope}
+For each given policy parameter $\theta\in\mathbb R^K$, the risk envelope $\U$ of a coherent risk measure can be written as
+
+\vspace{-0.25in}
+\begin{small}
+\begin{equation}\label{eq:U_as_optimization}
+%\begin{split}
+\mathcal U(\pprob)=\bigg\{\xi\pprob:\;g_e(\xi,\pprob)=0,\;\forall e\in\mathcal E,
+\;f_i(\xi,\pprob)\leq 0,\;\forall i\in\mathcal I,
+\;\sum_{\omega\in\Omega}\xi(\omega)\pprob(\omega)=1,\;\xi(\omega)\geq 0\bigg\},
+%\end{split}
+\end{equation}
+\end{small}
+\vspace{-0.225in}
+
+where each constraint $g_e(\xi,P_\theta)$ is an affine function in $\xi$, each constraint $f_i(\xi,P_\theta)$ is a convex function in $\xi$, and there exists a strictly feasible point $\overline\xi$. $\mathcal E$ and $\mathcal I$ here denote the sets of equality and inequality constraints, respectively. Furthermore, for any given $\xi\in\mathcal B$, $f_i({\xi},p)$ and $g_e({\xi},p)$ are twice differentiable in $p$, and there exists a $M>0$ such that
+
+%\vspace{-0.15in}
+\begin{small}
+\begin{equation*}
+\max\left\{\max_{i\in\mathcal I}\left|\frac{ d f_i({\xi},p)}{d p(\omega)}\right|,\max_{e\in\mathcal E}\left|\frac{ d g_e({\xi},p)}{d p(\omega)}\right|\right\}\leq M,\,\forall \omega\in\Omega.
+\end{equation*}
+\end{small}
+%\vspace{-0.2in}
+\end{assumption}
+%
+Assumption~\ref{assume:risk_envelope} implies that the risk envelope $\U(P_\theta)$ is known in an \emph{explicit} form. From Theorem 6.6 of \citet{Shapiro2009}, in the case of a finite probability space, $\rho$ is a coherent risk if and only if $\U(P_\theta)$ is a convex and compact set.
+%In the case of a finite probability space, by Theorem 3.18~of~\citet{rudin1991functional}, we conclude that if $\rho$ is a coherent risk, $\mathcal U(P_\theta)$ is convex and compact.\textcolor{red}{Can we simplify this?}
+This justifies the affine assumption of $g_e$ and the convex assumption of $f_i$. Moreover, the additional assumption on the smoothness of the constraints holds for many popular coherent risk measures, such as the CVaR, the mean-semi-deviation, and spectral risk measures~\cite{acerbi2002spectral}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Dynamic Markov coherent risk
+\subsection{Dynamic Risk Measures}
+%   - Explain motivation (Bellman equation, time consistency)
+
+The risk measures defined above do not take into account any temporal structure that the random variable might have, such as when it is associated with the return of a trajectory in the case of MDPs. In this sense, such risk measures are called \emph{static}. {\em Dynamic} risk measures, on the other hand, explicitly take into account the temporal nature of the stochastic outcome. A primary motivation for considering such measures is the issue of \emph{time consistency}, usually defined as follows~\cite{ruszczynski2010risk}: if a certain outcome is considered less risky in all states of the world at stage $t+1$, then it should also be considered less risky at stage $t$.
+%A very important class of dynamic risk measures are those that are {\em time consistent}.
+Example 2.1 in~\citet{iancu2011tight} shows the importance of time consistency in the evaluation of risk in a dynamic setting. It illustrates that for multi-period decision-making, optimizing a static measure can lead to ``time-inconsistent" behavior. Similar paradoxical results could be obtained with other risk metrics; we refer the readers to~\citet{ruszczynski2010risk} and~\citet{iancu2011tight} for further insights.
+
+
+%Since in this paper we are also interested in dynamic and time-consistent risk measures, we need to provide a multi-period generalization of the concepts presented in Section~\ref{subsec:coherent}. Here we closely follow the discussion in~\citet{ruszczynski2010risk}.
+
+%Consider a probability space $(\Omega, \mathcal F, P_\theta)$, a filtration $\mathcal F_0\subset \mathcal F_1\subset \mathcal F_2 \cdots \subset \mathcal F_T \subset \mathcal F$, and an adapted sequence of real-valued random variables $Z_t$, $t\in \{0, \ldots,T\}$. We assume that $\mathcal F_0 = \{\Omega, \emptyset\}$, i.e.,~$Z_0$ is deterministic. For each $t\in\{0, \ldots, T\}$, we denote by $\mathcal Z_t$ the space of random variables defined over the probability space $(\Omega, \mathcal F_t, P_\theta)$, and also let $\mathcal Z_{t, T}:=\mathcal Z_t \times \cdots \times \mathcal Z_T$ be a sequence of these spaces. The sequence of random variables $Z_t$ can be interpreted as the stage-wise costs observed along a trajectory generated by an MDP parameterized by a parameter $\theta$, i.e.,~$Z_{0,T} \doteq \big(Z_0=\gamma^0C(x_0,a_0),\dots,Z_T=\gamma^TC(x_T,a_T)\big)\in\mathcal Z_{0,T}$.
+
+% Present the trajectory as the fundamental random variable
+
+%In particular, we are interested in the sequence of random variables induced by the trajectories from a Markov decision process (MDP) parameterized by parameter $\theta$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% MDPs with a parameterized policy
+%\subsection{Markov Decision Process}
+%
+%A MDP is a tuple $\mdp=(\St,\Ac,C,P,\gamma,x_0)$, where $\St$ and $\Ac$ are the state and action spaces; $C(x,a)\in[-C_{\max},C_{\max}]$ is a bounded cost random variable whose expectation is denoted by $c(x,a)=\Exp{C(x,a)}$; $P(\cdot|x,a)$ is the transition probability distribution; $\gamma$ is a discount factor; and $x_0$ is the initial state.\footnote{Our results may easily be extended to the case where we have a distribution over the initial states.}\textsuperscript{,}\footnote{When we study risk in MDPs, the risk envelop $\U(P_\theta)$ in Eq.~\ref{eq:coherent_as_optimization} depends also on the initial state $x_0$. We drop this dependency for simplicity in the case of static risk analysis.} Actions are chosen according to a $\param$-parameterized stationary Markov policy $\pol(\cdot|x)$. We denote by $x_0,a_0,\dots,x_T,a_T$ a trajectory of length $T$ drawn by following the policy $\pol$ in the MDP, and define the sequence of random costs as $Z_{0,T} \doteq \big(c(x_0,a_0),\dots,c(x_T,a_T)\big)\in\mathcal Z_{0,T}$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\subsection{Time Consistency}
+%\label{subsec:timeconsistency}
+%\vspace{-0.025in}
+%\paragraph{Time Consistency}
+
+%Dynamic risk measures, on the other hand, explicitly take into account the temporal nature of the stochastic outcome. A primary motivation for considering such measures is the issue of \emph{time consistency}, usually defined as follows~\cite{ruszczynski2010risk}: if a certain outcome is considered less risky in all states of the world at stage $t+1$, then it should also be considered less risky at stage $t$.
+%%A very important class of dynamic risk measures are those that are {\em time consistent}.
+%Example 2.1 in~\citet{iancu2011tight} shows the importance of time consistency in the evaluation of risk in a dynamic setting. It illustrates that for multi-period decision-making, optimizing a static measure can lead to ``time-inconsistent" behavior. Similar paradoxical results could be obtained with other risk metrics; we refer the readers to~\citet{ruszczynski2010risk} and~\citet{iancu2011tight} for further insights.
+
+%\begin{example}\label{ex:paradox}
+%Consider the simple setting whereby there is a final cost $Z$ and one seeks to evaluate such cost from the perspective of earlier stages. Consider the three-stage scenario tree in Figure \ref{fig:sm}, with the elementary events $\Omega = \{UU, UD, DU, DD \}$, and the filtration $\mathcal F_0=\{\emptyset, \Omega\}$, $\mathcal F_1 = \Bigl \{\emptyset, \{U\}, \{D\}, \Omega \Bigr\}$, and $\mathcal F_2 = 2^{\Omega}$. Consider the dynamic risk measure:
+%\[
+%\rho_{t,2}(Z) := \max_{q \in \mathcal U}\mathbb{E}_{q}[Z | \mathcal F_t], \quad t=0,1,2
+%\]
+%where $\mathcal U$ contains two probability measures, one corresponding to $p =0.4$, and the other one to $p =0.6$
+%DO NOT DELETE (the monotonicity property is trivially satisfied). (Recalling Theorem \ref{thrm:rep_finite}, one can view the mappings  $\rho_k(\cdot)$'s as \emph{conditional} coherent risk measures -- this concept will be made more precise below).
+%Assume that the random cost is $Z(UU) = Z(DD) = 0$, and $Z(UD) = Z(DU)=100$. Then, one has $\rho_1(Z)(\omega) = 60$ for all $\omega$, and $\rho_0(Z)(\omega) = 48$.  Therefore, $Z$ is deemed strictly riskier than a deterministic cost $W=50$ in \emph{all} states of nature at time $t=1$, but nonetheless $W$ is deemed riskier than $Z$ at time $t=0$ -- a paradox!
+%\end{example}
+%\begin{figure}[h]
+%\centering
+%{
+ % \includegraphics[width = 0.3\textwidth]{sm}
+%}
+  %    \caption{Scenario tree for Example \ref{ex:paradox}.}
+    %  \label{fig:sm}.
+%\end{figure}
+% add an example for time inconsistency
+
+%To evaluate risk consistently in a dynamic setting, we no longer construct a single risk metric, but rather a \emph{sequence} of risk metrics $\rho_{t,T}:\mathcal Z_{t, T}\rightarrow\mathcal Z_t$, mapping a future stream of random costs into a risk metric/assessment at time $t$ for $t\in\{0,\ldots,T\}$. The sequence of metrics $\{ \rho_{t,T} \}_{t=0}^{T}$ should be \emph{consistent} over time~\cite{shapiro2009time, iancu2011tight}. A widely accepted notion of time-consistency is as follows~\cite{ruszczynski2010risk}: if a certain outcome is considered less risky in all states of the world at stage $t+1$, then it should also be considered less risky at stage $t$.
+%The following definition structurally generalizes this concept.
+%\begin{definition}[Time Consistent Dynamic Risk \cite{ruszczynski2010risk}]
+%A dynamic risk measure $\{ \rho_{t,T}\}_{t=0}^T$ is time-consistent if, for all $0\leq l<t\leq T$ and all sequences $Z, W \in \mathcal Z_{l,T}$, the conditions
+%\begin{equation}
+%\begin{split}
+%&Z_i = W_i,\,\, i = l,\ldots,t-1, \text{ and }\\
+%&\rho_{t,N}(Z_t, \ldots,Z_N)\leq \rho_{t,N}(W_t, \ldots,W_N),
+%\end{split}
+%\end{equation}
+%imply that
+%\[
+ %\rho_{l,N}(Z_l, \ldots,Z_N)\leq \rho_{l,N}(W_l, \ldots,W_N).
+%\]
+%\end{definition}
+% Connection of time consistency to \rho\circ\rho...
+%Remarkably, Theorem~1~in~\citet{ruszczynski2010risk} shows that the ``multi-stage composition of risk", i.e.,~for each $t\in\{0,\ldots,T\}$, the mapping $\rho_{t,T}:\mathcal Z_{t, T}\rightarrow\mathcal Z_t$ is defined as
+
+%\vspace{-15pt}
+%\begin{small}
+%\begin{equation}
+%\label{eq:time-cons}
+%\rho_{t,T} (Z)\!=\! Z_t \!+\! \rho_t\Big(Z_{t+1} + \rho_{t+1}\big(Z_{t+2}+\ldots+\rho_{T-1}(Z_T)\big)\Big),
+%\end{equation}
+%\end{small}
+%%\vspace{-0.25in}
+%
+%with each $\rho_t$ being a static risk measure, is a {\em necessary and sufficient condition} for time consistency.
+
+%\vspace{-0.025in}
+\vspace{-0.1in}
+\paragraph{Markov Coherent Risk Measures.}
+Markov risk measures were introduced in \citet{ruszczynski2010risk} and are a useful class of dynamic time-consistent risk measures that are particularly important for our study of risk in MDPs.
+%Following Eq.~\ref{eq:time-cons}, for an MDP $\mdp$,
+For a $T$-length horizon and MDP $\mdp$, the Markov coherent risk measure $\rho_T(\mdp)$ is
+
+%Equipped with the notion of time consistent risk measures, in this paper we are interested in \emph{stationary time consistent coherent risk measures}, denoted by $\rho_T$ and defined for an MDP $\mdp$ as follows:
+
+\vspace{-10pt}
+\begin{small}
+\begin{equation}\label{eq:dynamic_risk_def}
+\rho_T(\mdp) = C(x_0) + \gamma\rho\Bigg(C(x_1) + \ldots +\gamma\rho\Big(C(x_{T-1}) + \gamma\rho\big(C(x_T)\big)\Big)\Bigg),
+\end{equation}
+\end{small}
+%\begin{small}
+%\begin{equation}\label{eq:dynamic_risk_def}
+%\rho_T(\mdp) = C(x_0,a_0) + \gamma\rho\Bigg(C(x_1,a_1) + \ldots +\gamma\rho\Big(C(x_{T-1},a_{T-1}) + \gamma\rho\big(C(x_T,a_T)\big)\Big)\Bigg),
+%\end{equation}
+%\end{small}
+\vspace{-0.15in}
+
+where $\rho$ is a static coherent risk measure that satisfies Assumption \ref{assume:risk_envelope} and $x_0,\dots,x_T$ is a trajectory drawn from the MDP $\mdp$ under policy $\pol$. It is important to note that in \eqref{eq:dynamic_risk_def}, each static coherent risk $\rho$ at state $x\in\mathcal X$ is induced by the transition probability $P_\theta(\cdot|x)=\sum_{a\in\mathcal A}P(x'|x,a)\mu_\theta(a|x)$. We also define $\rho_\infty(\mdp) \doteq \lim_{T \to \infty}\rho_T(\mdp)$, which is well-defined since $\gamma<1$ and the cost is bounded. We further assume that $\rho$ in \eqref{eq:dynamic_risk_def} is a \emph{Markov risk} measure, i.e.,~the evaluation of each static coherent risk measure $\rho$ is not allowed to depend on the whole past.
+%Explicitly, for any $t\geq 0$ and state dependent random variable $Z(x_{t+1})\in\mathcal Z_{t+1}$, the risk evaluation is given by
+%
+%%\vspace{-0.2in}
+%\begin{small}
+%\begin{equation}
+%\label{eq:representation-result}
+%\rho\big(Z(x_{t+1})\big)=\max_{\xi\,:\, \xi P_\theta(\cdot |x_t)\in \U(x_t,P_\theta(\cdot |x_t))}\mathbb E_{\xi}\big[Z(x_{t+1})\big],
+%\end{equation}
+%\end{small}
+%%\vspace{-0.2in}
+%
+%where we let $\U(x_t,P_\theta(\cdot |x_t))$ denote the risk-envelope \eqref{eq:U_as_optimization} with $\pprob$ replaced with $P_\theta(\cdot |x_t)$. The Markovian assumption on the risk measure $\rho_T(\mdp)$ allows us to optimize it using dynamic programming techniques. More details can be found in Section~\ref{sec:dynamic}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{-0.1in}
+\section{Problem Formulation}\label{sec:problem_formulation}
+\vspace{-0.1in}
+
+In this paper, we are interested in solving two risk-sensitive optimization problems. Given a random variable $Z$ and a static coherent risk measure $\rho$ as defined in Section~\ref{sec:background}, the static risk problem (SRP) is given by
+%
+%\vspace{-3pt}
+\begin{equation}\label{eq:SRP_problem}
+    \min_{\param} \quad \rho(Z).
+\end{equation}
+%\vspace{-0.25in}
+For example, in an RL setting, $Z$ may correspond to the cumulative discounted cost $Z = C(x_0) + \gamma C(x_1) + \dots +\gamma^T C(x_{T})$ of a trajectory induced by an MDP with a policy parameterized by $\theta$.
+
+For an MDP $\mathcal{M}$ and a dynamic Markov coherent risk measure $\rho_T$ as defined by Eq.~\ref{eq:dynamic_risk_def}, the dynamic risk problem (DRP) is given by
+%
+%\vspace{-6pt}
+\begin{equation}\label{eq:DRP_problem}
+    \min_{\param} \quad \rho_\infty(\mdp).
+\end{equation}
+%\vspace{-0.25in}
+Except for very limited cases, there is no reason to hope that neither the SRP in~\eqref{eq:SRP_problem} nor the DRP in~\eqref{eq:DRP_problem} should be tractable problems, since the dependence of the risk measure on $\theta$ may be complex and non-convex. %TODO - say this better...
+In this work, we aim towards a more modest goal and search for a \emph{locally} optimal $\param$. Thus, the main problem that we are trying to solve in this paper is how to calculate the gradients of the SRP's and DRP's objective functions
+%
+%\vspace{-2pt}
+\begin{equation*}
+    \dt \rho(Z) \quad\quad \text{and} \quad\quad \dt \rho_\infty(\mdp).
+\end{equation*}
+%\vspace{-0.1in}
+%
+We are interested in non-trivial cases in which the gradients cannot be calculated analytically. In the static case, this would correspond to a non-trivial dependence of $Z$ on $\param$. For dynamic risk, we also consider cases where the state space is too large for a tractable computation. Our approach for dealing with such difficult cases is through sampling. We assume that in the static case, we may obtain i.i.d.~samples of the random variable $Z$. For the dynamic case, we assume that for each state and action $(x,a)$ of the MDP, we may obtain i.i.d.~samples of the next state $x'\sim P(\cdot|x,a)$. We show that sampling may indeed be used in both cases to devise suitable estimators for the gradients.
+
+To finally solve the SRP and DRP problems, a gradient estimate may be plugged into a standard stochastic gradient descent (SGD) algorithm for learning a locally optimal solution to~\eqref{eq:SRP_problem} and~\eqref{eq:DRP_problem}. %TODO - say something about convergence
+From the structure of the dynamic risk in Eq.~\ref{eq:dynamic_risk_def}, one may think that a gradient estimator for $\rho(Z)$ may help us to estimate the gradient $\dt \rho_\infty(\mdp)$. Indeed, we follow this idea and begin with estimating the gradient in the static risk case.
+%The rest of the paper is thus structured as follows. In Section~\ref{sec:static}, we propose an estimator for $\dt \rho(Z)$,
+%which is used in Section~\ref{sec:dynamic} to estimate $\dt \rho_\infty(\mdp)$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{-0.1in}
+\section{Gradient Formula for Static Risk}\label{sec:static}
+\vspace{-0.1in}
+% General gradient formula using envelope theorem + proof
+
+In this section, we consider a static coherent risk measure $\rho(Z)$ and propose sampling-based estimators for $\dt \rho(Z)$. We make the following assumption on the policy parametrization, which is standard in the policy gradient literature~\citep{MarTsi98}.
+%
+\begin{assumption}\label{ass:LR_well_behaved}
+The likelihood ratio $\dt \log P(\omega)$ is well-defined and bounded for all $\omega \!\in \!\Omega$.
+\end{assumption}
+%
+%\vspace{-2pt}
+Moreover, our approach implicitly assumes that given some $\omega\in\Omega$, $\dt \log P(\omega)$ may be easily calculated. This is also a standard requirement for policy gradient algorithms~\cite{MarTsi98} and is satisfied in various applications such as queueing systems, inventory management, and financial engineering (see, e.g.,~the survey by Fu~\citealt{Fu2006gradients}).
+
+Using Theorem~\ref{thm:rep} and Assumption~\ref{assume:risk_envelope}, for each $\theta$, we have that $\rho(Z)$ is the solution to the convex optimization problem~\eqref{eq:coherent_as_optimization} (for that value of $\theta$). The Lagrangian function of~\eqref{eq:coherent_as_optimization}, denoted by $L_{\theta}(\xi,\lambda^{\mathcal P},\lambda^{\mathcal E},\lambda^{\mathcal I})$, may be written as
+
+\vspace{-0.2in}
+\begin{small}
+\begin{equation}\label{eq:Lagrangian}
+%\begin{split}
+L_{\theta}(\xi,\lambda^{\mathcal P}\!\!,\lambda^{\mathcal E}\!\!,\lambda^{\mathcal I})
+\!=\!\!\sum_{\omega \in \Omega} \!\xi(\omega) P_\theta(\omega) Z(\omega)-\lambda^{\mathcal P}\!\left(\sum_{\omega \in \Omega}\xi(\omega)P_\theta(\omega)\!-\!1\!\right)
+-\sum_{e\in\mathcal E}\lambda^{\mathcal E}(e) g_e(\xi,\!P_\theta)-\sum_{i\in\mathcal I}\lambda^{\mathcal I}(i) f_i(\xi,\!P_\theta).
+%\end{split}
+\end{equation}
+\end{small}
+\vspace{-0.2in}
+
+The convexity of~\eqref{eq:coherent_as_optimization} and its strict feasibility due to Assumption~\ref{assume:risk_envelope} implies that $L_{\theta}(\xi,\lambda^{\mathcal P},\lambda^{\mathcal E},\lambda^{\mathcal I})$ has a non-empty set of saddle points $\spset$. The next theorem presents a formula for the gradient $\dt \rho(Z)$. As we shall subsequently show, this formula is particularly convenient for devising sampling based estimators for $\dt \rho(Z)$.
+%
+\begin{theorem}\label{thm:static_gradient}
+Let Assumptions~\ref{assume:risk_envelope} and~\ref{ass:LR_well_behaved} hold. For any saddle point $(\xi^*_{\theta},\lambda^{*,\mathcal P}_{\theta},\lambda^{*,\mathcal E}_{\theta},\lambda^{*,\mathcal I}_{\theta}) \in \spset$ of~\eqref{eq:Lagrangian}, we have
+%
+\begin{equation*}
+%\begin{split}
+  \dt{\rho(Z)} = \ExpW{\dt \log P(\omega) (Z - \lambda^{*,\mathcal P}_{\theta})}{\xi^*_{\theta}}
+     - \sum_{e\in\mathcal E} \lambda^{*,\mathcal E}_{\theta}(e) \dt{g_e(\xi^*_{\theta};P_\theta)}
+     -\sum_{i\in\mathcal I} \lambda^{*,\mathcal I}_{\theta}(i) \dt{f_i(\xi^*_{\theta};P_\theta)}.
+%\end{split}
+\end{equation*}
+\end{theorem}
+%
+%\vspace{-10pt}
+The proof of this theorem, given in the supplementary material, involves an application of the Envelope theorem~\cite{milgrom2002envelope} and a standard `likelihood-ratio' trick. We now demonstrate the utility of Theorem \ref{thm:static_gradient} with several examples in which we show that it generalizes previously known results, and also enables deriving new useful gradient formulas.
+%The full details for deriving these results are in the supplementary material.
+% submitted along with the paper.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Example 1 (analytic) - CVaR (just gradient formula + relation to previous results)
+\vspace{-0.1in}
+\subsection{Example 1: CVaR}
+\vspace{-0.05in}
+
+The CVaR at level $\alpha\in[0,1]$ of a random variable $Z$, denoted by $\cvar(Z;\alpha)$, is a very popular coherent risk measure~\citep{rockafellar2000optimization}, defined as
+%
+\begin{equation*}
+\cvar(Z;\alpha) \doteq \inf_{t\in\reals} \big\{ t + \alpha^{-1} \Exp{(Z-t)_{+}}\big\}.
+\end{equation*}
+%
+When $Z$ is continuous, $\cvar(Z;\alpha)$ is well-known to be the mean of the $\alpha$-tail distribution of $Z$, $\Exp{ \left. Z \right| Z > \quan }$, where $\quan$ is a $(1-\alpha)$-quantile of $Z$. Thus, selecting a small $\alpha$ makes CVaR particularly sensitive to rare, but very high costs.
+
+The risk envelope for CVaR is known to be~\citep{Shapiro2009}
+%\begin{equation*}
+$
+\U = \big\{ \xi \pprob: \xi(\omega) \in [0,\alpha^{-1}],\quad \sum_{\omega\in\Omega} \xi(\omega)P_\theta(\omega)=1\big\}.
+$
+%\end{equation*}
+Furthermore, \citet{Shapiro2009} show that the saddle points of \eqref{eq:Lagrangian} satisfy $\xi^*_{\theta}(\omega)=\alpha^{-1}$ when $Z(\omega)>\lambda^{*,\mathcal P}_{\theta}$, and $\xi^*_{\theta}(\omega)=0$ when $Z(\omega)<\lambda^{*,\mathcal P}_{\theta}$, where $\lambda^{*,\mathcal P}_{\theta}$ is any $(1-\alpha)$-quantile of $Z$. Plugging this result into Theorem \ref{thm:static_gradient}, we can easily show that
+%
+\begin{equation*}
+    \dt\cvar(Z;\alpha) = \Exp{\left. \dt \log P(\omega) (Z - \quan)\right| Z(\omega) > \quan}.
+\end{equation*}
+%
+This formula was recently proved in~\citet{tamar2015optimizing} for the case of continuous distributions by an explicit calculation of the conditional expectation, and under several additional smoothness assumptions. Here we show that it holds regardless of these assumptions and in the discrete case as well. Our proof is also considerably simpler.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Example 2 (analytic) - Mean-semideviation (just gradient formula)
+\vspace{-0.1in}
+\subsection{Example 2: Mean-Semideviation}
+\vspace{-0.1in}
+The semi-deviation of a random variable $Z$ is defined as $\SD[Z] \doteq \left( \Exp{(Z - \Exp{Z})_{+}^{2}} \right)^{1 / 2}$. The semi-deviation captures the variation of the cost only \emph{above its mean}, and is an appealing alternative to the standard deviation, which does not distinguish between the variability of upside and downside deviations.
+For some $\alpha \in[0,1]$, the \emph{mean-semideviation} risk measure is defined as $\msd(Z;\alpha) \doteq \Exp{Z} + \alpha \SD[Z]$, and is a coherent risk measure~\citep{Shapiro2009}. We have the following result:
+%
+\begin{proposition}\label{prop:msd_grad}
+Under Assumption~\ref{ass:LR_well_behaved}, with $\dt{\Exp{Z}} = \Exp{\dt \log P(\omega) Z}$, we have
+%
+\begin{equation*}
+%\begin{split}
+     \dt{\msd(Z;\alpha)} = \dt{\Exp{Z}} +
+     \! \frac{\alpha \Exp{(Z \!-\! \Exp{Z})_{+} \!\left(\dt \log P(\omega) (Z \!-\! \Exp{Z}) \!-\! \dt{\Exp{Z}}\right)}}{\SD(Z)}.
+%\end{split}
+\end{equation*}
+\end{proposition}
+%
+This proposition can be used to devise a sampling based estimator for $\dt{\msd(Z;\alpha)}$ by replacing all the expectations with sample averages. The algorithm along with the proof of the proposition are in the supplementary material. In Section \ref{sec:experiment} we provide a numerical illustration of optimization with a mean-semideviation objective.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{-0.1in}
+\subsection{General Gradient Estimation Algorithm}
+\vspace{-0.05in}
+% General sampling procedure
+%   - Give algorithm
+%   - Consistency proof (?)
+%   - Example - CVaR
+%   - Example - Mean-semideviation (?)
+
+In the two previous examples, we obtained a gradient formula by \emph{analytically} calculating the Lagrangian saddle point~\eqref{eq:Lagrangian} and plugging it into the formula of Theorem~\ref{thm:static_gradient}. We now consider a general coherent risk $\rho(Z)$ for which, in contrast to the CVaR and mean-semideviation cases, the Lagrangian saddle-point is not known analytically. \emph{We only assume that we know the structure of the risk-envelope} as given by~\eqref{eq:U_as_optimization}.
+We show that in this case, $\dt \rho(Z)$ may be estimated using a \emph{sample average approximation} (SAA;~\citealt{Shapiro2009}) of the formula in Theorem~\ref{thm:static_gradient}.
+
+Assume that we are given $N$ i.i.d.~samples $\omega_i \sim \pprob$, $i=1,\dots,N$, and let $\pemp(\omega) \doteq \frac{1}{N}\sum_{i=1}^N \ind{ \omega_i = \omega }$ denote the corresponding empirical distribution. Also, let the \emph{sample risk envelope} $\mathcal U(\pemp)$ be defined according to Eq.~\ref{eq:U_as_optimization} with $\pprob$ replaced by $\pemp$. Consider the following SAA version of the optimization in Eq.~\ref{eq:coherent_as_optimization}:
+%
+\begin{equation}\label{eq:SAA_coherent}
+\rho_N(Z) = \max_{\xi:\xi \pemp \in \mathcal U(\pemp)} \sum_{i \in 1,\dots,N} \pemp(\omega_i) \xi(\omega_i) Z(\omega_i).
+\end{equation}
+%
+Note that~\eqref{eq:SAA_coherent} defines a convex optimization problem with $\mathcal O(N)$ variables and constraints. In the following, we assume that a solution to~\eqref{eq:SAA_coherent} may be computed efficiently using standard convex programming tools such as interior point methods~\cite{boyd2009convex}. Let $\xi^*_{\theta;N}$ denote a solution to~\eqref{eq:SAA_coherent} and $\lambda^{*,\mathcal P}_{\theta;N},\lambda^{*,\mathcal E}_{\theta;N},\lambda^{*,\mathcal I}_{\theta;N}$ denote the corresponding KKT multipliers, which can be obtained from the convex programming algorithm~\cite{boyd2009convex}. We propose the following estimator for the gradient-based on Theorem~\ref{thm:static_gradient}:
+%
+\vspace{-0.05in}
+\begin{align}\label{eq:SAA_gradient}
+  \dtN{\rho(Z)} &= \sum_{i = 1}^{N} \pemp(\omega_i) \xi^*_{\theta;N}(\omega_i) \dt \log P(\omega_i) (Z(\omega_i) - \lambda^{*,\mathcal P}_{\theta;N}) \\
+    & - \sum_{e\in\mathcal E} \lambda^{*,\mathcal E}_{\theta;N}(e) \dt{g_e(\xi^*_{\theta;N};P_{\theta;N})}\nonumber
+     -\sum_{i\in\mathcal I} \lambda^{*,\mathcal I}_{\theta;N}(i) \dt{f_i(\xi^*_{\theta;N};P_{\theta;N})}.
+\end{align}
+%
+Thus, our gradient estimation algorithm is a two-step procedure involving \emph{both sampling and convex programming}. In the following, we show that under some conditions on the set $\mathcal U(\pprob)$, $\dtN{\rho(Z)}$ is a consistent estimator of $\dt{\rho(Z)}$. The proof has been reported in the supplementary material.
+%
+\begin{proposition}\label{prop:consistent}
+Let Assumptions~\ref{assume:risk_envelope} and~\ref{ass:LR_well_behaved} hold. Suppose there exists a compact set $C = C_\xi \times C_\lambda$ such that:
+(I) The set of Lagrangian saddle points $\spset \subset C$ is non-empty and bounded.
+(II) The functions $f_e(\xi,P_\theta)$ for all $e\in\mathcal E$ and $f_i(\xi,P_\theta)$ for all $i\in\mathcal I$ are finite-valued and continuous (in $\xi$) on $C_\xi$.
+(III) For $N$ large enough, the set $\saaspset$ is non-empty and $\saaspset \subset C$ w.p.~1.
+Further assume that:
+(IV) If $\xi_N\pemp \in \mathcal U(\pemp)$ and $\xi_N$ converges w.p.~1 to a point $\xi$, then $\xi\pprob\in\mathcal U(\pprob)$.
+We then have that $\lim_{N\to \infty} \rho_N(Z) = \rho(Z) $ and $\lim_{N\to \infty} \dtN{\rho(Z)} = \dt{\rho(Z)} $ w.p.~1.
+\end{proposition}
+%
+The set of assumptions for Proposition~\ref{prop:consistent} is large, but rather mild. Note that (I) is implied by the Slater condition of Assumption~\ref{assume:risk_envelope}. For satisfying (III), we need that the risk be well-defined for every empirical distribution, which is a natural requirement. Since $P_{\theta;N}$ always converges to $P_{\theta}$ uniformly on $\Omega$, (IV) essentially requires smoothness of the constraints. We remark that in particular, constraints (I) to (IV) are satisfied for the popular CVaR, mean-semideviation, and spectral risk measures.
+
+% Explain that this result motivates our approach for static+dynamic : sampling (or analytic calculation) to solve the optimization and find u, and then sampling according to u to calculate the gradient.
+To summarize this section, we have seen that by exploiting the special structure of coherent risk measures in Theorem~\ref{thm:rep} and by the envelope-theorem style result of Theorem~\ref{thm:static_gradient}, we were able to derive sampling-based, likelihood-ratio style algorithms for estimating the policy gradient $\dt{\rho(Z)}$ of coherent static risk measures. The gradient estimation algorithms developed here for static risk measures will be used as a sub-routine in our subsequent treatment of dynamic risk measures.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\vspace{-0.1in}
+\section{Gradient Formula for Dynamic Risk}
+\label{sec:dynamic}
+%\vspace{-0.1in}
+
+In this section, we derive a new formula for the gradient of the Markov coherent dynamic risk measure, $\dt \rho_\infty(\mdp)$. Our approach is based on combining the static gradient formula of Theorem~\ref{thm:static_gradient}, with a dynamic-programming decomposition of $\rho_\infty(\mdp)$.
+
+The risk-sensitive \emph{value-function} for an MDP $\mdp$ under the policy $\theta$ is defined as $V_\theta(x)=\rho_\infty(\mdp | x_0 = x)$, where with a slight abuse of notation, $\rho_\infty(\mdp | x_0 = x)$ denotes the Markov-coherent dynamic risk in~\eqref{eq:dynamic_risk_def} when the initial state $x_0$ is $x$. It is shown in~\citep{ruszczynski2010risk} that due to the structure of the Markov dynamic risk $\rho_\infty(\mdp)$, the value function is the unique solution to the \emph{risk-sensitive Bellman equation}
+%
+\begin{equation}\label{eq:T}
+V_\theta(x) = C(x) + \gamma\max_{\xi P_\theta(\cdot |x)\in \U(x,P_\theta(\cdot |x))}\mathbb E_{\xi}[V_\theta(x')],
+\end{equation}
+%
+%where $C_\theta(x)=\sum_{a\in\mathcal A}C(x,a)\mu_\theta(a|x)$ \textcolor{red}{(is this correct??)} is the stage-wise cost function induced by policy $\mu_\theta$.
+where the expectation is taken over the next state transition. Note that by definition, we have $\rho_\infty(\mdp) = V_\theta(x_0)$, and thus, $\dt \rho_\infty(\mdp) = \dt V_\theta(x_0)$.
+
+We now develop a formula for $\dt V_\theta(x)$; this formula extends the well-known ``policy gradient theorem"~\cite{sutton_policy_2000,konda2000actor}, developed for the expected return, to Markov-coherent dynamic risk measures. We make a standard assumption, analogous to Assumption \ref{ass:LR_well_behaved} of the static case.
+\begin{assumption}\label{assume:ll_ratio_bounded}
+The likelihood ratio $\nabla_\theta\log\mu_\theta(a|x)$ is well-defined and bounded for all $x\in\mathcal X$ and $a\in\mathcal A$.
+\end{assumption}
+\vspace{-0.1in}
+For each state $x\in\mathcal X$, let $(\xi^*_{\theta,x},\lambda^{*,\mathcal P}_{\theta,x},\lambda^{*,\mathcal E}_{\theta,x},\lambda^{*,\mathcal I}_{\theta,x})$ denote a saddle point of~\eqref{eq:Lagrangian}, corresponding to the state $x$, with $P_\theta(\cdot |x)$ replacing $P_\theta$ in \eqref{eq:Lagrangian} and $V_\theta$ replacing $Z$. The next theorem presents a formula for $\dt V_\theta(x)$; the proof is in the supplementary material.
+
+\begin{theorem}\label{thm:dynamic_risk}
+Under Assumptions~\ref{assume:risk_envelope} and~\ref{assume:ll_ratio_bounded}, we have
+%
+\begin{equation*}
+\nabla V_\theta(x) = \mathbb E_{\xi^*_\theta} \left[\left.\sum_{t=0}^{\infty}\gamma^t\nabla_\theta\log\mu_\theta(a_t|x_t)h_\theta(x_t,a_t)\right|  x_0=x\right],
+\end{equation*}
+%
+where $\mathbb E_{\xi^*_\theta}[\cdot]$ denotes the expectation w.r.t.~trajectories generated by the Markov chain with transition probabilities $P_\theta(\cdot|x)\xi_{\theta,x}^*(\cdot)$, and the stage-wise cost function $h_\theta(x,a)$ is defined as
+\begin{small}
+\begin{equation*}
+h_\theta(x,a) \!=\! C(x) + \!\sum_{x'  \in \mathcal X} \!\!P(x'|x,a)\xi^*_{\theta,x}(x')\!\!\left[\gamma V_\theta(x')\!-\!{\lambda}^{*,\mathcal P}_{\theta,x}
+\!-\!\sum_{i\in\mathcal I} \!{\lambda}^{*,\mathcal I}_{\theta,x}(i)\frac{ d f_i(\xi^*_{\theta,x},p)}{d p(x')} \!-\! \sum_{e\in\mathcal E}\!{\lambda}^{*,\mathcal E}_{\theta,x}(e) \frac{ d g_e(\xi^*_{\theta,x},p)}{d p(x')}\right]\!\!.
+\label{eq:h}
+\end{equation*}
+\end{small}
+\end{theorem}
+Theorem \ref{thm:dynamic_risk} may be used to develop an \emph{actor-critic} style~\cite{sutton_policy_2000,konda2000actor} sampling-based algorithm for solving the DRP problem \eqref{eq:DRP_problem}, composed of two interleaved procedures:
+
+\textbf{Critic:} For a given policy $\theta$, calculate the risk-sensitive value function $V_\theta$, and \\
+\textbf{Actor:} Using the critic's $V_\theta$ and Theorem \ref{thm:dynamic_risk}, estimate $\dt \rho_\infty(\mdp)$ and update $\theta$.
+
+Space limitation restricts us from specifying the full details of our actor-critic algorithm and its analysis. In the following, we highlight only the key ideas and results. For the full details, we refer the reader to the full paper version, provided in the supplementary material.
+
+For the critic, the main challenge is calculating the value function when the state space $\mathcal X$ is large and dynamic programming cannot be applied due to the `curse of dimensionality'. To overcome this, we exploit the fact that $V_\theta$ is equivalent to the value function in a robust MDP~\cite{osogami2012robustness} and modify a recent algorithm in~\citet{tamar2014robust} to estimate it using function approximation.
+
+For the actor, the main challenge is that in order to estimate the gradient using Thm.~\ref{thm:dynamic_risk}, we need to sample from an MDP with $\xi_{\theta}^*$-weighted transitions. Also, $h_\theta(x,a)$ involves an expectation for each $s$ and $a$. Therefore, we propose a \emph{two-phase sampling procedure} to estimate $\nabla V_\theta$ in which we first use the critic's estimate of $V_\theta$ to derive $\xi_{\theta}^*$, and sample a trajectory from an MDP with $\xi_{\theta}^*$-weighted transitions. For each state in the trajectory, we then sample several next states to estimate $h_\theta(x,a)$.
+
+The convergence analysis of the actor-critic algorithm and the gradient error incurred from function approximation of $V_\theta$ are reported in the supplementary material.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\vspace{-0.12in}
+\section{Numerical Illustration}\label{sec:experiment}
+\vspace{-0.1in}
+
+In this section, we illustrate our approach with a numerical example. The purpose of this illustration is to emphasize the importance of \emph{flexibility} in designing risk criteria for selecting an \emph{appropriate} risk-measure -- such that suits both the user's risk preference \emph{and} the problem-specific properties.
+
+We consider a trading agent that can invest in one of three assets (see Figure~\ref{fig:1} for their distributions). The returns of the first two assets, $A1$ and $A2$, are normally distributed: $A1\sim \mathcal N (1,1)$ and $A2\sim \mathcal N (4,6)$. The return of the third asset $A3$ has a Pareto distribution: $f(z) = \frac{\alpha}{z^{\alpha+1}}~\forall z>1$, with $\alpha = 1.5$. The mean of the return from $A3$ is 3 and its variance is infinite; such heavy-tailed distributions are widely used in financial modeling \cite{rachev2000stable}. The agent selects an action randomly, with probability $P(A_i)\propto \exp (\theta_i)$, where $\theta\in \mathbb R^3$ is the policy parameter. We trained three different policies $\pi_1$, $\pi_2$, and $\pi_3$. Policy $\pi_1$ is risk-neutral, i.e.,~$\max_\theta \Exp{Z}$, and it was trained using standard policy gradient \cite{MarTsi98}. Policy $\pi_2$ is risk-averse and had a mean-semideviation objective $\max_\theta \Exp{Z} - \SD[Z]$, and was trained using the algorithm in Section~\ref{sec:static}. Policy $\pi_3$ is also risk-averse, with a mean-standard-deviation objective, as proposed in~\cite{tamar2012policy,prashanth2013actor}, $\max_\theta \Exp{Z} - \sqrt{\textrm{Var}[Z]}$, and was trained using the algorithm of~\cite{tamar2012policy}. For each of these policies, Figure~\ref{fig:1} shows the probability of selecting each asset vs.~training iterations. Although $A2$ has the highest mean return, the risk-averse policy $\pi_2$ chooses $A3$, since it has a lower downside, as expected. However, because of the heavy upper-tail of $A3$, policy $\pi_3$ opted to choose $A1$ instead. This is counter-intuitive as a rational investor should not avert high returns. In fact, in this case $A3$ stochastically dominates $A1$~\cite{hadar1969rules}.
+
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{NIPS_FIG1new}
+%  \includegraphics[width=0.23\textwidth]{distributions}
+%  \includegraphics[width=0.76\textwidth]{decision_prob}
+  \caption{Numerical illustration - selection between 3 assets. A: Probability density of asset return. B,C,D: Bar plots of the probability of selecting each asset vs.~training iterations, for policies $\pi_1$, $\pi_2$, and $\pi_3$, respectively. At each iteration, 10,000 samples were used for gradient estimation.}\label{fig:1}
+  \vspace{-0.1in}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\vspace{-0.05in}
+\section{Conclusion}
+\vspace{-0.05in}
+
+We presented algorithms for estimating the gradient of both static and dynamic coherent risk measures using two new policy gradient style formulas that combine sampling with convex programming. Thereby, our approach extends risk-sensitive RL to the whole class of coherent risk measures, and generalizes several recent studies that focused on specific risk measures.
+
+On the technical side, an important future direction is to improve the convergence rate of gradient estimates using importance sampling methods. This is especially important for risk criteria that are sensitive to rare events, such as the CVaR \cite{bardou2009computing}.
+
+From a more conceptual point of view, the coherent-risk framework explored in this work provides the decision maker  with
+\emph{flexibility} in designing risk preference. As our numerical example shows, such flexibility is important for selecting appropriate \emph{problem-specific} risk measures for managing the cost variability. However, we believe that our approach has much more potential than that.
+
+In almost every real-world application, uncertainty emanates from  stochastic dynamics, but also, and perhaps more importantly, from modeling errors (model uncertainty). A prudent policy should protect against \emph{both} types of uncertainties. The representation duality of coherent-risk (Theorem \ref{thm:rep}), naturally relates the risk to model uncertainty. In \cite{osogami2012robustness}, a similar connection was made between model-uncertainty in MDPs and dynamic Markov coherent risk. We believe that by carefully shaping the risk-criterion, the decision maker may be able to take uncertainty into account in a  \emph{broad} sense.
+Designing a principled procedure for such \emph{risk-shaping} is not trivial, and is beyond the scope of this paper. However, we believe that there is much potential to risk shaping as it may be the key for handling model misspecification in dynamic decision making.
+
+%We presented algorithms for estimating the gradient of both static and dynamic coherent risk measures using two new `policy gradient' style formulas that involve sampling and convex programming. Thereby, our framework extends risk-sensitive RL to the whole class of coherent risk measures and generalizes several recent studies that considered specific risk measures. Furthermore, our work gives the decision-maker great flexibility in designing his risk preference. As our numerical example shows, such flexibility is important for selecting appropriate \emph{problem-specific} risk measures.
+%
+%In future, we intend to improve the convergence rate of gradient estimates using importance sampling methods. This is especially important for risk-sensitive criteria that are sensitive to rare events, such as CVaR~\cite{bardou2009computing}.
+%%While policy gradient methods converge reasonable fast for moderate sized problems, future work includes improving gradient estimates and convergence speed by importance sampling methods.
+%%
+%In this work we focused on algorithmic developments, and we did not address \emph{risk modeling} -- the important question of how to select a risk measure for a given problem.
+%%of  risk sensitive problem formulation and modeling is left as future research.
+%This is not a trivial matter; indeed, given the flexibility that our method offers, we believe that future research in risk-sensitive RL should focus exactly on that.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\newpage
+\begin{small}
+\bibliography{CoherentRiskArXiv15}
+\bibliographystyle{plain}
+\end{small}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{CoherentRiskArXiv15_Appendix}
+\end{document}
+

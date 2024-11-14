@@ -1,0 +1,2108 @@
+\appendix
+
+\startcontents[section]
+\printcontents[section]{l}{0}{\setcounter{tocdepth}{2}}
+
+\clearpage
+
+%\section{Broader Impact}
+%In this paper, we propose a method  to increase the robustness of machine learning models against adversarial perturbations and to certify their robustness. We see this as an important step towards general usage of models in practice, as many existing methods are brittle to crafted attacks. Through the proposed method, we hope to contribute to the safe usage of machine learning.
+%However, methods for increasing robustness can also potentially offer new insights for crafting new adversarial %attacks. Thus, it is necessary to continuously develop new defenses.
+%However, robust models also have to be seen with caution. As they are harder to fool, harmful purposes like mass surveillance are harder to avoid. We believe that it is still necessary to further research robustness of machine learning models as the positive effects can outweigh the negatives, but it is necessary to discuss the ethical implications of the usage in any specific application area.
+
+
+\section{Image Segmentation on CityScapes}\label{section:extra_experiments_cityscapes}
+
+In the following, we apply our approach to DeepLabv3~\citep{Chen2017} models trained on the Cityscapes~\citep{Cordts2016} training set. We evaluate the certificates on $50$ images from the validation set.
+For localized smoothing, we partition the image into a grid of shape $4 \times 6$.
+To limit the number of LP variables despite the increased
+%image
+resolution, we quantize the base certificate parameters $\eta^{(n)}$ into $2048$ bins (see~\autoref{section:quantizing_base_certs}).
+Different from our experiments on Pascal-VOC and due to the increased computational cost of using higher-dimensional images, the locally smoothed models are not trained on the localized smoothing distribution with parameters $(\sigma_\mathrm{min}, \sigma_\mathrm{max})$.
+Instead, we use model trained with isotropic Gaussian noise with standard deviation $\sigma_\mathrm{iso} = \sigma_\mathrm{min}$.
+
+\cref{fig:cityscapes_more_samples} shows that, even when allowing $153600$ samples per output pixel for both localized smoothing and the baselines (i.e.\ localized smoothing gets to sample $24$ times as many images), most choices of $(\sigma_\mathrm{min}, \sigma_\mathrm{max})$ do not offer higher accuracy and robustness than   SegCertify\textsuperscript{*}, except those leading to a small mIOU below $0.21$.
+\cref{fig:cityscapes_few_samples} shows that reducing the number of samples per output pixel for localized smoothing to $6400 = \frac{153600}{24}$ further weakens the certificate. There, localized smoothing only offers stronger certificates for models with an mIOU below $0.11$.
+
+There are three possible explanations for why localized smoothing does not outperform SegCertify\textsuperscript{*}.
+The first one is that we do not train on the same distribution that we use for certification, so our models are less accurate or less consistent in their predictions, which reduces mIOU or certified robustness.
+The second one is that our simplisitic choice of localized smoothing based on grid cell distance (see~\autoref{sec-detailed-exp-setup-segmentation}) does not match the actual locality structure of DeepLabv3.
+The last one is that DeepLabv3, which uses dilated convolutions to increase the receptive field size in each layer, is just inherently less local than the U-Net architecture used in our experiments on Pascal-VOC.
+Nevertheless, it should be noted that we can always parameterize localized smoothing to obtain the same results as SegCertify\textsuperscript{*} (see~\cref{section:fischer_comparison}).
+
+\begin{figure}[t!]
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/cityscapes/iou_vs_avg_radius_holm.pgf}}
+        \caption{$153600$ samples per output pixel.}
+        \label{fig:cityscapes_more_samples}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/cityscapes/iou_vs_avg_radius_bonferroni.pgf}}
+        \caption{$\frac{153600}{24}$ samples per output pixel for localized LP.}
+        \label{fig:cityscapes_few_samples}
+    \end{subfigure}
+    \caption{Comparison of our LP-based collective certificate for localized randomized smoothing with a $3 \times 5$ grid to CenterSmooth and SegCertify\textsuperscript{*}, using DeepLabV3 on Cityscapes.
+    Increasing the number of samples used for certifying each output from $6400 = \frac{153600}{24}$ to $153600$ (same as for the baselines) closes the gap between localized randomized smoothing and SegCertify.
+    Still, localized smoothing only offers stronger certificates for models with $\mathrm{mIOU} \leq 0.21$ (compared to $\mathrm{mIOU} \leq 0.11$ when using fewer samples).}
+\end{figure}
+
+%\null
+\vfill
+
+\clearpage
+
+\section{Additional Experiments on Node Classification}\label{section:extra_node_experiments}
+In the following, we perform additional experiments on graph neural networks for node classification, including a different model and an additional dataset.
+Unless otherwise stated, all details of the experimental setup are identical to~\autoref{section:experiments_graphs}. In particular, we use sparsity-aware smoothing distribution $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$, where probability of deleting bits $\theta^{-}$ is either constant across the entire graph (for the isotropic randomized smoothing baseline) or adjusted per output and cluster based on cluster affinity (for localized randomized smoothing).
+
+
+
+\begin{figure}[ht]
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_appnp_deletion.pgf}}
+        \caption{Using \citep{Bojchevski2020} for the na\"ive isotropic smoothing baseline.}
+        \label{fig:experiments_bojchevski_naive}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/variance_cert_citeseer/variance_cert_pm_appnp_deletion.pgf}}
+        \caption{Using variance-constrained certification  for the na\"ive isotropic smoothing baseline.}
+        \label{fig:experiments_variance_naive}
+    \end{subfigure}
+    \caption{Analysis of our LP-based collective certificate using APPNP on Citeseer.
+    We use the sparsity-aware smoothing with $\mathcal{S}\left(\vx,0.01,\theta^{-}\right)$ to certify robustness to deletions.
+    In \autoref{fig:experiments_bojchevski_naive} we use the certificate of \citet{Bojchevski2020} for baseline (identical to \autoref{fig:citeseer_pm_appnp_deletion}).
+    In \autoref{fig:experiments_variance_naive} we use variance-constrained certification (see~\autoref{theorem:variance_constrained_cert}) as baseline.
+    In both cases, there are locally smoothed models with a higher accuracy than any of the isotropically smoothed models
+    and significantly larger average certifiable radii.}
+    \label{fig:experiments_bojchevski_vs_variance_baseline}
+    \vskip -0.2in
+\end{figure}
+
+
+\subsection{Comparison to the Na\"ive Variance-constrained Isotropic Smoothing Certificate}\label{section:naive_variance_constrained}
+
+
+
+In~\autoref{fig:citeseer_pm_appnp} of \autoref{section:experiments_graphs}, we observed that locally smoothed models surprisingly did not only achieve up to three times higher average certifiable radii, but simultaneously had higher accuracy than any of the isotropically smoothed models.
+One potential explanation is that we used variance-constrained certification (see~\autoref{theorem:variance_constrained_cert}) (i.e.~smoothing the models' softmax scores instead of their predicted labels) for localized smoothing, but not for the isotropic smoothing baseline.
+This might result in two substantially different models.
+To investigate this, we repeat the experiment from~\autoref{fig:citeseer_pm_appnp_deletion}, using variance-constrained certification for both localized smoothing and the isotropic smoothing baseline.
+\autoref{fig:experiments_bojchevski_vs_variance_baseline} shows that, no matter which smoothing paradigm we use for our isotropic smoothing baseline, there is a c.a.\ \SI{7}{p{.}p{.}} difference in accuracy between the most accurate isotropically smoothed model and the most accurate locally smoothed model.
+
+Interestingly, even variance-constrained smoothing with isotropic noise (green crosses in~\autoref{fig:experiments_variance_naive}) is sufficient for outperforming the isotropic smoothing certificate of \citet{Bojchevski2020} (orange stars in~\autoref{fig:experiments_bojchevski_naive}).
+This showcases that variance-constrained certification does not only present a very efficient, but also a very effective way of certifying robustness on discrete data (even when entirely ignoring the collective robustness aspect).
+
+\subsection{Node Classification using Graph Convolutional Networks}
+
+\begin{figure}[ht]
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_gcn_deletion.pgf}}
+        \caption{
+        Robustness to deletions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+        }
+        \label{fig:citeseer_pm_gcn_deletion}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_gcn_addition.pgf}}
+        \caption{
+        Robustness to additions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+        }
+        \label{fig:citeseer_pm_gcn_addition}
+    \end{subfigure}
+    \caption{Comparison of our LP-based collective certificate for localized randomized smoothing to SparseSmooth, using a $6$-layer GCN on Citeseer. We consider both adversarial deletions (\autoref{fig:citeseer_pm_gcn_deletion}) and additions (\autoref{fig:citeseer_pm_gcn_addition}).
+    Some locally smoothed models have a higher accuracy than any of the isotropically smoothed models. However, our certificate only dominates the best isotropically smoothed models when considering robustness to deletions, not when considering robustness to additions.
+    This can either be attributed to a lower locality in deep GCNs or variance-constrained certification yielding weak base certificates for addition when $\theta^{+}$ is small.}
+    \label{fig:citeseer_pm_gcn}
+    \vskip -0.2in
+\end{figure}
+
+So far, we have only used APPNP models as our base classifier.
+Now, we repeat our experiments using 6-layer Graph Convolutional Networks (GCN) \citep{Kipf2017}.
+In each layer, GCNs first apply a linear layer to each node's latent vector and then average over each node's $1$-hop neighborhood.
+Thus, a 6-layer GCN classifies each node using attributes from all nodes in its $6$-hop neighborhood, which covers most or all of the Citeseer graph.
+Aside from  using GCN instead of APPNP as the base model, we leave the experimental setup from~\autoref{section:experiments_graphs} unchanged.
+Note that GCNs are typically used with fewer layers. However, these  shallow models are strictly local and it has already been established that the certificate~\citet{Schuchardt2021} -- which is subsumed by our certificate (see~\autoref{section:subsumption_proof}) -- can provide very strong robustness guarantees for them. We therefore increase the number of layers to obtain a model that is not strictly local.
+
+\autoref{fig:citeseer_pm_gcn} shows the results for both robustness to deletions and robustness to additions.
+Similar to APPNP, some locally smoothed models have an up to \SI{4}{p{.}p{.}} higher accuracy than the most accurate isotropically smoothed model.
+When considering robustness to deletions, the locally smoothed models Pareto-dominate all of the isotropically smoothed models, i.e.~offer better accuracy-robustness tradeoffs. Some can guarantee average certifiable radii that are at least $50\%$ larger than those of the baseline.
+When considering robustness to additions however, some of the isotropically smoothed models have a higher certifiably robustness.
+
+We see two potential causes for our method's lower certifiable robustness to additions:
+The first potential cause is that the GCN may be less local than APPNP 
+%, similar to how DeepLabv3 appears less local than U-Net (see~\autoref{section:experiments_cityscapes}),
+or that it has a different form of locality that does not match our clustering-based localized smoothing distributions.
+This appears plausible, as GCN averages uniformly over each neighborhood, whereas APPNP aggregates predictions based on pagerank scores.  APPNP may thus primarily attend to specific, densely connected nodes, making it more local than GCN.
+The second potential cause is that the variance-constrained certificate we use as our base certificate may be less effective when certifying robustness to adversarial additions by using a very small addition probablity like $\theta^{+} = 0.01$.
+Afterall, we have also seen in our experiments with APPNP in~\autoref{section:experiments_graphs} that the gap in average certifiable radii between localized and isotropic smoothing was significantly smaller when considering additions.
+We investigate this second potential cause in more detail in~\autoref{section:lower_cert_additions}.
+
+\subsection{Node classification on Cora-ML}
+
+
+
+
+Next, we repeat our experiments with APPNP on the Cora-ML \citep{McCallum2000,Bojchevski2018} node classification dataset, keeping all other parameters  fixed.
+The results are shown in~\autoref{fig:cora_pm_gcn}.
+Unlike on Citeseer, the locally smoothed models have a slightly reduced accuracy compared to the isotropically smoothed models.
+This can either be attributed to one smoothing approach having a more desirable regularizing effect on the neural network, or the fact that we smooth softmax scores instead of predicted labels when constructing the locally smoothed models.
+Nevertheless, when considering adversarial deletions, localized smoothing makes it possible to achieve average certifiable radii that are at least $50\%$ larger than any of the isotropically smoothed models' -- at the cost of slightly reduced accuracy $8.6\%$. Or, for another point of the pareto front, we increase the certificate by $20\%$ while reducing the accuracy by $2.8$ percentage points.
+As before, the certificates for attribute additions are significantly weaker.
+
+\begin{figure}
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/cora_pm_appnp_deletion.pgf}}
+        \caption{
+        Robustness to deletions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+        }
+        \label{fig:cora_pm_gcn_deletion}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/cora_pm_appnp_addition.pgf}}
+        \caption{
+        Robustness to additions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+        }
+        \label{fig:cora_pm_gcn_addition}
+    \end{subfigure}
+    \caption{Comparison of our LP-based collective certificate for localized randomized smoothing to the SparseSmooth \citep{Bojchevski2020}, using APPNP on Cora-ML. We consider both adversarial deletions (\autoref{fig:cora_pm_gcn_deletion}) and additions (\autoref{fig:cora_pm_gcn_addition}).
+    Some locally smoothed models that have a higher accuracy than any of the isotropically smoothed models. However, our method is only able to dominate all isotropically smoothed models when considering robustness to deletions, not when considering robustness to additions.
+    This can either be attributed to a lower locality in deep GCNs or variance-constrained certification yielding weak base certificates for addition when $\theta^{+}$ is small.}
+    \label{fig:cora_pm_gcn}
+    \vskip -0.2in
+\end{figure}
+
+\subsection{Lower Certifiable Robustness to Additions}\label{section:lower_cert_additions}
+
+\begin{figure}[ht]
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_gcn_addition.pgf}}
+        \caption{Using \citep{Bojchevski2020} for the na\"ive isotropic smoothing certificate.}
+        \label{fig:citeseer_pm_gcn_add}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/variance_cert_citeseer/variance_cert_pm_gcn_addition.pgf}}
+        \caption{Using variance-constrained certification  for the na\"ive isotropic smoothing certificate.}
+        \label{fig:variance_cert_gcn_add}
+    \end{subfigure}
+    \caption{Comparison of our LP-based collective certificate for localized randomized smoothing to SparseSmooth and to a na\"ive combination of its base certificates, using GCN and adversarial additions on Citeseer.
+    \autoref{fig:citeseer_pm_gcn_add} shows that the LP-based certificate is outperformed by na\"ive isotropic smoothing.
+    \autoref{fig:variance_cert_gcn_add} shows that this is largely due to the variance-constrained base certificates (green crosses) for adversarial additions being much weaker than the isotropic smoothing certificate of~\citep{Bojchevski2020} in \autoref{fig:citeseer_pm_gcn_add}.
+    }
+    \label{fig:experiments_bojchevski_vs_variance_lower_robustness}
+    \vskip -0.2in
+\end{figure}
+
+
+While our certificates for adversarial deletions have compared favorably to the isotropic smoothing baseline in all previous experiments,
+our certificates for adversarial additions were comparatively weaker on Cora-ML and when using GCNs as base models.
+In the following, we investigate to what extend this can be attributed to our use of variance-constrained certification for our base certificates.
+
+\autoref{fig:citeseer_pm_gcn_add} shows both our linear programming collective certificate and the na\"ive isotropic smoothing certificate based on~\citep{Bojchevski2020} for GCNs on Citeseer under adversarial additions.
+In~\autoref{fig:variance_cert_gcn_add}, we plot not only the LP-based certificates, but also our variance-constrained base certificates (drawn as green crosses).
+Comparing both figures shows that our base certificate's average certifiable radii are at least $50\%$ smaller than the largest ACR achieved by \citep{Bojchevski2020} in \autoref{fig:citeseer_pm_gcn_add}.
+While our linear program significantly improves upon them, it is not sufficient to overcome this significant gap.
+This result is in stark contrast to our results for attribute deletions \autoref{section:naive_variance_constrained}, where the variance-constrained base certificates alone were enough to significantly outperform the certificate of \citep{Bojchevski2020}.
+
+Now that we have established that the variance-constrained base certificates appear significantly weaker for additions, we can analyze why.
+For this, recall that our base certificates are parameterized by a weight vector $\vw$ (see~\cref{definition:interface}), with smaller values corresponding to higher robustness -- or two weight vectors $\vw^{+}$, $\vw^{-}$ quantifying robustness to adversarial additions and deletions, respectively (see~\autoref{section:appendix_sparsity_cert}).
+Using our results from~\autoref{section:appendix_sparsity_cert}, we can draw the weights $\evw^{+}$ resulting from smoothing distribution $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$ as a function of $\theta^{-}$.
+\autoref{fig:sparsity_weights_pm} shows that $\theta^{-}$ has to be brought very close to $1$ in order to guarantee high robustness to deletions, effectively deleting almost all attributes in the graph.
+Alternatively, one can also increase the addition probability $\theta^{+}$ to perhaps $10\%$ or $20\%$. But this would utterly destroy the sparsity of the graph's attribute matrix.
+We can conclude that, while variance-constrained certification can in principle provide strong certificates for attribute deletions, it might be a worse choice than the method of \citet{Bojchevski2020} for very sparse datasets that force the use of very low addition probabilities $\theta^{+}$.
+
+
+\begin{figure}[ht]
+    \vskip 0.2in
+    \centering
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/sparsity_weights/addition_weights_pm.pgf}}
+        \caption{Certificate weight $\vw^{+}$ for $\mathcal{S}\left(\vx,0.01,\theta^{-}\right)$ for varying $\theta^{-}$.}
+        \label{fig:sparsity_weights_pm}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.49\textwidth}
+        \resizebox{\textwidth}{!}{\input{figures/experiments/graphs/sparsity_weights/addition_weights_pp.pgf}}
+        \caption{Certificate weight $\vw^{+}$ for $\mathcal{S}\left(\vx,\theta^{+},0.6\right)$ for varying $\theta^{+}$.}
+        \label{fig:sparsity_weights_pp}
+    \end{subfigure}
+    \caption{
+    Base certificate weight $\vw^{+}$ of the variance-constrained sparsity-aware smoothing certificate for varying distribution parameters. Certifying high robustness  to adversarial additions (i.e.~obtaining small weights) requires either setting a high probability for random additions or an even higher probability for random deletions.}
+    \label{fig:sparsity_weights}
+    \vskip -0.2in
+\end{figure}
+
+
+
+\subsection{Benefit of Linear Programming Certificates}
+As we did for our experiments on image segmentation (see~\autoref{fig:pascal_collective_lp}), we can inspect the certified accuracy curves of specific smoothed models in more detail to gain a better understanding of how the collective linear programming certificate enables larger average certifiable radii.
+We use the same experimental setup as in~\autoref{section:experiments_graphs}, i.e.~APPNP on Citeseer, and certify robustness to deletions.
+We compare the certifiably most robust isotropically smoothed model ($\theta^{-}_\mathrm{iso} = 0.8$, $\mathrm{ACR}=5.67$ to the locally smoothed model with $\theta^{-}_\mathrm{min} = 0.75, \theta^{+}_\mathrm{max} = 0.95$.
+For the locally smoothed models, we compute both LP-based collective certificate, as well as the na\"ive collective certificate.
+
+\autoref{fig:citeseer_001_08_comp} shows that even na\"ively combining the localized smoothing base certificates obtained via variance-constrained certification (dashed blue line) is sufficient for outperforming the na\"ive isotropic smoothing certificate.
+This speaks to its effectiveness as a certificate against adversarial deletions.
+Combining the base certificates via linear programming (solid blue line) significantly enlarges this gap, leading to even larger maximum and average certifiable radii.
+
+
+\begin{figure}[t!]
+    \vspace{0cm}
+    \centering
+        \input{figures/experiments/graphs/citeseer_001_08.pgf}
+        \caption{
+        Certified accuracy of APPNP on Citeseer. We compare the na\"ive isotropic smoothing certificate of the most robust baseline model ($\theta^{-}_\mathrm{iso} = 0.8$) to localized smoothing   
+    ($\theta^{-}_\mathrm{min} = 0.75$).
+    Even na\"ively combining the variance-constrained base certificates (dashed blue line) is sufficient for outperforming the SparseSmooth certificate for $15$ deletions or less.
+    Combining the base certificates via our LP (solid blue line) further extends the certifiable radius and significantly increases the certified accuracy for perturbations with $5$ or more deletions.
+        }
+        \label{fig:citeseer_001_08_comp}
+    \vspace{17cm}
+\end{figure}
+
+\null
+\vfill
+
+\clearpage
+
+\section{Detailed Experimental Setup}\label{section:detailed_exp_setup}
+
+
+
+In the following, we first explain the metrics we use for measuring the strength of certificates, and how they can be applied to the different types of randomized smoothing certificates used in our experiments.
+We then discuss the specific parameters and hyperparameters for our semantic segmentation and node classification experiments.
+We conclude by specifying the used hardware and comparing the computational cost of Monte Carlo sampling to that of solving the collective linear program.
+
+\subsection{Certificate Strength Metrics}\label{section:metrics}
+We use two metrics for measuring certificate strength: For specific adversarial budgets $\epsilon$, we compute the certified accuracy $\xi(\epsilon)$ (i.e.~the percentage of correct and certifiably robust predictions).
+As an aggregate metric, we compute the average certifiable radius, i.e.~the lower Riemann integral of $\xi(\epsilon)$ evaluated at $\epsilon_1,\dots,\epsilon_N$ with $\epsilon_1=0$ and $\xi(\epsilon_N) = 0$.
+For our experiments on image segmentation, we use $81$ equidistant points in $[0, 4]$. For our experiments on node classification, where we certify robustness to a discrete number of perturbations, we use $\epsilon_n = n$, i.e.~natural numbers.
+In all experiments, we perform Monte Carlo randomized smoothing (see~\autoref{section:monte_carlo}). Therefore, we may have to abstain from making predictions. Abstentions are counted as non-robust and incorrect.
+In the case of center smoothing, either all or no predictions abstain (this is inherent to the method. In our experiments, center smoothing never abstained).
+
+
+
+\subsubsection{Computing Certified Accuracy}
+The three different types of collective certificate considered in our experiments each require a different procedure for computing the certified accuracy.
+In the following, let $\sZ = \left\{d \in \{1,\dots,D_\mathrm{out}\} \mid f_n(\vx) = \hat{\evy}_n\right\}$ be the indices of correct predictions, given an input $\vx$.
+
+
+\textbf{Na\"ive collective certificate}. The na\"ive collective certificate certifies each prediction independently. Let $\sH^{(n)}$ be the set of perturbed inputs $y_n$ is certifiably robust to (see~\cref{definition:base_certs}). Let $\sB_\vx$ be the collective perturbation model.
+Then $\sL = \left\{d \in \{1,\dots,D_\mathrm{out}\} \mid \sB_x \subseteq \sH^{(n)} \right\}$ is the set of all certifiably robust predictions.
+The  certified accuracy can be computed as 
+$\frac{|\sL \cap \sZ|}{D_\mathrm{out}}$.
+
+\textbf{Center smoothing} Center smoothing used for collective robustness certification does not determine which predictions are robust, but only the number of robust predictions.
+We therefore have to make the worst-case assumption that the correct predictions are the first to be changed by the adversary.
+Let $l$ be the number of certifiably robust predictions. 
+The certified accuracy can then be computed as $\frac{\max\left(0, |\sZ| - \left(D_\mathrm{out} - l\right)\right)}{D_\mathrm{out}}$.
+
+\textbf{Collective certificate}. Let $l(\sT)$ be the optimal value of our collective certificate for the set of targeted nodes $\sT$. Then the certified accuracy can be computed via $\frac{l(\sT)}{D_\mathrm{out}}$ with $\sT =  \sZ$.
+
+\subsection{Semantic Segmentation}\label{sec-detailed-exp-setup-segmentation}
+Here, we provide  all parameters of our experiments on image segmentation.
+
+\textbf{Models.} As base models for the semantic segmentation tasks, we use U-Net \citep{Ronneberger2015} and DeepLabv3 \citep{Chen2017} segmentation heads with a ResNet-18 \citep{He2016} backbone, as implemented by the Pytorch Segmentation Models library (version $0.13$) \citep{Yakubovskiy2019}.
+We use the library's default parameters. In particular, the inputs to the U-Net segmentation head are the features of the ResNet model after the first convolutional layer and after each ResNet block (i.e. after every fourth of the subsequent layers).
+The U-Net segmentation head uses (starting with the original resolution) $16$, $32$, $64$, $128$ and $256$ convolutional filters for processing the features at the different scales.
+For the DeepLabv3 segmentation head, we use all default parameters from \citet{Chen2017} and an output stride of $16$.
+To avoid dimension mismatches in the segmentation head, all input images are zero-padded to a height and width that is the next multiple of $32$.
+
+\textbf{Data and preprocessing.} We evaluate our certificates on the Pascal-VOC 2012 and Cityscapes segmentation validation set. We do not use the test set, because evaluating metrics like the certified accuracy requires access to the ground-truth labels.
+For training the U-Net models on Pascal, we use the $10582$ Pascal segmentation masks extracted from the SBD dataset \citep{Hariharan2011} (referred to as "Pascal trainaug" or "Pascal augmented training set" in other papers).
+SBD uses a different data split than the official Pascal-VOC 2012 segmentation dataset. We avoid data leakage by removing all training images that appear in the validation set.
+For training the DeepLabv3 model on Cityscapes, we use the default training set.
+We downscale both the training and the validation images and ground-truth masks to $50\%$ of their original height and width, so that we can use larger batch sizes and thus use our compute time to more thoroughly evaluate a larger range of different smoothing distributions.
+The segmentation masks are downscaled using nearest-neighbor interpolation, the images are downscaled using the $\mathrm{INTER\_AREA}$ operation implemented in OpenCV \citep{Bradski2000}.
+
+\textbf{Training and data augmentation.}
+We initialize our model weights using the weights provided by the Pytorch Segmentation Models library, which were obtained by pre-training on ImageNet.
+We train our models for $512$ epochs, using Dice loss and Adam($lr=0.001,\beta_1=0.9,\beta_2=0.999,\epsilon=10^{-8}, \mathrm{weight\_decay}=0$).
+We use a batch size of $128$ for Pascal-VOC and a batch size of $32$ for Cityscapes.
+Every $8$ epochs, we compute the mean IOU on the validation set. After training, we use the model that achieved the highest validation mean IOU.
+We apply the following train-time augmentations:
+With $50\%$ probability, each image is randomly scaled by a factor from $[1,2.0]$ using the ShiftScaleRotate augmentation implemented by the Albumentations library (version $0.5.2$) \citep{Buslaev2020}. The images are than cropped to a fixed size of $160 \times 256$ (for Pascal-VOC) or $384 \times 384$ (for Cityscapes). Where necessary, the images are padded with zeros. Padded parts of the segmentation mask are ignored by the loss function.
+After these operations, each input is randomly perturbed using Gaussian noise.
+For isotropic smoothing, we use a fixed standard deviation $\sigma_\mathrm{iso} \in \{0,0.01,\dots, 0.5\}$, i.e.~we train $51$ different models on different isotropic smoothing distributions. 
+For localized smoothing with grid shape $H \times W$ and parameters $(\sigma_\mathrm{min}, \sigma_\mathrm{max})$ we perform localized smoothing with a single sample per image. Since this generates $H \cdot W$ as many perturbed images, we perform gradient accumulation, processing $\frac{1}{H \cdot W}$ of each batch at a time.
+All samples are clipped to $[0,1]$ to retain valid RGB-values.
+
+\textbf{Certification.}
+For Pascal-VOC, we evaluate all certificates on the first $100$ images from the validation set that -- after downscaling -- have a resolution of $166 \times 250$.
+For Cityscapes, we use every tenth image from the validation set.
+For all certificates, we use Monte Carlo randomized smoothing (see discussion in~\autoref{section:monte_carlo}).
+We use the significance parameter $\alpha$ to $0.01$, i.e.~all certificates hold with probability $0.99$.
+For the center smoothing baseline, we use the default parameters suggested by the authors ($\Delta=0.05$, $\beta=2$, $\alpha_1=\alpha_2$).
+For the na\"ive isotropic randomized smoothing baseline and for localized smoothing, we use Holm correction to account for the multiple comparisons problem, which yields strictly better results than Bonferroni correction (see~\autoref{section:multiple_comparisons}).
+For our localized smoothing distribution, we partition the input image into a regular grid of size $H \times W$ (specified in the different paragraphs of~\autoref{section:experiments_pascal}) and define minimum standard deviation $\sigma_\mathrm{min}$ and maximum standard deviation $\sigma_\mathrm{max}$.
+Let $\sJ^{(k,l)}$ be the set of all pixel coordinates in grid cell $(k,l)$.
+To smooth outputs in grid cell $(i,j)$, we use a smoothing distribution
+$\mathcal{N}\left(\mathbf{0}, \mathrm{diag}(\vsigma)\right)$ with $ \forall k \in \{1,\dots,H\}, l \in \{1,\dots,W\}, d \in \sJ^{(k,l)}$,
+\begin{equation}
+   \evsigma_d = \sigma_\mathrm{min} + \left(\sigma_\mathrm{max} -\sigma_\mathrm{min} \right) 
+   \cdot \frac{\max \left(|i-k|, |l-j|\right)}{W},
+\end{equation}
+i.e. we linearly interpolate between $\sigma_\mathrm{min}$ and $\sigma_\mathrm{max}$ based on the $l_\infty$ distance of grid cells $(i,j)$ and $(k,l)$.
+All results are reported for the relaxed linear programming formulation of our collective certificate (see~\autoref{section:linear_relaxation}). 
+The collective linear program is solved using MOSEK (version 9.2.46) \citep{mosek} through the CVXPY interface (version 1.1.13) 
+
+\subsection{Node Classification} \label{appendix-node-classification-experiments}
+Here, we provide  all parameters of our experiments on node classification.
+
+\textbf{Model} We test two different models: $2$-layer APPNP \citep{klicpera2019predict} and $6$-layer GCN \citep{Kipf2017}. For both models we use a hidden size of $64$ and dropout with a probability of $0.5$. For the propagation step of APPNP we use $10$ for the number of iterations and $0.15$ as the teleport probability.
+
+\textbf{Data and preprocessing.} We evaluate our approach on the Cora-ML and Citeseer node classification datasets. We perform standard preprocessing, i.e., remove self-loops, make the graph undirected and select the largest connected component. 
+We use the same data split as in \citep{Schuchardt2021}, i.e. $20$ nodes per class for the train and validation set.
+
+\textbf{Training and data augmentation} All models are trained with a learning rate of $0.001$ and weight decay of $0.001$. The models we use for sparse smoothing are trained with the noise distribution that is also reported for certification. The localized smoothing models are trained on the their minimal noise level, i.e., not with localized noise but with only $\theta^+_\mathrm{min}$ and $\theta^-_\mathrm{min}$. 
+
+\textbf{Certification} 
+We evaluate our certificates on the validation nodes.
+For all certificates, we use Monte Carlo randomized smoothing (see discussion in~\autoref{section:monte_carlo}).
+We use $1000$ samples for making smoothed predictions and $5 \cdot 10^5$ samples for certification.
+We use the significance parameter $\alpha$ to $0.01$, i.e.~all certificates hold with probability $0.99$.
+For the na\"ive isotropic randomized smoothing baseline, we use Holm correction to account for the multiple comparisons problem, which yields strictly better results than Bonferroni correction (see~\autoref{section:multiple_comparisons}).
+For our localized smoothing certificates, we use Bonferroni correction.
+To parameterize the localized smoothing distribution, we first perform Metis clustering \citep{MetisClustering} to partition the graph into $5$ clusters. We create an affinity ranking by counting the number of edges which are connecting cluster $i$ and $j$. Specifically, let $\mathcal{C}$ be the set of clusters given by the Metis clustering. Then we count the number of edges between all cluster pairs and denote it by $N_{i,j},\,\, i,j \in \mathcal{C}$. If the number of edges of the pair $(i,j)$ is higher than the number for all other pairs $(k, j) \,\, \forall j\in \mathcal{C}$, i.e. $N_{i,j} > N_{k, j} \,\, \forall k \in \mathcal{C}$, we can say that, due to the homophily assumption, cluster $i$ is the most important one for cluster $j$. We create this ranking for all pairs and use it to select the noise parameter $\theta'^{-}$ for smoothing the attributes of cluster $j$ while classifying a node of cluster $i$ out of the discrete steps of the linear interpolation between $\theta_\mathrm{min}$ and $\theta_\mathrm{max}$ based on its previously defined ranking between the clusters. An example would be, given 11 clusters, $\theta_\mathrm{min} = 0.0$, and $\theta_\mathrm{max} = 1.0$. If cluster $j$ second most important cluster to $i$, then we would take  the second value out of $\{0.0, 0.1, \dots, 1.0\}$.
+All results are reported for the relaxed linear programming formulation of our collective certificate (see~\autoref{section:linear_relaxation}). 
+For each cluster, we use $\frac{1}{5}$ of the samples, which corresponds to $200$ samples for prediction and $10^5$ samples for certification.
+The collective linear program is solved using MOSEK (version 9.2.46) \citep{mosek} through the CVXPY interface (version 1.1.13) \citep{cvxpy}.
+
+\subsection{Hardware and runtime}
+The experiments on Pascal-VOC with strictly local models (\autoref{fig:pascal_iou_vs_avg_radius_masked}) were performed using a Xeon E5-2630 v4 CPU @ 2.20GHz, an NVIDA GTX 1080TI GPU and \SI{128}{GB} of RAM.
+All other experiments were performed using an AMD EPYC 7543 CPU @ 2.80GHz, an NVIDA A100 GPU and \SI{128}{GB} of RAM.
+
+In all cases, the time needed for obtaining the Monte Carlo samples required by both localized and isotropic smoothing was much larger than the cost of solving the collective linear program.
+
+\begin{itemize}
+    \item For the strictly local model in~\cref{fig:pascal_iou_vs_avg_radius_masked}, taking $153600$ samples took \SI{294}{\second} on average. Averaged over all images and adversarial budgets, solving each LP only took \SI{0.91}{\second}.
+    \item For the standard U-Net model in~\cref{fig:not_masked}, taking $153600$ samples took \SI{70.3}{\second} on average. Each LP took \SI{1.8}{\second} on average.
+    \item For the DeepLabv3 model in~\cref{fig:cityscapes_few_samples}, taking $153600$ samples took \SI{1204}{\second} on average. Each LP took \SI{2.78}{\second} on average.
+    \item For the APPNP model in~\cref{fig:citeseer_pm_appnp}, taking $5\cdot 10^6$ samples took \SI{1034}{\second} on average. Each LP took \SI{10.9}{\second} on average.
+\end{itemize}
+For graphs, the reported time for solving a single instance of the collective linear program is much higher than for image segmentation, even though the graph datasets require fewer variables. That is because we used a different, not as well vectorized formulation of the linear program in CVXPY.
+
+In all cases, the time for calculating the isotropic smoothing certificates and base certificates from the Monte Carlo samples was too small to be measured accurately, since they can be implemented in a few simple vector operations.
+
+\clearpage
+
+\section{Proof of Theorem 4.2}\label{section:proof_lp}
+In the following, we prove \autoref{theorem:collective_lp}, i.e.~we derive the mixed-integer linear program that underlies our collective certificate and prove that it provides a valid bound on the number of simultaneously robust predictions.
+The derivation bears some semblance to that of \citep{Schuchardt2021}, in that both use standard techniques to model indicator functions using binary variables and that both convert optimization in input space to optimization in adversarial budget space.
+Nevertheless, both methods differ in how they encode and evaluate base certificates, ultimately leading to significantly different results (our method encodes each base certificate using only a single linear constraint and does not perform any  masking operations).
+
+
+\begin{customthm}{4.2}
+Given locally smoothed model $f$, input $\vx \in \sX^{(D_\mathrm{in})}$, smoothed prediction $\vy = f(\vx)$ and base certificates $\sH^{(1)},\dots,\sH^{D_\mathrm{out}}$ complying with interface \autoref{eq:base_cert_interface}, the number of simultaneously robust predictions
+	$\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[f_n(\vx') = \evy_n \right]$ is lower-bounded by
+	\begin{align}
+		& \min_{\vb \in \sR_+^{D_\mathrm{in}}, \vt \in \{0,1\}^{D_\mathrm{out}}} \sum_{n \in \sT} \evt_n \quad \\
+		\text{s.t.} \quad
+		& \forall n: 
+		\vb^T \vw^{(n)} \geq (1 - \evt_n) \eta^{(n)},  \enskip \mathrm{sum}\{\vb\} \leq \epsilon^p.
+	\end{align}
+\end{customthm}
+\begin{proof}
+We begin by inserting the definition of our perturbation model $\sB_\vx$ and the base certificates $\sH^{(n)}$ into \hyperref[eq:recipe]{Eq. 1.1}:
+
+\begin{align}
+\min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[f_n(\vx') = \evy_n \right] 
+&\geq
+\min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[\vx' \in \sH^{(n)} \right] \\
+\label{eq:collective_first_bound}
+&= \min_{\vx' \in \sX^{D_\mathrm{in}}} \sum_{n \in \sT} \mathrm{I}\left[
+        \sum_{d=1}^{D_\mathrm{in}}
+        \evw_{d}^{(n)} \cdot |\evx_d' -  \evx_d |^p < \eta^{(n)}
+    \right]
+    \ 
+    \text{s.t.}
+    \ 
+    \sum_{d=1}^{D_\mathrm{in}} |\evx_d' -  \evx_d |^p \leq \epsilon^p.
+\end{align}
+
+Evidently, input $\vx'$ only affects the elementwise distances $|\evx_d' -  \evx_d |^p$. Rather than optimizing $\vx'$, we can directly optimize these distances, i.e.~determine how much adversarial budget is allocated to each input dimension.
+For this, we define a vector of variables $\vb \in \sR_+^{D_\mathrm{in}}$ (or $\vb \in \{0,1\}^{D_\mathrm{in}}$ for binary data). Replacing sums with inner products, we can restate
+\autoref{eq:collective_first_bound} as 
+\begin{equation}\label{eq:collective_second_bound}
+    \min_{\vb \in \sR_+^{D_\mathrm{in}}} \sum_{n \in \sT} \mathrm{I}\left[
+        \vb^T \vw^{(n)} < \eta^{(n)}
+    \right]
+    \quad
+    \text{s.t.}
+    \quad
+    \mathrm{sum}\{\vb\} \leq \epsilon^p.
+\end{equation}
+In a final step, we replace the indicator functions in \autoref{eq:collective_second_bound} with a vector of boolean variables $\vt \in \{0,1\}^{D_\mathrm{out}}$.
+\begin{align}
+    & \min_{\vb \in \sR_+^{D_\mathrm{in}}, \vt \in \{0,1\}^{D_\mathrm{out}}} \sum_{n \in \sT} \evt_n \quad
+    \label{eq:collective_lp_objective}
+    \\
+     \text{s.t.} \quad
+        & \forall n: 
+        \vb^T \vw^{(n)} \geq (1 - \evt_n) \eta^{(n)}, \label{eq:indicator_constraint_appendix} \enskip \mathrm{sum}\{\vb\} \leq \epsilon^p.
+\end{align}
+The first constraint in \autoref{eq:indicator_constraint} ensures that
+$
+    t_n = 0 \iff
+    \mathrm{I}\left[
+        \vb^T \vw^{(n)} \geq \eta^{(n)}
+    \right]
+$.
+Therefore, the optimization problem in \autoref{eq:collective_lp_objective} and \autoref{eq:indicator_constraint} is equivalent to \autoref{eq:collective_second_bound}, which by transitivity is a lower bound on 
+$\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[f_n(\vx') = \evy_n \right]$.
+\end{proof}
+
+\clearpage
+
+\section{Improving Efficiency}\label{section:appendix_efficiency}
+In this section, we discuss different modifications to our collective certificate that improve its sample efficiency and allow us fine-grained control over the size of the collective linear program. We further discuss a linear relaxation of our collective linear program.
+All of the modifications preserve the soundness of our collective certificate, i.e.~we still obtain a provable bound on the number of predictions that can be simultaneously attacked by an adversary.
+To avoid constant case distinctions, we first present all results for real-valued data, i.e.~$\sX = \sR$, 
+before mentioning any additional precautions that may be needed when working with binary data.
+
+\subsection{Sharing Smoothing Distributions Among Outputs}\label{section:sharing_noise}
+In principle, our proposed certificate allows a different smoothing distribution $\Psi_\vx^{(n)}$ to be used per output $g_n$ of our base model.
+In practice, where we have to estimate properties of the smoothed classifier using Monte Carlo methods, this is problematic:
+Samples cannot be re-used, each of the many outputs requires its own round of sampling.
+We can increase the efficiency of our localized smoothing approach by partitioning our $D_\mathrm{out}$ outputs into $N_\mathrm{out}$ subsets that share the same smoothing distributions. 
+When making smoothed predictions or computing base certificates, we can then reuse the same samples for all outputs within each subsets.
+
+More formally, we partition our $D_\mathrm{out}$ output dimensions into sets $\sK^{(1)}, \dots, \sK^{(N_\mathrm{out)}}$ with
+\begin{equation}
+    \dot{\bigcup}_{i=1}^{N_\mathrm{out}} \sK^{(i)} = \{1, \dots, D_\mathrm{out}\}.
+\end{equation}
+We then associate each set $\sK^{(i)}$ with a smoothing distribution $\Psi_\vx^{(i)}$.
+For each base model output $g_n$ with $n \in \sK^{(i)}$, we then use smoothing distribution $\Psi_\vx^{(i)}$ to construct the smoothed output $f_n$, e.g. $f_n(\vx) = \mathrm{argmax}_{y \in \sY} \Pr_{\vz \sim \Psi_\vx^{(i)}}\left[f(\vx + \vz) = y\right]$ (note that for our variance-constrained certificate we smooth the softmax scores instead, see~\autoref{section:base_certificates}).
+
+\subsection{Quantizing Certificate Parameters}\label{section:quantizing_base_certs}
+Recall that our base certificates from~\autoref{section:base_certificates} are defined by a linear inequality: 
+A prediction $y_n = f_n(\vx)$ is robust to a perturbed input $\vx' \in \sX^{D_\mathrm{in}}$ if
+$\sum_{d=1}^{D} \evw_d^{(n)} \cdot \left| \evx'_d - \evx_d \right|^p < \eta^{(n)}$, for some $p \geq 0$.
+The weight vectors $\vw^{(n)} \in \sR^{D_\mathrm{in}}$ only depend on the smoothing distributions.
+A side of effect of sharing the same distribution $\Psi_\vx^{(i)}$ among all outputs from a set $\sK^{(i)}$, as discussed in the previous section, is that the outputs also share the same weight vector
+$\vw^{(i)} \in \sR^{D_\mathrm{in}}$
+with $\forall n \in \sK^{(i)}: \vw^{(i)} = \vw^{(n)}$.
+Thus, for all smoothed outputs $f_n$ with $n \in \sK^{(i)}$, the smoothed prediction $y_n$ is robust if
+$\sum_{d=1}^{D} \evw_d^{(i)} \cdot \left| \evx'_d - \evx_d \right|^p < \eta^{(n)}$.
+
+Evidently, the base certificates for outputs from a set $\sK^{(i)}$ only differ in their parameter  $\eta^{(n)}$.
+Recall that in our collective linear program we use a vector of variables $\vt \in \{0,1\}^{D_\mathrm{out}}$ to indicate which predictions are robust according to their base certificates (see~\autoref{theorem:collective_lp}).
+If there are two outputs $f_n$ and $f_m$ with $\eta^{(n)} = \eta^{(m)}$, then $f_n$ and $f_m$ have the same base certificate and their robustness can be modelled by the same indicator variable.
+Conversely, for each set of outputs $\sK^{(i)}$, we only need one indicator variable per unique $\eta^{(n)}$.
+By quantizing the $\eta^{(n)}$ within each subset $\sK^{(i)}$ (for example by defining equally sized bins between
+$\min_{n \in \sK^{(i)}} \eta^{(n)}$ and $\max_{n \in \sK^{(i)}} \eta^{(n)}$
+), we can ensure that there is always a fixed number $N_\mathrm{bins}$ of indicator variables per subset.
+This way, we can reduce the number of indicator variables from $D_\mathrm{out}$ to $N_\mathrm{out} \cdot N_\mathrm{bins}$.
+
+To implement this idea, we define a matrix of thresholds $\mE \in \sR^{N_\mathrm{out} \times N_\mathrm{bins}}$ with
+$\forall i: \min\left\{\mE_{i,:}\right\} \leq \min_{n \in \sK^{(i)}}\left(\left\{\eta^{(n)} \mid n \in \sK^{(i)} \right\}\right)$.
+We then define a function $\xi : \{1,\dots,N_\mathrm{out}\} \times \sR \rightarrow \sR$ with
+\begin{equation}
+\xi(i, \eta) = \max\left( \left\{ \emE_{i, j} \mid j \in \{1,\dots,N_\mathrm{bins} \land \emE_{i, j} < \eta \right\} \right)
+\end{equation}
+that quantizes base certificate parameter $\eta$ from output subset $\sK^{(i)}$ by mapping it to the next smallest threshold in $\mE_{i,:}$.
+We can then bound the collective robustness of the targeted dimensions $\sT$ of our prediction vector $\vy = f(\vx)$ as follows:
+\begin{align}\label{eq:with_quantization}
+    \min
+    \sum_{i \in \{1,\dots,N_\mathrm{out}\}} 
+    \sum_{j \in \{1,\dots,N_\mathrm{bins}\}}
+    \emT_{i,j}
+    \left|
+    \left\{
+        n \in \sT \cap \sK^{(i)} \left| \xi\left(i, \eta^{(n)}\right) = \emE_{i,j} \right.
+    \right\}
+    \right|
+    \\\label{eq:bin_constriant}
+    \text{s.t.} \quad
+        \forall i, j: 
+        \vb^T \vw^{(i)}  \geq (1 - \emT_{i,j}) \emE_{i,j}, 
+    \quad
+    \mathrm{sum}\{\vb\} \leq \epsilon^p
+    \\
+    \vb \in \sR_+^{D_\mathrm{in}}, \quad \mT \in \{0,1\}^{N_\mathrm{out} \times N_\mathrm{bins}}.
+\end{align}
+Constraint~\autoref{eq:bin_constriant} ensures that $\emT_{i,j}$ is only set to $0$ if $\vb^T \vw^{(i)} \geq \emE_{i,j}$, i.e.~all predictions from subset $\sK^{(i)}$ whose base certificate parameter $\eta^{(n)}$ is quantized to $\emE_{i,j}$ are no longer robust.
+When this is the case, the objective function decreases by the number of these predictions.
+For $N_\mathrm{out} = D_\mathrm{out}$, $N_\mathrm{bins}=1$ and $\emE_{n,1} = \eta^{(n)}$, we recover our general certificate from~\autoref{theorem:collective_lp}.
+Note that, if the quantization maps any parameter $\eta^{(n)}$ to a smaller number, the base certificate $\sH^{(n)}$ becomes more restrictive, i.e.~$\evy_n$ is considered robust to a smaller set of perturbed inputs. Thus,~\autoref{eq:with_quantization} is a lower bound on our general certificate from~\autoref{theorem:collective_lp}.
+
+\subsection{Sharing Noise Levels Among Inputs}\label{section:sharing_input_noise}
+Similar to how partitioning the output dimensions allows us to control the number of output variables $\vt$, partitioning the input dimensions and using the same noise level within each partition allows us to control the number of budget variables  $\vb$.
+
+Assume that we have partitioned our output dimensions into $N_\mathrm{out}$ subsets $\sK^{(1)},\dots,\sK^{(N_\mathrm{out})}$, with outputs in each subset sharing the same smoothing distribution $\Psi_\vx^{(i)}$, as explained in~\autoref{section:sharing_noise}.
+Let us now define $N_\mathrm{in}$ input subsets $\sJ^{(1)}, \dots, \sJ^{(N_\mathrm{in})}$ with 
+\begin{equation}
+    \dot{\bigcup}_{l=1}^{N_\mathrm{in}} \sJ^{(l)} = \{1, \dots, D_\mathrm{out}\}.
+\end{equation}
+Recall that a prediction $\evy_n = f_n(\vx)$ with $n \in \sK^{(i)}$ is robust to a perturbed input $\vx' \in \sX^{D_\mathrm{in}}$ if
+$\sum_{d=1}^{D} \evw_d^{(i)} \cdot \left| \evx'_d - \evx_d \right|^p < \eta^{(n)}$ and that the weight vectors $\vw^{(i)}$ only depend on the smoothing distributions.
+Assume that we choose each smoothing distribution $\Psi_\vx^{(i)}$ such that
+$\forall l \in \{1,\dots,N_\mathrm{in}\}, \forall d, d' \in \sJ^{(l)}: \evw^{(i)}_d = \evw^{(i)}_{d'}$,
+i.e.~all input dimensions within each set $\sJ^{(l)}$ have the same weight.
+This can be achieved by choosing $\Psi_\vx^{(i)}$ so that all dimensions in each input subset $\sJ^{l}$ are smoothed with the  noise level (note that we can still use a different smoothing distribution $\Psi_\vx^{(i)}$ for each set of outputs $\sK^{(i)}$).
+For example, one could use a Gaussian distribution with covariance matrix $\mSigma = \mathrm{diag}\left(\vsigma\right)^2$
+with  $\forall l \in \{1,\dots,N_\mathrm{in}\}, \forall d, d' \in \sJ^{(l)}: \evsigma_d = \evsigma_{d'}$.
+
+In this case, the evaluation of our base certificates can be simplified. Prediction $\evy_n = f_n(\vx)$ with $n \in \sK^{(n)}$ is robust to a perturbed input $\vx' \in \sX^{D_\mathrm{in}}$ if 
+\begin{align}
+    \sum_{d=1}^{D_\mathrm{in}} \evw_d^{(i)} \cdot \left| \evx'_d - \evx_d \right|^p < \eta^{(n)}
+    \\
+    = \sum_{l=1}^{N_\mathrm{in}}
+    \left(
+    \evu^{(i)} \cdot \sum_{d \in \sJ^{(l)}} \left| \evx'_d - \evx_d \right|^p 
+    \right)
+    < \eta^{(n)},
+\end{align}
+with $\vu \in \sR_{+}^{N_\mathrm{in}}$ and
+$\forall i \in \{1,\dots,N_\mathrm{out}\}, \forall l \in \{1,\dots,N_\mathrm{in}\}, \forall d \in \sJ^{(l)}: \evu_l^{i} = \evw_d^{i}$.
+That is, we can replace each weight vector $\vw^{(i)}$ that has one weight $\evw^{(i)}_d$ per input dimension $d$ with a smaller weight vector $\vu^{(i)}$ featuring one weight $\evu^{(i)}_l$ per input subset $\sJ^{(l)}$.
+
+For our linear program, this means that we no longer need a budget vector $\vb \in \sR_{+}^{D_\mathrm{in}}$ to model the elementwise distance $\left| \evx'_d - \evx_d \right|^p$ in each dimension $d$. Instead, we can use a smaller budget vector 
+$\vb \in \sR_{+}^{N_\mathrm{in}}$ to model the overall distance within each input subset $\sJ^{(l)}$, i.e.~
+$\evb^{(l)} = \sum_{d \in \sJ^{(l)}} \left| \evx'_d - \evx_d \right|^p$.
+Combined with the quantization of certificate parameters from the previous section, our optimization problem becomes 
+\begin{gather}
+    \min
+    \sum_{i \in \{1,\dots,N_\mathrm{out}\}} 
+    \sum_{j \in \{1,\dots,N_\mathrm{bins}\}}
+    \emT_{i,j}
+    \left|
+    \left\{
+        n \in \sT \cap \sK^{(i)} \left| \xi\left(i, \eta^{(n)}\right) = \emE_{i,j} \right.
+    \right\}
+    \right|
+    \\
+    \text{s.t.} \quad
+        \forall i, j: 
+        \vb^T \vu^{(i)}  \geq (1 - \emT_{i,j}) \emE_{i,j}, 
+    \quad
+    \mathrm{sum}\{\vb\} \leq \epsilon^p,
+    \\
+    \vb \in \sR_+^{N_\mathrm{in}}, \quad \mT \in \{0,1\}^{N_\mathrm{out} \times N_\mathrm{bins}}.
+\end{gather}
+with $\vu \in \sR^{N_\mathrm{in}}$ and
+$\forall i \in \{1,\dots,N_\mathrm{out}\}, \forall l \in \{1,\dots,N_\mathrm{in}\}, \forall d \in \sJ: \evu_l^{i} = \evw_d^{i}$.
+For $N_\mathrm{out} = D_\mathrm{out}$, $N_\mathrm{in} = D_\mathrm{in}$, $N_\mathrm{bins}=1$ and $\emE_{n,1} = \eta^{(n)}$, we recover our general certificate from~\autoref{theorem:collective_lp}.
+
+When certifying robustness for binary data, we impose different constraints on $\vb$.
+To model that the adversary can not flip more bits than are present within each subset, we use a budget vector 
+$\vb \in \sN_0^{N_\mathrm{in}}$ with $\forall l \in \{1,\dots,N_\mathrm{in}\} : \evb_l \leq \left| \sJ^{(l)} \right|$, instead of a continuous budget vector $\vb \in \sR_+^{N_\mathrm{in}}$.
+
+\subsection{Linear Relaxation}\label{section:linear_relaxation}
+Combining the previous steps allows us to reduce the number of problem variables and linear constraints from $D_\mathrm{in} +  D_\mathrm{out}$ and $D_\mathrm{out} + 1$ to $N_\mathrm{in} + N_\mathrm{out} \cdot N_\mathrm{bins}$ and 
+$N_\mathrm{out} \cdot N_\mathrm{bins} + 1$, respectively.
+Still, finding an optimal solution to the mixed-integer linear program may be too expensive.
+One can obtain a lower bound on the optimal value and thus a valid, albeit more pessimistic, robustness certificate by relaxing all discrete variables to be continuous.
+
+When using the general certificate from~\autoref{theorem:collective_lp}, the binary vector $\vt \in \{0,1\}^{D_\mathrm{out}}$ can be relaxed to 
+$\vt \in [0,1]^{D_\mathrm{out}}$. When using the certificate with quantized base certificate parameters from \autoref{section:quantizing_base_certs} or \autoref{section:sharing_input_noise}, the binary matrix $\mT \in [0,1]^{N_\mathrm{out} \times N_\mathrm{bins}}$ can be relaxed to $\mT \in [0,1]^{N_\mathrm{out} \times N_\mathrm{bins}}$. Conceptually, this means that predictions can be partially certified, i.e.~$\evt_n \in (0,1)$ or $\emT_{i,j} \in (0,1)$.
+In particular, a prediction can be partially certified even if we know that is impossible to attack under the collective perturbation model $\sB_\vx = \left\{\vx' \in \sX^{D_\mathrm{in}} \mid ||\vx' - \vx||_p \leq \epsilon \right\}$.
+Just like \citet{Schuchardt2021}, who encountered the same problem with their collective certificate, we circumvent this issue by first computing a set $\sL \subseteq \sT$ of all targeted predictions in $\sT$ that are guaranteed to always be robust under the collective perturbation model:
+\begin{align}
+    \sL &= \left\{
+        n \in \sT \left| 
+            \left(
+            \max_{x \in \sB_\vx}
+            \sum_{d=1}^{D} \evw_d^{(n)} \cdot \left| \evx'_d - \evx_d \right|^p
+            \right)
+            < \eta^{(n)}
+        \right.
+    \right\}
+    \\
+    &= 
+    \left\{
+        n \in \sT \left| 
+            \max_n \left\{\vw^{(n)} \right\}
+            \cdot
+            \epsilon^p
+            < \eta^{(n)}
+        \right.
+    \right\}.
+\end{align}
+The equality follows from the fact that the most effective way of attacking a prediction is to allocate all adversarial budget to the least robust dimension, i.e.~the dimension with the largest weight.
+Because we know that all predictions with indices in $\sL$ are robust, we do not have to include them in the collective optimization problem and can instead compute
+\begin{equation}
+    | \sL | + \min_{\vx' \in \sB_\vx} \sum_{n \in \sT \setminus \sL} \mathrm{I}\left[\vx' \in \sH^{(n)} \right].
+\end{equation}
+The r.h.s. optimization can be solved using the general collective certificate from~\autoref{theorem:collective_lp} or any of the more efficient, modified certificates from previous sections.
+
+When using the general collective certificate from~\autoref{theorem:collective_lp} with binary data, the budget variables $\vb \in \{0,1\}^{D_\mathrm{in}}$ can be relaxed to
+$\vb \in [0,1]^{D_\mathrm{in}}$.
+When using the modified collective certificate from~\autoref{section:sharing_input_noise}, the budget variables with $\vb \in \sN_0^{N_\mathrm{in}}$ can be relaxed to $\vb \in \sR_+^{N_\mathrm{in}}$.
+The additional constraint
+$\forall l \in \{1,\dots,N_\mathrm{in}\} : \evb_l \leq \left| \sJ^{(l)} \right|$ can be kept in order to model that the adversary cannot flip (or partially flip) more bits than are present within each input subset $\sJ^{(l)}$.
+
+
+\clearpage
+
+
+\section{Base Certificates} \label{sec-appendix-base-cert}
+
+\begin{table*}[bp]
+\caption{Base certificates complying with interface \autoref{eq:base_cert_interface} with parameters $\vw^{(n)}$ and $\eta^{(n)}$.
+Here, $y_n = f_n(\vx)$ is the prediction of $f_n(\vx) = \mathrm{argmax}_{y \in \sY} q_{n,y}$.
+With the $l_0$ certificate,  
+$g_n(\vz)_{y}$ refers to the softmax score of class $y$ and 
+$\zeta = \mathrm{Var}_{\vz \sim \mathcal{F}(\vx, \vtheta)}\left[g_n(\vz)_{y_n}\right]$
+is the variance
+of $y_n$'s softmax score.
+}
+\label{table:base_cert_summary}
+%\vskip 0.15in
+\begin{center}
+\begin{small}
+\begin{tabular}{  c  | c | c || c | c  }
+\toprule
+Norm & $\Psi_\vx^{(n)}$ & \makecell{$q_{n,y}$} & $\evw_d^{(n)}$ & $\eta^{(n)}$  \\
+\midrule
+$l_2$ &
+$\mathcal{N}\left(\vx, \mathrm{diag}\left(\vs \right)^2\right)$ & 
+$\mathop{\Pr}_{\vz \sim \Psi_\vx^{(n)} } \left[g_n(\vz) = y\right]$ &
+$\frac{1}{\evs_d^2}$ &
+$\left(\Phi^{-1}\left(q_{n, y_n}\right)\right)^2$
+\\
+\hline
+$l_1$ &
+$\mathcal{U}\left(\vx, \vlambda\right)$ & 
+$\mathop{\Pr}_{\vz \sim \Psi_\vx^{(n)} } \left[g_n(\vz) = y\right]$ &
+$\frac{1}{\evlambda_d}$ &
+$\Phi^{-1}\left(q_{n, y_n}\right)$
+\\
+\hline
+$l_0$ &
+$\mathcal{F}\left(\vx, \vtheta\right)$ & 
+$\mathop{\E}_{\vz \sim \Psi_\vx^{(n)} } \left[g_n(\vz)_y\right]$ &
+\scalebox{0.93}{
+$
+\ln\left( \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+            \right)
+$} &
+\scalebox{0.93}{$
+\ln\left(1 + \frac{1}{\zeta}\left(q_{n,y_n} - \frac{1}{2}\right)^2\right)
+$}
+\\\bottomrule
+\end{tabular}
+\end{small}
+\end{center}
+%\vskip -0.1in
+\end{table*}
+
+
+In the following, we show why the base certificates discussed in~\autoref{section:base_certificates} and summarized in~\cref{table:base_cert_summary} hold. In~\autoref{section:appendix_sparsity_cert} we further present a base certificate (and corresponding collective certificate) that can distinguish between adversarial addition and deletion of bits in binary data.
+
+\subsection{Gaussian Smoothing for \texorpdfstring{$l_2$}{l2} Perturbations of Continuous Data}
+\begin{proposition}\label{prop:gaussian_smoothing}
+Given an output $g_n : \sR^{D_\mathrm{in}} \rightarrow \sY$, let 
+$f_n(\vx) = \mathrm{argmax}_{y \in \sY} \Pr_{\vz \sim \mathcal{N}(\vx, \mSigma)}\left[g_n(\vz) = y\right]$ be the corresponding smoothed output with $\mSigma = \mathrm{diag}\left(\vsigma\right)^2$ and $\vsigma \in \sR_+^{D_\mathrm{in}}$.
+Given an input $\vx \in \sR^{D_\mathrm{in}}$ and smoothed prediction $\evy_n = f_n(\vx)$, 
+let $q = \Pr_{\vz \sim \mathcal{N}(\vx, \mSigma)}\left[g_n(\vz) = \evy_n \right]$.
+Then, $\forall \vx' \in \sH^{(n)}: f_n(\vx') = \evy_n$ with $\sH^{(n)}$ defined as in \autoref{eq:base_cert_interface},
+$\evw_{d} = \frac{1}{{\evsigma_d}^2}$, $\eta = \left(\Phi^{(-1)}(q)\right)^2$ and $p=2$.
+\end{proposition}
+\begin{proof}
+Based on the definition of the base certificate interface, we need to show that, 
+$\forall \vx' \in \sH : f_n(\vx') = y_n$ with
+\begin{equation}
+    \sH = \left\{ \vx' \in \sR^{D_\mathrm{in}} \left| \ 
+        \sum_{d=1}^{D_\mathrm{in}}
+            \frac{1}{\evsigma_d^2} \cdot | \evx_d - \evx'_d |^2 < \left( \Phi^{-1}(q) \right)^2
+        \right.
+    \right\}.
+\end{equation}
+\citet{Eiras2021} have shown that under the same conditions as above, but with a general covariance matrix $\mSigma \in \sR_+^{D_\mathrm{in} \times D_\mathrm{in}}$, a prediction $y_n$ is certifiably robust to a perturbed input $\vx'$ if 
+\begin{equation}\label{eq:inverse_cdf_bound}
+    \sqrt{(\vx - \vx') \mSigma^{-1} (\vx - \vx')} < \frac{1}{2}
+    \left(
+        \Phi^{-1}(q) - \Phi^{-1}(q')
+    \right),
+\end{equation}
+where $q' = \max_{\evy_n' \neq \evy_n} \Pr_{\vz \sim \mathcal{N}(\vx, \mSigma)}\left[g_n(\vz) = \evy'_n \right]$ is the probability of the second most likely prediction under the smoothing distribution.
+Because the probabilities of all possible predictions have to sum up to $1$, we have $q' \leq 1 - q$.
+Since $\Phi^{-1}$ is monotonically increasing, we can obtain a lower bound on the r.h.s. of~\autoref{eq:inverse_cdf_bound} and thus a more pessimistic certificate by substituting $1 -q$ for $q'$ (deriving such a "binary certificate" from a "multiclass certificate" is common in randomized smoothing and was already discussed in \citep{Cohen2019}):
+\begin{equation}\label{eq:gaussian_derivation_1}
+    \sqrt{(\vx - \vx') \mSigma^{-1} (\vx - \vx')} < \frac{1}{2}
+    \left(
+        \Phi^{-1}(q) - \Phi^{-1}(1 - q)
+    \right),
+\end{equation}
+In our case, $\mSigma$ is a diagonal matrix $\mathrm{diag}\left(\vsigma\right)^2$ with $\vsigma \in \sR_+^{D_\mathrm{in}}$. Thus~\autoref{eq:gaussian_derivation_1} is equivalent to
+\begin{equation}
+    \sqrt{
+        \sum_{d=1}^{D_\mathrm{in}} (\evx_d - \evx'_d) \frac{1}{\evsigma_d^2} (\evx_d - \evx'_d)
+    }
+    < \frac{1}{2}
+    \left(
+        \Phi^{-1}(q) - \Phi^{-1}(1 - q)
+    \right).
+\end{equation}
+Finally, using the fact that $\Phi^{-1}(q) - \Phi^{-1}(1 - q) = 2 \Phi^{-1}(q)$ and eliminating the square root shows that we are certifiably robust if 
+\begin{equation}
+    \sum_{d=1}^{D_\mathrm{in}} \frac{1}{\evsigma_d^2} \cdot | \evx_d - \evx'_d |^2 < \left( \Phi^{-1}(q) \right)^2.
+\end{equation}
+\end{proof}
+
+
+\subsection{Uniform Smoothing for \texorpdfstring{$l_1$}{l1} Perturbations of Continuous Data}
+An alternative base certificate for $l_1$ perturbations is again due to \citet{Eiras2021}.
+Using uniform instead of Gaussian noise allows us to collective certify robustness to $l_1$-norm-bound perturbations.
+In the following $\mathcal{U}(\vx, \vlambda)$ with $\vx \in \sR^{D}$, $\vlambda \in \sR_+^D$ refers to a vector-valued random distribution in which the $d$-th element is uniformly distributed in
+$\left[\evx_d - \evlambda_d, \evx_d + \evlambda_d\right]$.
+\begin{proposition}\label{prop:uniform_smoothing}
+Given an output $g_n : \sR^{D_\mathrm{in}} \rightarrow \sY$, let 
+$f(\vx) = \mathrm{argmax}_{y \in \sY} \Pr_{\vz \sim \mathcal{U}(\vx, \vlambda)}\left[g(\vz) = y\right]$ be the corresponding smoothed classifier with $\vlambda \in \sR_+^{D_\mathrm{in}}$.
+Given an input $\vx \in \sR^{D_\mathrm{in}}$ and smoothed prediction $y = f(\vx)$, 
+let $p = \Pr_{\vz \sim \mathcal{U}(\vx, \vlambda)}\left[g(\vz) = y\right]$.
+Then, $\forall \vx' \in \sH^{(n)}: f_n(\vx') = \evy_n$ with $\sH^{(n)}$ defined as in \autoref{eq:base_cert_interface},
+$\evw_{d} = 1 / \evlambda_d$,
+$\eta = \Phi^{-1}(q)$
+and
+$p=1$.
+\end{proposition}
+\begin{proof}
+Based on the definition of $\sH^{(n)}$, we need to prove that $\forall \vx' \in \sH : f_n(\vx') = y_n$ with
+\begin{equation}
+    \sH = \left\{ \vx' \in \sR^{D_\mathrm{in}} \mid
+        \sum_{d=1}^{D_\mathrm{in}}
+            \frac{1}{\evlambda_d} \cdot | \evx_d - \evx'_d | <  \Phi^{-1}(q)
+    \right\},
+\end{equation}
+\citet{Eiras2021} have shown that under the same conditions as above, a prediction $y_n$ is certifiably robust to a perturbed input $\vx'$ if 
+\begin{equation}
+    \sum_{d=1}^{D_\mathrm{in}}
+            | \frac{1}{\evlambda_d} \cdot  \left(\evx_d - \evx'_d\right) |  
+            < \frac{1}{2}
+    \left(
+        \Phi^{-1}(q) - \Phi^{-1}(1 - q)
+    \right),
+\end{equation}
+where $q' = \max_{\evy_n' \neq \evy_n} \Pr_{\vz \sim \mathcal{U}(\vx, \vlambda)}\left[g_n(\vz) = \evy'_n \right]$ is the probability of the second most likely prediction under the smoothing distribution.
+As in our previous proof for Gaussian smoothing, we can obtain a more pessimistic certificate by substituting $1 - q$ for $q'$.  
+Since $\Phi^{-1}(q) - \Phi^{-1}(1 - q) = 2 \Phi^{-1}(q)$ and 
+all $\evlambda_d$ are non-negative, we know that our prediction is certifiably robust if
+\begin{equation}
+    \sum_{d=1}^{D_\mathrm{in}}
+            \frac{1}{\evlambda_d} \cdot | \evx_d - \evx'_d | <  \Phi^{-1}(p).
+\end{equation}
+\end{proof}
+
+\subsection{Variance-Constrained Certification}\label{section:variance_smoothing}
+In the following, we derive the general variance-constrained randomized smoothing certificate from \autoref{theorem:variance_constrained_cert}, before discussing specific  certificates for binary data in \autoref{section:appendix_bernoulli_cert} and~\autoref{section:appendix_sparsity_cert}.
+
+Variance smoothing assumes that we make predictions by randomly smoothing a base model's softmax scores.
+That is, given base model $g : \sX \rightarrow \Delta_{|\sY|}$ mapping from an arbitrary discrete input space $\sX$ to 
+scores from the $\left(|\sY|-1\right)$-dimensional probability simplex $\Delta_{|\sY|}$, we define the smoothed classifier  
+$f(\vx) = \mathrm{argmax}_{y \in \sY}
+\mathbb{E}_{\vz \sim \Psi(\vx)}
+\left[g(\vz)_y\right]$. Here, $\Psi(\vx)$ is an arbitrary distribution over $\sX$ parameterized by $\vx$, e.g~a Normal distribution with mean $\vx$.
+The smoothed classifier does not return the most likely prediction, but the prediction associated with the highest expected softmax score.
+
+Given an input $\vx \in \sX$, smoothed prediction $y = f(\vx)$ and a perturbed input $\vx' \in \sX$, we want to determine whether $f(\vx') = y$.
+By definition of our smoothed classifier, we know that $f(\vx') = y$ if $y$ is the label with the highest expected softmax score. In particular, we know that $f(\vx') = y$ if $y$'s softmax score is larger than all other softmax scores combined, i.e.
+\begin{equation}\label{eq:variance_implication_1}
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[g(\vz)_y\right] > 0.5
+\implies f(\vx') = y.
+\end{equation}
+Computing $
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[g(\vz)_y\right]
+$ exactly is usually not tractable -- especially if we later want to evaluate robustness to many $\vx'$ from a whole perturbation model $\sB \subseteq \sX$.
+Therefore, we compute a lower bound on $
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[g(\vz)_y\right]
+$. If even this lower bound is larger than $0.5$, we know that prediction $y$ is certainly robust.
+For this, we define a set of functions $\sF$ with $g_y \in \sH$ and compute the minimum softmax score across all functions from $\sF$:
+\begin{equation}\label{eq:general_variance_basecertset}
+\min_{h \in \sF} 
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[h(\vz)\right] > 0.5
+\implies f(\vx') = y.
+\end{equation}
+For our variance smoothing approach, we define $\sF$ to be the set of all functions that have a larger or equal  expected value and a smaller or equal variance under $\Psi(\vx)$, compared to our base model $g$.
+Let $\mu = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[g(\vz)_y\right]$ be the expected softmax score of our base model $g$ for label $y$.
+Let $\zeta = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(g(\vz)_y - \nu \right)^2\right]$ be the expected squared distance of the softmax score from a scalar $\nu \in \sR$. (Choosing $\nu = \mu$ yields the variance of the softmax score. An arbitrary $\nu$ is only needed for technical reasons related to Monte Carlo estimation~\autoref{section:monte_carlo_variance_smoothing}).
+Then, we define
+\begin{equation}\label{eq:function_family}
+    \sF = \left\{
+        h : \sX \rightarrow \sR
+        \left| \ 
+            \mathbb{E}_{\vz \sim \Psi(\vx)}\left[h(\vz)\right] \geq \mu
+            \land
+            \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(h(\vz) - \nu \right)^2\right] \leq \zeta
+        \right.
+    \right\}
+\end{equation}
+Clearly, by the definition of $\mu$ and $\zeta$, we have $g_y \in \sF$. Note that we do not restrict functions from $\sH$ to the domain $[0,1]$, but allow arbitrary real-valued outputs.
+
+By evaluating~\autoref{eq:variance_implication_1} with $\sF$ defined as in~\autoref{eq:general_variance_basecertset}, we can determine if our prediciton is robust.
+To compute the optimal value, we need the following two Lemmata:
+\begin{lemma}\label{lemma_1}
+Given a discrete set $\sX$ and the set $\Pi$ of all probability mass functions over $\sX$, 
+any two probability mass functions $\pi_1$, $\pi_2 \in \Pi$ fulfill
+\begin{equation}\label{eq:lemma_1_primal}
+    \sum_{z \in \sX} \frac{\pi_2(z)}{\pi_1(z)} \pi_2(z) \geq 1.
+\end{equation}
+\begin{proof}
+For a fixed probability mass function $\pi_1$,~\autoref{eq:lemma_1_primal} is lower-bounded by the minimal expected likelihood ratio that can be achieved by another $\tilde{\pi}(z) \in \Pi$:
+\begin{equation}
+    \sum_{z \in \sX} \frac{\pi_2(z)}{\pi_1(z)} \pi_2(z)
+    \geq 
+    \min_{\tilde{\pi} \in \Pi} \sum_{z \in \sX} \frac{\tilde{\pi}(z)}{\pi_1(z)} \tilde{\pi}(z).
+\end{equation}
+The r.h.s. term can be expressed as the constrained optimization problem
+\begin{equation}
+    \min_{\tilde{\pi}} \sum_{z \in \sX} \frac{\tilde{\pi}(z)}{\pi_1(z)} \tilde{\pi}(z)
+    \quad
+    \text{s.t.}
+    \quad
+    \sum_{z \in \sX} \tilde{\pi}(z) = 1
+\end{equation}
+with the corresponding dual problem
+\begin{equation}\label{eq:lemma_1_dual}
+    \max_{\lambda \in \sR}
+    \min_{\tilde{\pi}} \sum_{z \in \sX} \frac{\tilde{\pi}(z)}{\pi_1(z)} \tilde{\pi}(z)
+    + \lambda
+     \left(-1 + \sum_{z \in \sX} \tilde{\pi}(z) \right).
+\end{equation}
+The inner problem is convex in each $\tilde{\pi}(z)$. Taking the gradient w.r.t.\ to $\tilde{\pi}(z)$ for all $z \in \sX$ shows that it has its minimum at $\forall z \in \sX : \tilde{\pi}(z) = - \frac{\lambda \pi_1(z)}{2}$. Substituting into~\autoref{eq:lemma_1_dual} results in 
+\begin{align}
+    & \max_{\lambda \in \sR}
+    \sum_{z \in \sX} \frac{\lambda^2 \pi_1(z)^2}{4\pi_1(z)}
+    + \lambda
+    \left(-1 - \sum_{z \in \sX} \frac{\lambda \pi_1(z)}{2}\right)
+    \\
+    = & 
+    \max_{\lambda \in \sR}
+    - \lambda ^ 2
+    \sum_{z \in \sX} \frac{\pi_1(z)}{4} - \lambda
+    \\\label{eq:lemma_1_valid_distribution}
+    = & 
+    \max_{\lambda \in \sR}
+    - \frac{\lambda ^ 2}{4} - \lambda
+    \\ 
+    = & 1.
+\end{align}
+\autoref{eq:lemma_1_valid_distribution} follows from the fact that $\pi_1(z)$ is a valid probability mass function.
+Due to duality, the optimal dual value $1$ is a lower bound on the optimal value of our primal problem~\autoref{eq:lemma_1_primal}.
+\end{proof}
+\end{lemma}
+
+\begin{lemma}\label{lemma_2}
+Given a probability distribution $\mathcal{D}$ over a $\sR$ and a scalar $\nu \in \sR$,
+let $\mu = \mathbb{E}_{z\sim \mathcal{D}}\left[z\right]$ and
+$\xi = \mathbb{E}_{z\sim \mathcal{D}}\left[\left(z - \nu\right)^2\right]$.
+Then $\xi \geq \left(\mu - \nu\right)^2$
+\end{lemma}
+\begin{proof}
+Using the definitions of $\mu$ and $\xi$, as well as some simple algebra, we can show:
+\begin{align}
+\xi & \geq \left(\mu - \nu\right)^2
+\\
+\iff
+\mathbb{E}_{z\sim \mathcal{D}}\left[\left(z - \nu\right)^2\right]
+ &\geq \mu^2 - 2 \mu \nu + \nu^2\\
+\iff
+\mathbb{E}_{z\sim \mathcal{D}}\left[z^2 - 2 z \nu + \nu^2\right]
+ &\geq \mu^2 - 2 \mu \nu + \nu^2\\
+\iff
+\mathbb{E}_{z\sim \mathcal{D}}\left[z^2 - 2 z \nu + \nu^2\right]
+ &\geq \mu^2 - 2 \mu \nu + \nu^2\\
+\iff
+\mathbb{E}_{z\sim \mathcal{D}}\left[z^2\right] - 2 \mu \nu + \nu^2
+ &\geq \mu^2 - 2 \mu \nu + \nu^2 \\
+\iff
+\mathbb{E}_{z\sim \mathcal{D}}\left[z^2\right]
+ &\geq \mu^2
+\end{align}
+It is well known for the variance that $\mathbb{E}_{z\sim \mathcal{D}}\left[(z - \mu)^2\right] = \mathbb{E}_{z\sim \mathcal{D}}\left[z^2\right] - \mu^2$. Because the variance is always non-negative, the above inequality holds.
+\end{proof}
+
+Using the previously described approach and lemmata, we can show the soundness of the following robustness certificate:
+\begin{customthm}{5.1}[Variance-constrained certification]\label{theorem_1}
+a function $g : \sX \rightarrow \Delta_{|\sY|}$ mapping from discrete set $\sX$ to scores from the $\left(|\sY| -1\right)$-dimensional probability simplex, let 
+	$f(\vx) = \mathrm{argmax}_{y \in \sY}
+	\mathbb{E}_{\vz \sim \Psi_\vx}
+	\left[g(\vz)_y\right]$ with smoothing distribution $\Psi_\vx$ and probability mass function
+	$\pi_{\vx}(\vz) = \Pr_{\tilde{\vz} \sim \Psi_\vx}\left[\tilde{\vz} = \vz\right]$.
+	Given an input $\vx \in \sX$ and smoothed prediction $\evy = f(\vx)$, 
+	let $\mu = \mathbb{E}_{\vz \sim \Psi_\vx}\left[g(\vz)_y\right]$
+	and $\zeta = \mathbb{E}_{\vz \sim \Psi_\vx}\left[\left(g(\vz)_y - \nu \right)^2\right]$ with $\nu \in \sR$.
+	Assuming $\nu \leq \mu$, then $f(\vx') = y$ if 
+	\begin{equation}\label{eq:variance_constrained_cert_appendix}
+		\sum_{\vz \in \sX} \frac{\pi_{\vx'}(\vz)}{\pi_{\vx}(\vz)} \cdot \pi_{\vx'}(\vz)
+		< 1 + \frac{1}{\zeta - \left(\mu - \nu  \right)^2} \left(\mu - \frac{1}{2}\right).
+	\end{equation}
+\end{customthm}
+\begin{proof}
+Following our discussion above, we know that $f(\vx') = y$ if $\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[g(\vz)_y\right] > 0.5$ with $\sF$ defined as in~\autoref{eq:function_family}.
+We can compute a (tight) lower bound on $\min_{h \in \sF} 
+\mathbb{E}_{\vz \sim \Psi(\vx')}$ by following the functional optimization approach for randomized smoothing proposed by \citet{Zhang2020}. That is, we solve a dual problem in which we optimize the value $h(\vz)$ for each $\vz \in \sX$.
+By the definition of the set $\sF$, our optimization problem is
+\begin{align}
+     \min_{h : \sX \rightarrow \sR} \mathbb{E}_{\vz \sim \Psi(\vx')} \left[h(\vz)\right]\\
+    \text{s.t.} \quad
+    \mathbb{E}_{\vz \sim \Psi(\vx)}\left[h(\vz)\right] \geq \mu, \quad
+            \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(h(\vz) - \nu \right)^2\right] \leq \zeta.
+\end{align}
+The corresponding dual problem with dual variables $\alpha, \beta \geq 0$ is
+\begin{equation}
+\begin{split}
+    \max_{\alpha,\beta \geq 0} \min_{h : \sX \rightarrow \sR}
+    \mathbb{E}_{\vz \sim \Psi(\vx')} \left[h(\vz)\right] \\ 
+    + \alpha \left( \mu - \mathbb{E}_{\vz \sim \Psi(\vx)} \left[h(\vz)\right] \right)
+    + \beta \left(  \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(h(\vz) - \nu \right)^2\right] - \zeta \right).
+\end{split}
+\end{equation}
+We first move move all terms that don't involve $h$ out of the inner optimization problem:
+\begin{equation}
+    = \max_{\alpha,\beta \geq 0} \alpha \mu - \beta \zeta
+    +
+    \min_{h : \sX \rightarrow \sR}
+    \mathbb{E}_{\vz \sim \Psi(\vx')} \left[h(\vz)\right]
+    - \alpha \mathbb{E}_{\vz \sim \Psi(\vx)}  \left[h(\vz)\right]
+    + \beta \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(h(\vz) - \nu \right)^2\right].
+\end{equation}
+Writing out the expectation terms and combining them into one sum (or -- in the case of continuous $\sX$ -- one integral), our dual problem becomes 
+\begin{equation}\label{eq:theorem_first_eq}
+    = \max_{\alpha,\beta \geq 0} \alpha \mu - \beta \zeta
+    +
+    \min_{h : \sX \rightarrow \sR}
+    \sum_{\vz \in \sX}
+    h(\vz) \pi_{\vx'}(\vz)
+    -
+    \alpha h(\vz) \pi_{\vx}(\vz)
+    +
+    \beta \left(h(\vz) - \nu \right)^2 \pi_{\vx}(\vz)
+\end{equation}
+(recall that $\pi_{\vx'}$ and $\pi_{\vx'}$ refer to the probability mass functions of the smoothing distributions).
+The inner optimization problem can be solved by finding the optimal $h(\vz)$ in each point $\vz$:
+\begin{equation}
+    = \max_{\alpha,\beta \geq 0} \alpha \mu - \beta \zeta
+    +
+    \sum_{\vz \in \sX}
+    \min_{h(\vz) \in \sR}
+    h(\vz) \pi_{\vx'}(\vz)
+    -
+    \alpha h(\vz) \pi_{\vx}(\vz)
+    +
+    \beta \left(h(\vz) - \nu \right)^2 \pi_{\vx}(\vz).
+\end{equation}
+Because $\beta \geq 0$, each inner optimization problem is convex in $h(\vz)$. We can thus find the optimal $h^*(\vz)$ by setting the derivative to zero:
+\begin{align}
+    &\frac{d}{d h(\vz)} h(\vz) \pi_{\vx'}(\vz)
+    -
+    \alpha h(\vz) \pi_{\vx}(\vz)
+    +
+    \beta \left(h(\vz) - \nu \right)^2 \pi_{\vx}(\vz) \overset{!}{=} 0 \\
+    \iff
+    & \pi_{\vx'}(\vz) - \alpha \pi_{\vx}(\vz) + 2 \beta \left(h(\vz) - \nu\right) \pi_{\vx}(\vz) \overset{!}{=} 0 \\
+    \implies
+    & h^*(\vz) = - \frac{\pi_{\vx'}(\vz)}{2 \beta \pi_{\vx}(\vz)} + \frac{\alpha}{2\beta} + \nu.
+\end{align}
+Substituting into~\autoref{eq:theorem_first_eq} and simplifying leaves us with the dual problem
+\begin{equation}\label{eq:theorem_second_eq}
+    \max_{\alpha,\beta \geq 0} \alpha \mu - \beta \zeta
+    - \frac{\alpha^2}{4 \beta} + \frac{\alpha}{2 \beta} - \alpha \nu + \nu
+    - \frac{1}{4 \beta}
+    \sum_{\vz \in \sX}
+    \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}.
+\end{equation}
+In the following, let us use 
+    $\rho = \sum_{\vz \in \sX}
+    \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}$
+    as a shorthand for the expected likelihood ratio.
+The problem is concave in $\alpha$. We can thus find the optimum $\alpha^*$ by setting the derivative to zero, which gives us $\alpha^* = 2 \beta (\mu - \nu) + 1$. Because $\beta \geq 0$ and our theorem assumes that $\nu \leq \mu$, the value $\alpha^*$ is a feasible solution to the dual problem.
+Substituting into~\autoref{eq:theorem_second_eq} and simplifying results in 
+\begin{align}
+    & \max_{\beta \geq 0} \alpha^* \mu - \beta \zeta
+    - \frac{{\alpha^*}^2}{4 \beta} + \frac{\alpha^*}{2 \beta} - \alpha^* \nu + \nu
+    - \frac{1}{4 \beta}
+    \rho \\\label{eq:lemma_eq_2}
+=
+& \max_{\beta \geq 0}
+    \beta \left((\mu - \nu)^2 - \zeta\right)
+    + \mu
+    + \frac{1}{4 \beta}
+    \left(1 - 
+    \rho
+    \right).
+\end{align}
+\cref{lemma_1} shows that the expected likelihood ratio
+$\rho$ is always greater than or equal to $1$. \cref{lemma_2} shows that $(\mu - \nu)^2 - \zeta \leq 0$. Therefore~\autoref{eq:lemma_eq_2} is concave in $\beta$.
+The optimal value of $\beta$ can again be found by setting the derivative to zero:
+\begin{equation}\label{eq:lemma_substitution3}
+\beta^* = \sqrt{\frac{1 - \rho}{ 4\left((\mu - \nu)^2 - \zeta\right) }}.
+\end{equation}
+Recall that our theorem assumes $\zeta \geq \left(\mu - \nu  \right)^2$ and thus $\beta^*$ is real valued.
+Substituting \autoref{eq:lemma_substitution3} into \autoref{eq:lemma_eq_2} shows that the maximum of our dual problem is
+\begin{equation}
+\mu - \sqrt{\left(1-p \right) \left((\mu - \nu)^2 - \zeta\right)}.
+\end{equation}
+By duality, this is a lower bound on our primal  problem
+$\min_{h \in \sF} 
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[h(\vz)\right]$.
+We know that our prediction is certifiably robust, i.e. $f(\vx) = y$, if $\min_{h \in \sF} 
+\mathbb{E}_{\vz \sim \Psi(\vx')}
+\left[h(\vz)\right] > 0.5$. So, in particular, our prediction is robust if 
+\begin{align}
+    &\mu - \sqrt{\left(1-\rho \right) \left((\mu - \nu)^2 - \zeta \right)}
+    > 0.5
+    \\
+    \iff
+    &
+    \rho
+    <
+    1 + 
+    \frac{1}{\zeta - \left(\mu - \nu\right)^2}
+    \left(  \mu - \frac{1}{2} \right)^2
+    \\
+    \iff
+    &
+\sum_{\vz \in \sX} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}    <
+    1 + 
+    \frac{1}{\zeta - \left(\mu - \nu\right)^2}
+    \left(  \mu - \frac{1}{2} \right)^2
+\end{align}
+The last equivalence is the result of inserting the definition of the expected likelihood ratio $\rho$.
+\end{proof}
+With~\autoref{theorem_1} in place, we can certify robustness for arbitrary smoothing distributions, assuming we can compute the expected likelihood ratio.
+When we are working with discrete data and the smoothing distributions factorize, this can be done efficiently,
+as the two following base certificates for binary data demonstrate.
+
+
+\subsubsection{Bernoulli Smoothing for Perturbations of Binary Data}\label{section:appendix_bernoulli_cert}
+We begin by proving the base certificate presented in~\autoref{section:base_certificates}.
+Recall that we  we use a smoothing distribution
+$\mathcal{F}(\vx, \vtheta)$ with $\evtheta \in [0,1]^{D_\mathrm{in}}$ that independently flips the $d$'th bit with probability $\evtheta_d$, i.e.~for $\vx, \vz \in \{0,1\}^{D_\mathrm{in}}$ and $\vz \sim \mathcal{F}(\vx, \vtheta)$ we have $\Pr[\evz_d \neq \evx_d ] = \evtheta_d$. 
+\begin{corollary}
+Given an output $g_n : \{0,1\}^{D_\mathrm{in}} \rightarrow \Delta_{|\sY|}$ mapping to scores from the $\left(|\sY|-1\right)$-dimensional probability simplex, let 
+$f_n(\vx) = \mathrm{argmax}_{y \in \sY}
+\mathbb{E}_{\vz \sim \mathcal{F}(\vx, \vtheta)}
+\left[g_n(\vz)_y\right]$ be the corresponding smoothed classifier with $\vtheta \in [0,1]^{D_\mathrm{in}}$.
+Given an input $\vx \in \{0,1\}^{D_\mathrm{in}}$ and smoothed prediction $\evy_n = f_n(\vx)$, 
+let $\mu = \mathbb{E}_{\vz \sim \mathcal{F}(\vx, \vtheta)}\left[g_n(\vz)_y\right]$
+and $\zeta = \mathrm{Var}_{\vz \sim \mathcal{F}(\vx, \vtheta)}\left[g_n(\vz)_y\right]$.
+Then, $\forall \vx' \in \sH^{(n)}: f_n(\vx') = \evy_n$ with $\sH^{(n)}$ defined as in \autoref{eq:base_cert_interface},
+$\evw_{d}=
+\ln\left( \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+            \right)$,
+$\eta = \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right)$
+and
+$p=0$.
+\end{corollary}
+\begin{proof}
+Based on our definition of the base certificates interface (see~\cref{definition:interface}, we must show that
+$\forall \vx' \in \sH : f_n(\vx') = y_n$ with
+\begin{equation}
+    \sH = \left\{ \vx' \in \{0,1\}^{D_\mathrm{in}} \left| \ 
+        \sum_{d=1}^{D_\mathrm{in}}
+            \ln\left( \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+            \right)
+             \cdot | \evx'_d - \evx_d |^0
+            <
+            \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right)
+            \right.
+    \right\},
+\end{equation}
+Because all bits are flipped independently, our probability mass function
+$\pi_{\vx}(\vz) = \Pr_{\tilde{\vz} \sim \Psi(\vx)}\left[\tilde{\vz} = \vz\right]$
+factorizes:
+\begin{equation}
+    \pi_{\vx}(\vz) = \prod_{d=1}^{D_\mathrm{in}} \pi_{\evx_d}(\evz_d)
+\end{equation}
+with
+\begin{equation}
+     \pi_{\evx_d}(\evz_d) = 
+    \begin{cases}
+    \evtheta_d & \text{if } \evz_d \neq \evx_d\\
+    1 - \evtheta_d & \text{else}\\
+    \end{cases}.
+\end{equation}
+Thus, our expected likelihood ratio can be written as 
+\begin{equation}
+    \sum_{\vz \in \{0,1\}^{D_\mathrm{in}}} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}
+    =
+    \sum_{\vz \in \{0,1\}^{D_\mathrm{in}}}
+    \prod_{d=1}^{D_\mathrm{in}} \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}
+    =
+    \prod_{d=1}^{D_\mathrm{in}}
+    \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}.
+\end{equation}
+For each dimension $d$, we can distinguish two cases:
+If both the perturbed and unperturbed input are the same in dimension $d$, i.e.~$\evx'_d = \evx_d$, then $\frac{\pi_{\evx'_d}(\vz)}{\pi_{\evx_d}(\vz)} = 1$ and thus 
+\begin{equation}
+\sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)} 
+     =
+    \sum_{\evz_d \in \{0,1\}}
+     \pi_{\evx'_d}(\evz_d)
+     = \evtheta_d  + (1-\evtheta_d) = 1.
+\end{equation}
+If the perturbed and unperturbed input differ in dimension $d$, then
+\begin{equation}
+    \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)} 
+     = 
+     \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}.
+\end{equation}
+Therefore, the expected likelihood ratio is 
+\begin{equation}
+    \prod_{d=1}^{D_\mathrm{in}}
+    \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}
+     = 
+     \prod_{d=1}^{D_\mathrm{in}}
+     \left(
+     \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+     \right)^{|\evx'_d - \evx_d|}.
+\end{equation}
+Due to~\autoref{theorem_1} (and using $\nu = \mu$ when computing the variance), we know that our prediction is robust, i.e.~$f_n(\vx') = \evy_n$, if 
+\begin{align}
+    & \sum_{\vz \in \{0,1\}^{D_\mathrm{in}}} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}
+    <
+     1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2
+     \\
+    \iff
+    &
+    \prod_{d=1}^{D_\mathrm{in}}
+     \left(
+     \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+     \right)^{|\evx'_d - \evx_d|}
+     <
+     1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2
+     \\
+     \iff
+     &
+     \sum_{d=1}^{D_\mathrm{in}}
+     \ln \left(
+     \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+     \right) {|\evx'_d - \evx_d|}
+     < \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right).
+\end{align}
+Because $\evx_d$ and $\evx'_d$ are binary, the last inequality is equivalent to
+\begin{equation}
+         \sum_{d=1}^{D_\mathrm{in}}
+     \ln \left(
+     \frac{\left(1 - \evtheta_d\right)^2}{\evtheta_d}
+            + \frac{\left(\evtheta_d\right)^2}{1 - \evtheta_d}
+     \right) {|\evx'_d - \evx_d|^0}
+     < \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right).
+\end{equation}
+\end{proof}
+
+
+
+\subsubsection{Sparsity-aware Smoothing for Perturbations of Binary Data}\label{section:appendix_sparsity_cert}
+Sparsity-aware randomized smoothing \citep{Bojchevski2020} is an alternative smoothing approach for binary data. It  uses different probabilities for randomly deleting ($1 \rightarrow 0$) and adding ($0 \rightarrow 1$) bits to preserve data sparsity.
+For a random variable $\vz$ distributed according to the sparsity-aware distribution
+$\mathcal{S}(\vx, \vtheta^+, \vtheta^-)$ with $\vx \in \{0,1\}^{D_\mathrm{in}}$
+and addition and deletion probabilities  $\vtheta^+,  \vtheta^- \in [0,1]^{D_\mathrm{in}}$, we have:
+\begin{gather*}
+    \Pr[\evz_d =0 ] = \left(1 - \evtheta_d^{+} \right)^{1 - \evx_d} \cdot \left( \evtheta_d^{-} \right)^{\evx_d}, \\
+    \Pr[\evz_d =1 ] = \left(\evtheta_d^{+} \right)^{1 - \evx_d} \cdot \left( 1 - \evtheta_d^{-} \right)^{\evx_d}.
+\end{gather*}
+The Bernoulli smoothing distribution we discussed in the previous section is a special case of sparsity-aware smoothing with $\vtheta^+ = \vtheta^-$.
+The runtime of the robustness certificate derived by \citet{Bojchevski2020} increases exponentially with the number of unique values in $\vtheta^+$ and $\vtheta^-$, which makes it unsuitable for localized smoothing.
+Variance-constrained smoothing, on the other hand, allows us to efficiently compute a certificate in closed form.
+\begin{corollary} \label{prop-appendix-sparsity-aware-var-smoothing}
+Given an output $g_n : \sR^{D_\mathrm{in}} \rightarrow \Delta_{|\sY|}$ mapping to scores from the $\left(|\sY|-1\right)$-dimensional probability simplex, let 
+$f_n(\vx) = \mathrm{argmax}_{y \in \sY}
+\mathbb{E}_{\vz \sim \mathcal{S}(\vx, \vtheta^+, \vtheta^-)}
+\left[g_n(\vz)_y\right]$ be the corresponding smoothed classifier with $\vtheta^+,  \vtheta^- \in [0,1]^{D_\mathrm{in}}$.
+Given an input $\vx \in \{0,1\}^{D_\mathrm{in}}$ and smoothed prediction $\evy_n = f_n(\vx)$, 
+let $\mu = \mathbb{E}_{\vz \sim \mathcal{S}(\vx, \vtheta^+, \vtheta^-)}\left[g_n(\vz)_y\right]$
+and $\zeta = \mathrm{Var}_{\vz \sim \mathcal{S}(\vx, \vtheta^+, \vtheta^-)}\left[g_n(\vz)_y\right]$.
+Then, $\forall \vx' \in \sH : f_n(\vx') = y_n$ for
+\begin{equation}
+\begin{split}
+    \sH = \left\{ \vx' \in \{0,1\}^{D_\mathrm{in}} \mid
+        \sum_{d=1}^{D_\mathrm{in}}
+            \evgamma_d^{+} \cdot \mathrm{I}\left[\evx_d = 0 \neq \evx'_d\right]  + 
+            \evgamma_d^{-} \cdot \mathrm{I}\left[\evx_d = 1 \neq \evx'_d\right]  
+            <
+            \eta
+    \right\},
+\end{split}
+\end{equation}
+where $\vgamma^+, \vgamma^- \in \sR^{D_\mathrm{in}}$,
+$\evgamma^+_d = \ln\left( \frac{\left(\evtheta^{-}_d\right)^2}{1 - \evtheta^{+}_d}
+     +
+     \frac{\left(1 - \evtheta^{-}_d\right)^2}{\evtheta^{+}_d}
+\right)$,
+$\evgamma^-_d = \ln\left( \frac{\left(1 - \evtheta^{+}_d\right)^2}{\evtheta^{-}_d}
++ \frac{\left(\evtheta^{+}_d\right)^2}{1 - \evtheta^{-}_d}.
+\right)$
+and
+$\eta = \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right)$.
+\end{corollary}
+\begin{proof}
+Just like with the Bernoulli distribution we discussed in the previous section,  all bits are flipped independently, meaning our probability mass function
+$\pi_{\vx}(\vz) = \Pr_{\tilde{\vz} \sim \Psi(\vx)}\left[\tilde{\vz} = \vz\right]$
+factorizes:
+\begin{equation}
+    \pi_{\vx}(\vz) = \prod_{d=1}^{D_\mathrm{in}} \pi_{\evx_d}(\evz_d)
+\end{equation}
+with
+\begin{equation}
+     \pi_{\evx_d}(\evz_d) = 
+    \begin{cases}
+    \evtheta_d & \text{if } \evz_d \neq \evx_d\\
+    1 - \evtheta_d & \text{else}\\
+    \end{cases}.
+\end{equation}
+As before, our expected likelihood ratio can be written as 
+\begin{equation}
+    \sum_{\vz \in \{0,1\}^{D_\mathrm{in}}} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}
+    =
+    \sum_{\vz \in \{0,1\}^{D_\mathrm{in}}}
+    \prod_{d=1}^{D_\mathrm{in}} \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}
+    =
+    \prod_{d=1}^{D_\mathrm{in}}
+    \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}.
+\end{equation}
+We can now distinguish three cases.
+If both the perturbed and unperturbed input are the same in dimension $d$, i.e.~$\evx'_d = \evx_d$, then $\frac{\pi_{\evx'_d}(\vz)}{\pi_{\evx_d}(\vz)} = 1$ and thus 
+\begin{equation}
+\sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)} 
+     =
+    \sum_{\evz_d \in \{0,1\}}
+     \pi_{\evx'_d}(\evz_d)
+     = 1.
+\end{equation}
+If $\evx'_d = 1$ and $\evx_d = 0$, i.e.~a bit was added, then
+\begin{equation}
+\sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\vz)^2}{\pi_{\evx_d}(\vz)} 
+     =
+     \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{1}(\evz_d)^2}{\pi_{0}(\evz_d)} 
+     =
+     \frac{\pi_{1}(0)^2}{\pi_{0}(0)} 
+     +
+     \frac{\pi_{1}(1)^2}{\pi_{0}(1)} 
+     = 
+     \frac{\left(\evtheta^{-}_d\right)^2}{1 - \evtheta^{+}_d}
+     +
+     \frac{\left(1 - \evtheta^{-}_d\right)^2}{\evtheta^{+}_d}
+\end{equation}
+If $\evx'_d = 0$ and $\evx_d = 1$, i.e.~a bit was deleted, then
+\begin{equation}
+\sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\vz)^2}{\pi_{\evx_d}(\vz)} 
+     =
+     \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{0}(\evz_d)^2}{\pi_{1}(\evz_d)} 
+     =
+     \frac{\pi_{0}(0)^2}{\pi_{1}(0)} 
+     +
+     \frac{\pi_{0}(1)^2}{\pi_{1}(1)} 
+     = 
+     \frac{\left(1 - \evtheta^{+}_d\right)^2}{\evtheta^{-}_d}
++ \frac{\left(\evtheta^{+}_d\right)^2}{1 - \evtheta^{-}_d}.
+\end{equation}
+Therefore, the expected likelihood ratio is 
+\begin{align}
+    &\prod_{d=1}^{D_\mathrm{in}}
+    \sum_{\evz_d \in \{0,1\}}
+     \frac{\pi_{\evx'_d}(\evz_d)^2}{\pi_{\evx_d}(\evz_d)}
+     \\
+     = 
+     &\prod_{d=1}^{D_\mathrm{in}}
+     \left(
+     \frac{\left(\evtheta^{-}_d\right)^2}{1 - \evtheta^{+}_d}
+     +
+     \frac{\left(1 - \evtheta^{-}_d\right)^2}{\evtheta^{+}_d}
+     \right)^{\mathrm{I}\left[\evx_d = 0 \neq \evx'_d| \right]}
+     \left(
+     \frac{\left(1 - \evtheta^{+}_d\right)^2}{\evtheta^{-}_d}
+    + \frac{\left(\evtheta^{+}_d\right)^2}{1 - \evtheta^{-}_d}
+     \right)^{\mathrm{I}\left[\evx_d = 1 \neq \evx'_d| \right]}
+     \\
+     =
+     &\prod_{d=1}^{D_\mathrm{in}}
+     \exp\left(\gamma_{d}^{+}\right)^{\mathrm{I}\left[\evx_d = 0 \neq \evx'_d| \right]}
+     \cdot
+     \exp\left(\gamma_{d}^{-}\right)^{\mathrm{I}\left[\evx_d = 1 \neq \evx'_d| \right]}
+     .
+\end{align}
+In the last equation, we have simply used the shorthands $\gamma_d^{+}$ and $\gamma_d^{-}$ defined in~\cref{prop-appendix-sparsity-aware-var-smoothing}.
+Due to~\autoref{theorem_1} (and using $\nu = \mu$ when computing the variance), we know that our prediction is robust, i.e.~$f_n(\vx') = \evy_n$, if 
+\begin{align}
+    &\sum_{\vz \in \{0,1\}^{D_\mathrm{in}}} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}
+    <
+     1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2
+     \\
+    \iff
+    &
+    \prod_{d=1}^{D_\mathrm{in}}
+     \exp\left(\gamma_{d}^{+}\right)^{\mathrm{I}\left[\evx_d = 0 \neq \evx'_d| \right]}
+     \cdot
+     \exp\left(\gamma_{d}^{-}\right)^{\mathrm{I}\left[\evx_d = 1 \neq \evx'_d| \right]}
+     <
+     1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2
+     \\
+     \iff
+     &
+     \sum_{d=1}^{D_\mathrm{in}}
+     \gamma_{d}^{+} \cdot {\mathrm{I}\left[\evx_d = 0 \neq \evx'_d| \right]}
+     \cdot
+     \gamma_{d}^{-} \cdot {\mathrm{I}\left[\evx_d = 1 \neq \evx'_d| \right]}
+     < \ln\left(1 + \frac{1}{\zeta}\left(\mu - \frac{1}{2}\right)^2\right).
+\end{align}
+\end{proof}
+\textbf{Use for collective certification.} 
+It should be noted that this certificate does not comply with our interface for base certificates (see~\cref{definition:interface}),
+meaning we can not directly use it to certify robustness to norm-bound perturbations using our collective linear program from~\autoref{theorem:collective_lp}.
+We can however use it to certify collective robustness to the more refined threat model used in \citep{Schuchardt2021}:
+Let the set of admissible perturbed inputs be
+$\sB_\vx = \left\{\vx' \in \{0,1\}^{D_\mathrm{in}} \mid
+\sum_{d=1}^{D_\mathrm{in}} \left[\evx_d = 0 \neq \evx'_d|\right]\leq \epsilon^{+} 
+\land
+\sum_{d=1}^{D_\mathrm{in}} \left[\evx_d = 1 \neq \evx'_d|\right]\leq \epsilon^{-} 
+\right\}$ with $\epsilon^{+}, \epsilon^{y}  \in \sN_0$ specifying the number of bits the adversary is allowed to add or delete.
+We can now follow the procedure outlined in~\autoref{section:recipe} to combine the per-prediction base certificates into a collective certificate for our new collective perturbation model.
+As discussed in, we can bound the number of predictions that are robust to simultaneous attacks by minimizing the number of predictions that are certifiably robust according to their base certificates:
+\begin{equation}
+    \min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[f_n(\vx') = \evy_n \right]
+    \geq
+    \min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[\vx' \in \sH^{(n)} \right].
+\end{equation}
+Inserting the linear inequalities characterizing our perturbation model and base certificates results in:
+\begin{gather}\label{eq:sparsity_aware_collective_1}
+    \min_{\vx' \in \{0,1\}^{D_\mathrm{in}}} \sum_{n \in \sT} \mathrm{I}\left[
+    \sum_{d=1}^{D_\mathrm{in}}
+        \evgamma_d^{+} \cdot \mathrm{I}\left[\evx_d = 0 \neq \evx'_d\right]  + 
+        \evgamma_d^{-} \cdot \mathrm{I}\left[\evx_d = 1 \neq \evx'_d\right]  
+        < \eta^{(n)}
+    \right]
+    \\
+    \text{s.t.}
+    \quad
+    \sum_{d=1}^{D_\mathrm{in}} \left[\evx_d = 0 \neq \evx'_d|\right]\leq \epsilon^{+},
+\quad
+\sum_{d=1}^{D_\mathrm{in}} \left[\evx_d = 1 \neq \evx'_d|\right]\leq \epsilon^{-}.
+\end{gather}
+Instead of optimizing over the perturbed input $\vx'$, we can define two vectors $\vb^+, \vb- \in \{0,1\}^{D_\mathrm{in}}$ that indicate in which dimension bits were added or deleted. Using these new variables,~\autoref{eq:sparsity_aware_collective_1} can be rewritten as
+\begin{gather}
+    \min_{\vb^{+}, \vb^{-} \in \{0,1\}^{D_\mathrm{in}}} \sum_{n \in \sT} \mathrm{I}\left[
+        \left(\vgamma^{+}\right)^T \vb^+  + 
+        \left(\vgamma^{-}\right)^T  \vb^-
+        < \eta^{(n)}
+    \right]
+    \\
+    \text{s.t.}
+    \quad
+\mathrm{sum}\{\vb^+\} \leq \epsilon^{+},
+\quad
+\mathrm{sum}\{\vb^-\} \leq \epsilon^{-},
+\\
+\sum_{d | \evx_d=1} \evb_d^{+} = 0,
+\quad
+\sum_{d | \evx_d=0} \evb_d^{-} = 0.
+\end{gather}
+The last two constraints ensure that bits can only be deleted where $\evx_d = 1$ and bits can only be added where $\evx_d = 0$.
+Finally, we can use the procedure for replacing the indicator functions with indicator variables that we discussed in~\autoref{section:proof_lp} to restate the above problem as the mixed-integer problem
+\begin{gather}
+    \min_{\vb^{+}, \vb^{-} \in \{0,1\}^{D_\mathrm{in}}, \vt \in \{0,1\}^{D_\mathrm{out}}} \sum_{n \in \sT} \evt_n
+    \\
+    \text{s.t.}
+    \quad
+    \left(\vgamma^{+}\right)^T \vb^+  + 
+        \left(\vgamma^{-}\right)^T  \vb^-
+    \geq  (1 - \evt_n) \eta^{(n)}, 
+    \\
+\mathrm{sum}\{\vb^+\} \leq \epsilon^{+},
+\quad
+\mathrm{sum}\{\vb^-\} \leq \epsilon^{-},
+\\
+\sum_{d | \evx_d=1} \evb_d^{+} = 0,
+\quad
+\sum_{d | \evx_d=0} \evb_d^{-} = 0.
+\end{gather}
+The first constraint ensures that $\evt_n$ can only be set to $0$ if the l.h.s. is greater or equal $\eta_n$, i.e.~only when the base certificate can no longer guarantee robustness.
+The efficiency of the certificate can be improved by applying any of the techniques discussed in~\autoref{section:appendix_efficiency}.
+
+\subsubsection{Gaussian Smoothing for Perturbations of Continuous Data}\label{section:variance_constrained_gaussian}
+Even though we specifically proposed variance-constrained certification as a means of efficiently certifying anisotropically smoothed classifiers for discrete data, it can be generalized to continuous distributions by replacing sums with integrals and mass functions with density functions (the proof is analogous to that in~\cref{section:variance_smoothing}).
+
+In the following, we assume Gaussian smoothing, i.e.\ $\Psi(\vx) \sim \mathcal{N}(\vx, \mSigma)$ with $\mSigma \in \sR_+^{D \times D}$ with density function $\pi_\vx$. In this case, the expected ratio between $\pi_{\vx'}$ and $\pi_{\vx}$ is the exponential of the squared Mahalanobis distance (see Table 2 of~\citep{Gil2013} with $\alpha=2$), i.e.
+\begin{equation*}
+    \int_{\sR^D} \frac{\pi_{\vx'}(\vz)}{\pi_{\vx}(\vz)} \pi_{\vx'}(\vz) \ d \vz =
+    \exp\left((\vx' - \vx) \mSigma^{-1} (\vx' - \vx)\right).
+\end{equation*}
+This leads us to the following corollary of~\cref{theorem:variance_constrained_cert}:
+\begin{corollary} \label{prop-appendix-variance-constrained-gaussian}
+	Given a function $h : \sR^{D} \rightarrow \Delta_{|\sY|}$ mapping to scores from the $\left(|\sY| -1\right)$-dimensional probability simplex, let 
+	$f(\vx) = \mathrm{argmax}_{y \in \sY}
+	\mathbb{E}_{\vz \sim \mathcal{N}(\vx, \mSigma)}
+	\left[h(\vz)_y\right]$ with covariance matrix $\mSigma \in \sR_+^{D \times D}$.
+	Given an input $\vx \in \sX$ and smoothed prediction $\evy = f(\vx)$, 
+	let $\mu = \mathbb{E}_{\vz \sim \mathcal{N}(\vx, \mSigma)}\left[h(\vz)_y\right]$
+	and $\zeta = \mathbb{E}_{\vz \sim \mathcal{N}(\vx, \mSigma)}\left[\left(h(\vz)_y - \nu \right)^2\right]$ with $\nu \in \sR$.
+	Assuming $\nu \leq \mu$, then $f(\vx') = y$ if 
+	\begin{equation}\label{eq:variance_constrained_cert_gaussian}
+        (\vx' - \vx) \mSigma^{-1} (\vx' - \vx)
+		< \ln \left(1 + \frac{1}{\zeta - \left(\mu - \nu  \right)^2} \left(\mu - \frac{1}{2}\right)\right).
+	\end{equation}
+\end{corollary}
+As with~\cref{theorem:variance_constrained_cert}, The r.h.s.\ of~\autoref{eq:variance_constrained_cert_gaussian} depends on 
+the expected softmax score $\mu$, a variable $\nu \leq \mu$ and the expected squared difference $\zeta$ between $\mu$ and $\nu$.
+For $\nu = \mu$ the parameter $\zeta$ is the variance of the softmax score. A higher expected value and a lower variance allow us to certify robustness for larger adversarial perturbations.
+
+For comparison, ANCER~\citep{Eiras2021} guarantees robustness for the smoothed prediction $y_n = \mathrm{argmax}_{y \in \sY} \Pr\left[g(\vx)=y\right]$ if
+\begin{equation}\label{eq:ancer_cert}
+    (\vx' - \vx) \mSigma^{-1} (\vx' - \vx) < \Phi^{-1}(q_{y_n})^2,
+\end{equation}
+where $q_{y_n}$ is the probability of predicting class $y_n$, i.e.\
+$q_{y_n} = \Pr_{\vz \sim \mathcal{N}(\vx, \Sigma)} \left[g(\vz) = y_n\right]$. Here, $g : \sR^{D} \rightarrow \sY$ directly outputs a class label instead of a softmax score.
+We see that both the variance-constrained certificate and ANCER yield the same certified ellipsoid, scaled by a different factor. This factor is the certifiable radius $\eta$, i.e.\ the r.h.s.\ term of~\cref{eq:variance_constrained_cert_gaussian,eq:ancer_cert}.
+We also see that both certificates have the same computational complexity -- they both involve calculation of the squared Mahalanobis distance and a constant number of operations for evaluation of the certifiable radius.
+
+In the following, we briefly assess under which conditions which certificate yields a larger certifiable radius $\eta$.
+For this evaluation, we assume that $g(\vx) = \mathrm{argmax}_y h(\vx)$, i.e.\ $g$ predicts the class with the highest softmax score.
+We then vary the prediction probability $q_{y_n}$ and the expected softmax score $\mu$ within $[0.5,1.0]$. For each $\mu$, we calculate the largest possible variance $\zeta$ (using the Bhatia–Davis inequality $\zeta \leq (1 - \mu) \cdot \mu$), which will give us the weakest possible variance-constrained certificate (see~\cref{eq:variance_constrained_cert_gaussian}).
+
+\cref{fig:variance_vs_ancer} shows the difference in certifiable radius $\eta$, with the dashed line indicating parameters for which both certificates are identical.
+We have omitted all combinations of $q_{y_n}$ and $\mu$ that are not possible, namely $\mu > q_{y_n} + \frac{1}{2} (1 - q_{y_n})$.
+We see that ANCER is stronger when $q_{y_n}$ is large, i.e. almost all samples from the smoothing distribution are correctly classified, but not necessarily with high confidence.
+The variance-constrained certificate is stronger when $q_{y_n}$ is smaller and $\mu$ is larger, i.e. some samples are misclassified but the correctly classified ones have high confidence.
+Note however, that this is the worst case for the variance-constrained certificate. For $\zeta \to 0$, much larger radii can be certified (see~\cref{fig:variance_parameters} and~\cref{eq:variance_constrained_cert_gaussian}).
+
+\begin{figure*}[hb]
+	%\vskip 0.2in
+	\centering
+	\begin{minipage}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figures/experiments/variance_vs_ancer/variance_constrained_worstcase_appendix.pdf}
+		\caption{Worst-case difference in certifiable radius $\eta$ between ANCER~\citep{Eiras2021} and the variance-constrained certificate for anisotropic Gaussian smoothing. The dashed line indicates combinations of prediction probability $q_{y_n}$ and expected softmax score $\mu$ for which both certificates are equally strong.
+		}
+		\label{fig:variance_vs_ancer}
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.49\columnwidth}
+		\centering
+		\includegraphics[width=\textwidth]{figures/experiments/variance_vs_ancer/variance_constrained_parameters.pdf}
+		\caption{Certifiable radius $\eta$ of the variance-constrained randomized smoothing certificate for anisotropic Gaussian smoothing as a function of the expected value $\mu$ and the variance $\zeta$ of the softmax score.
+        If the variance is small, large radii can be certified -- even if the expected softmax score is small.
+		}
+		\label{fig:variance_parameters}
+	\end{minipage}
+\end{figure*}
+
+\clearpage
+
+\section{Monte Carlo Randomized Smoothing}\label{section:monte_carlo}
+To make predictions and certify robustness, randomized smoothing requires computing certain properties of the distribution of a base model's output, given an input smoothing distribution.
+For example, the certificate of \citet{Cohen2019} assumes that the smoothed model $f$ predicts 
+the most likely label output by base model $g$, given a smoothing distribution 
+$\mathcal{N}(\mathbf{0}, \sigma \cdot \1)$:
+$f(\vx) = \mathrm{argmax}_{y \in \sY} \Pr_{\vz \sim \mathcal{N}(\mathbf{0}, \sigma \cdot \1)}\left[g(\vx + \vz) = y\right]$.
+To certify the robustness of a smoothed prediction $y = f(\vx)$ for a specific input x, we have to compute the
+probability $q = \Pr_{\vz \sim \mathcal{N}(\mathbf{0}, \sigma \cdot \1)}\left[g(\vx + \vz) = y\right]$ to then calculate the maximum certifiable radius $\sigma \Phi^{-1}(q)$ with standard-normal inverse CDF $\Phi^{-1}$.
+For complicated models like deep neural networks, computing such properties in closed form is usually not tractable.
+Instead, they have to be estimated using Monte Carlo sampling.
+The result are predictions and certificates that only hold with a certain probability.
+
+Randomized smoothing with Monte Carlo sampling usually consists of three distinct steps:
+\begin{enumerate}%[noitemsep]
+    \item{
+    First, a small number of samples $N_1$ from the smoothing distribution are used to generate a candidate prediction $\hat{y}$, e.g.~the most frequently predicted class.
+    }
+    \item{
+    Then, a second round of $N_2$ samples is taken and a statistical test is used to determine whether the candidate prediction is likely to be the actual prediction of smoothed classifier $f$, i.e.~whether $\hat{y} = f(\vx)$ with a certain probability (1 - $\alpha_1$). If this is not the case, one has to abstain from making a prediction (or generate a new candidate prediction).
+    }
+    \item{
+    To certify the robustness of prediction $\hat{y}$, a final round of $N_3$ samples is taken to estimate all quantities needed for the certificate.}
+\end{enumerate}
+In the case of \citep{Cohen2019}, we need to estimate the probability $q = \Pr_{\vz \sim \mathcal{N}(\mathbf{0}, \sigma \cdot \1)}\left[g(\vx + \vz) = \hat{y}\right]$ to compute the certificate $\sigma \Phi^{-1}(q)$, whose strength is monotonically increasing in $q$. To ensure that the certificate holds with high probability (1 - $\alpha_2)$, we have to compute a probabilistic lower bound $\underline{q} \leq q$.
+Instead of performing two separate round of sampling, one can also re-use the same samples for the abstention test and certification.
+One particularly simple abstention mechanism is to just compute the Monte Carlo randomized smoothing certificate to determine whether $\forall \vx' \in \left\{\vx\right\} : f(\vx') = \hat{y}$ with high probability, i.e.~whether the prediction is robust to input $\vx'$ that is the result of "perturbing" clean input $\vx$ with zero adversarial budget.
+
+In the following, we discuss how we perform Monte Carlo randomized smoothing for our base certificates, as well as the baselines we use for our experimental evaluation.
+In~\autoref{section:multiple_comparisons}, we discuss how we account for the multiple comparisons problem, i.e.~the fact that we are not just trying to probabilistically certify a single prediction, but multiple predictions at once.
+
+\subsection{Monte Carlo Base Certificates for Continuous Data}\label{section:monte_carlo_continuous}
+For our base certificates for continuous data, we follow the approach we already discussed in the previous paragraphs (recall that the certificate of \citet{Cohen2019} is a special case of our certificate with Gaussian noise for $l_2$ perturbations).
+We are given an input space $\sX^{D_\mathrm{in}}$, label space $\sY$, base model (or -- in the case of multi-output classifiers -- base model output) $g : \sX^{D_\mathrm{in}} \rightarrow \sY$ and smoothing distribution $\Psi(\vx)$ (either multivariate Gaussian or multivariate uniform).
+To generate a candidate prediction, we apply the base classifier to $N_1$ samples from the smoothing distribution in order to obtain predictions $\left(y^{(1)},\dots,y^{(N_1)}\right)$ and compute the majority prediction
+$\hat{y} = \mathrm{argmax}_{y \in \sY} \left\{ n \mid y^{(n)} = \hat{y} \right\}$.
+Recall that for Gaussian and uniform noise, our certificate guarantees $\forall \vx' \in \sH : f(\vx) = \hat{y}$ for
+\begin{equation*}
+    \sH = \left\{\vx' \in \sX^{D_\mathrm{in}}
+    \left| \
+    \sum_{d=1}^{D_\mathrm{in}}
+        \evw_{d} \cdot |\evx'_d - \evx_d|^p < \eta
+        \right.
+    \right\},
+\end{equation*}
+with $\eta = \left(\Phi^{-1}(q) \right)^2$ or $\eta = \Phi^{-1}(q)$ (depending on the distribution), $q = \Pr_{\vz \sim \mathcal{N}(\mathbf{0}, \sigma \cdot \1)}\left[g(\vx + \vz) = \hat{y}\right]$ and standard-normal inverse CDF $\Phi^{-1}$.
+To obtain a probabilistic certificate that holds with high probability $1 - \alpha$, we need a probabilistic lower bound on $\eta$.
+Both $\eta$ are monotonically increasing in $q$, i.e.~we can bound them by finding a lower bound $\underline{q}$ on $q$.
+For this, we take $N_2$ more samples from the smoothing distribution and compute a Clopper-Pearson lower confidence bound \citep{Clopper1934} on $q$.
+For abstentions, we use the aforementioned simple mechanism: We test whether $\vx \in \sH$. Given the definition of $\sH$, this is equivalent to testing whether
+\begin{gather*}
+    0 < \Phi^{-1}(\underline{q})
+    \\
+    \iff
+    \Phi(0) < \underline{q}
+    \\
+    \iff 0.5 < \underline{q}.
+\end{gather*}
+If $\underline{q} \leq 0.5$, we abstain.
+
+\subsection{Monte Carlo Variance-Constrained Certification}\label{section:monte_carlo_variance_smoothing}
+For variance-constrained certification, we smooth a model's softmax scores.
+That is, we are given an input space $\sX^{D_\mathrm{in}}$, label space $\sY$, base model (or -- in the case of multi-output classifiers -- base model output) $g : \sX^{D_\mathrm{in}} \rightarrow \Delta_{|\sY|}$
+with $\left(|\sY|-1\right)$-dimensional probability simplex $\Delta_{|\sY|} $
+and smoothing distribution $\Psi(\vx)$ (Bernoullli or sparsity-aware noise, in the case of binary data).
+To generate a candidate prediction, we apply the base classifier to $N_1$ samples from the smoothing distribution in order to obtain vectors $\left(\vs^{(1)},\dots,\vs^{(N_1)}\right)$ with $\vs \in \Delta_{|\sY|}$, compute the average softmax scores $\overline{\vs} = \frac{1}{N_1} \sum_{n=1}^{N} \vs$ and select the label with the highest score
+$\hat{y} = \argmax_{y} \overline{\evs}_y$.
+
+Recall that our certificate guarantees robustness if the optimal value of the following optimization problem is greater than $0.5$:
+\begin{gather}\label{eq:monte_carlo_primal}
+    \min_{h : \sX \rightarrow \sR} \mathbb{E}_{\vz \sim \Psi(\vx')} \left[h(\vz)\right]\\
+    \text{s.t.} \quad
+    \mathbb{E}_{\vz \sim \Psi(\vx)}\left[h(\vz)\right] \geq \mu, \quad
+            \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(h(\vz) - \nu \right)^2\right] \leq \zeta,
+\end{gather}
+with
+$\mu = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[g(\vz)_{\hat{y}}\right]$,
+$\zeta = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(g(\vz)_{\hat{y}} - \nu \right)^2\right]$
+and a fixed scalar $\nu \in \sR$.
+To obtain a probabilistic certificate, we have to compute a probabilistic lower bound on the optimal value of the optimization problem. Because it is a minimization problem, this can be achieved by loosening its constraints, i.e.~computing a probabilistic lower bound $\underline{\mu}$ on $\mu$ and a probabilistic upper bound $\overline{\zeta}$ on $\zeta$.
+
+Like in CDF-smoothing \citep{Kumar2020}, we bound the parameters using CDF-based nonparametric confidence intervals.
+Let $F(s) = \Pr_{\vz \sim \Psi(\vx)}\left[g(\vz)_{\hat{y}} \leq s\right]$ be the CDF  of $g_{\hat{y}}(Z)$ with $Z \sim \Psi(\vx)$.
+Define $M$ thresholds $\leq 0 \tau_1 \leq \tau_2 \dots, \tau_{M-1} \leq \tau_M \leq 1$ with $\forall m: \tau_m \in [0,1]$. We then take $N_2$ samples $\vx^{(1)}, \dots, \vx^{(N_2)}$ from the smoothing distribution to compute the empirical CDF $\tilde{F}(s) = \sum_{n=1}^{N_2} \mathrm{I}\left[g(\vz^{(n)})_{\hat{y}} \leq s\right]$.
+We can then use the Dvoretzky-Keifer-Wolfowitz inequality \citep{Dvoretzky1956} to compute an upper bound $\hat{F}$ and a lower bound $\underline{F}$ on the CDF of $g_{\hat{y}}$:
+\begin{equation}
+   \underline{F}(s) = \max\left(\tilde{F}(s) - \upsilon, 0\right) \leq F(s) \leq 
+   \min\left(\tilde{F}(s) + \upsilon, 1\right) = \overline{F}(s),
+\end{equation}
+with $\upsilon = \sqrt{\frac{\ln 2 / \alpha}{2 \cdot N_2}}$, which holds with high probability $(1 - \alpha)$.
+Using these bounds on the CDF, we can bound $\mu = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[g(\vz)_{\hat{y}}\right]$ as follows \citep{Anderson1969}:
+\begin{equation}
+    \mu \geq \tau_M  - \tau_1 \overline{F}(\tau_1)+ \sum_{m=1}^{M-1} \left(\tau_{m+1} - \tau_{m}\right) \overline{F}(\tau_m).
+\end{equation}
+The parameter $\zeta = \mathbb{E}_{\vz \sim \Psi(\vx)}\left[\left(g(\vz)_{\hat{y}} - \nu \right)^2\right]$ can be bounded in a similar fashion.
+Define $\xi_0, \dots, \xi_M \in \sR_+$ with:
+\begin{equation}
+\begin{split}
+    \xi_0 & = \max_{\kappa \in [0, \tau_1]}  \left((\kappa - \nu)^2\right) \\
+    \xi_M & = \max_{\kappa \in [\tau_M, 1]}  \left((\kappa - \nu)^2\right) \\
+    \xi_m & = \max_{\kappa \in [\tau_m, \tau_m+1]}  \left((\kappa - \nu)^2\right) \quad \forall m \in \{1,\dots,M-1\},
+\end{split}
+\end{equation}
+i.e.~compute the maximum squared distance to $\nu$ within each bin $[\tau_m, \tau_{m+1}]$. Then:
+\begin{align}
+    \zeta & \leq
+    \xi_0 F(\tau_1)
+    +
+    \xi_M \left(1 - F(\tau_M)\right)
+    +
+    \sum_{m=1}^{M-1} \xi_m \left(F(\tau_{m+1} - F(\tau_m)\right) \\
+   & = \xi_M
+   +
+    \sum_{m=1}^{M-1} \left(\xi_{m-1} -\xi_m\right)F(\tau_{m}) \\
+   & \leq 
+  \xi_M
+   +
+   \sum_{m=1}^{M-1} \left(\xi_{m-1} -\xi_m\right) \left(\mathrm{sgn}\left(\xi_{m-1} -\xi_m\right) \overline{F}(\tau_{m})
+   +
+   \left(1 - \mathrm{sgn}\left(\xi_{m-1} -\xi_m\right) \right) \underline{F}(\tau_{m})\right)
+\end{align}
+with probability $(1- \alpha)$.
+In the first inequality, we bound the expected squared distance from $\nu$ by assuming that the probability mass in each bin $[\tau_m, \tau_{m+1}]$ is concentrated at the farthest point from $\nu$. The equality is a result of reordering the telescope sum.
+In the second inequality, we upper-bound the CDF where it is multiplied with a non-negative value and lower-bound it where it is multiplied with a negative value.
+
+With the probabilistic bounds $\underline{\mu}$ and $\overline{\zeta}$ we can now -- in principle -- evaluate our robustness certificate, i.e.~check whether
+\begin{equation}
+ \sum_{\vz \in \sX} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}    <
+    1 + 
+    \frac{1}{\overline{\zeta} - \left(\underline{\mu} - \nu\right)^2}
+    \left(  \underline{\mu} - \frac{1}{2} \right)^2.
+\end{equation}
+where the $\pi$ are the probability mass functions of smoothing distributions $\Psi(\vx)$ and $\Psi(\vx')$.
+But one crucial detail of~\autoref{theorem_1} underlying the certificate was that it only holds for $\nu \leq \mu$.
+To use the method with Monte Carlo sampling, one has to ensure that $\nu \leq \underline{\mu}$ by first computing $\underline{\mu}$ and then choosing some smaller $\nu$.
+
+In our experiments, we use an alternative method that allows us to use arbitrary $\nu$:
+From our proof of~\autoref{theorem_1}we know that the dual problem of~\autoref{eq:monte_carlo_primal} is 
+\begin{equation}
+    \max_{\alpha,\beta \geq 0} \alpha \underline{\mu} - \beta \overline{\zeta}
+    - \frac{\alpha^2}{4 \beta} + \frac{\alpha}{2 \beta} - \alpha \nu + \nu
+    - \frac{1}{4 \beta}
+    \sum_{\vz \in \sX}
+    \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)},
+\end{equation}
+Instead of trying to find an optimal $\alpha$ (which causes problems in subsequent derivations if $\nu \nleq \underline{\mu}$), we can simply choose $\alpha=1$.
+By duality, the result is still a lower bound on the primal problem, i.e.~the certificate remains valid.
+The dual problem becomes
+\begin{equation}
+    \max_{\beta \geq 0}  \underline{\mu} - \beta \overline{\zeta}
+    + \frac{1}{4 \beta} 
+    - \frac{1}{4 \beta}
+    \sum_{\vz \in \sX}
+    \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}.
+\end{equation}
+The problem is concave in $\beta$ (because the expected likelihood ratio is $\geq 1$). Finding the optimal $\beta$, comparing the result to $0.5$ and solving for the expected likelihood ratio, shows that a prediction is robust if 
+\begin{equation}
+ \sum_{\vz \in \sX} \frac{\pi_{\vx'}(\vz)^2}{\pi_{\vx}(\vz)}    <
+    1 + 
+    \frac{1}{\overline{\zeta}}
+    \left(  \underline{\mu} - \frac{1}{2} \right)^2.
+\end{equation}
+
+For our abstention mechanism, like in the previous section, we compute the certificate $\sH$ and then test whether $\vx \in \sH$. In the case of Bernoulli smoothing and sparsity-aware smoothing), this corresponds to testing whether
+\begin{align}
+    1 & < \ln\left(1 + \frac{1}{\overline{\zeta}} \left(\underline{\mu} - \frac{1}{2} \right) \right)\\
+    \iff
+    \underline{\mu} & > \frac{1}{2}.
+\end{align}
+
+\subsection{Monte Carlo Center Smoothing}
+While we can not use center smoothing as a base certificate, we benchmark our method against it during our experimental evaluation.
+The generation of candidate predictions, the abstention mechanism and the certificate are explained in \citep{Kumar2021}.
+The authors allow multiple options for generating candidate predictions. We use the "$\beta$ minimum enclosing ball" with $\beta=2$ that is based on pair-wise distance calculations.
+
+\subsection{Multiple Comparisons Problem}\label{section:multiple_comparisons}
+The first step of our collective certificate is to compute one base certificate for each of the $D_\mathrm{out}$ predictions of the multi-output classifier.
+With Monte Carlo randomized smoothing, we want all of these probabilistic certificates to simultaneously hold with a high probability $(1-\alpha)$.
+But as the number of certificates increases, so does the probability of at least one of them being invalid.
+To account for this \textit{multiple comparisons problem}, we use Bonferroni \citep{Bonferroni1936} correction, i.e.~compute each Monte Carlo certificate such that it holds with probability $(1 - \frac{\alpha}{n})$.
+
+For base certificates that only depend on $q_n = \Pr_{\vz \sim \Psi^{(n)}} \left[g_n(\vz) = \hat{\evy}_n\right]$, i.e. the probability of the base classifier predicting a particular label $\hat{\evy}_n$ under the smoothing distribution, 
+one can also use the strictly better Holm correction \citep{Holm1979}. This includes our Gaussian and uniform smoothing certificates for continuous data.
+Holm correction is a procedure than can be used to correct for the multiple comparisons problem when performing multiple arbitrary hypothesis tests.
+Given $N$ hypotheses, their $p$-values are ordered in ascending order $p_1, \dots, p_N$.
+Starting at $i=1$, the $i$'th hypothesis is rejected if $p_i < \frac{\alpha}{N + 1 - i}$, until one reaches an $i$ such that $p_i \geq \frac{\alpha}{N + 1 - i}$.
+
+\citet{Fischer2021} proposed to use Holm correction as part of their procedure for certifying that all (non-abstaining) predictions of an image segmentation model are robust to adversarial perturbations.
+In the following, we first summarize their approach and then discuss how Holm correction can be used for certifying our notion of collective robustness, i.e.~certifying the number of robust predictions.
+As in~\autoref{section:monte_carlo_continuous}, the goal is to obtain a lower bound $\underline{q}_n$ on $q_n = \Pr_{\vz \sim \Psi^{(n)}} \left[g_n(\vz) = \hat{\evy}_n\right]$ for each of the $D_\mathrm{out}$ classifier outputs.
+Assume we take $N_2$ samples $\vz^{(1)},\dots,\vz^{(N_2)}$ from the smoothing distribution.
+Let $\nu_n = \sum_{i=1}^{N_2} \mathrm{I}\left[g_n(\vz^{(i)}) =  \hat{\evy}_n\right]$ 
+and let $\pi : \left\{1,\dots,D_\mathrm{out}\right\} \rightarrow \left\{1,\dots,D_\mathrm{out}\right\}$ be a bijection that orders the $\nu_n$ in descending order, i.e.~$\nu_{\pi(1)} \geq \nu_{\pi(2)} \dots \geq \nu_{\pi(D_\mathrm{out})}$.
+Instead of using Clopper-Pearson confidence intervals to obtain tight lower bounds on the $q_n$, \citet{Fischer2021} define a threshold $\tau \in [0.5,1)$ and use Binomial tests to determine for which $n$ the bound $\tau \leq q_n$ holds with high-probability.
+Let $\mathrm{BinP}\left(\nu_n, N_2, \leq, \tau \right)$ be the p-value of the one-sided binomial test, which is monotonically decreasing in $\nu_n$.
+Following the Holm correction scheme, the authors test whether
+\begin{equation}
+    \mathrm{BinP}\left(\nu_{\pi(k)}, N_2, \leq, \tau \right) < \frac{\alpha}{D_\mathrm{out} + 1 - k}
+\end{equation}
+for $k = 1, \dots, D_\mathrm{out}$ until reaching a $k^{*}$ for which the null-hypothesis can no longer be rejected, i.e. the p-value is g.e.q.\  $\frac{\alpha}{D_\mathrm{out} + 1 - k^{*}}$.
+They then know that with probability $1 - \alpha$, the bound $\tau \leq q_n$ holds for all $n \in \{\pi(k) \mid k \in \{1,\dots, k^{*}\}$.
+For these outputs, they use the lower bound $\tau$ to compute robustness certificates.
+They abstain with all other outputs.
+
+This approach is sensible when one is concerned with the least robust prediction from a set of predictions.
+But our collective certificate benefits from having tight robustness guarantees for each of the individual predictions.
+Holm correction can be used with arbitrary hypothesis tests. For instance, we can use a different threshold $\tau_n$ per output $g_n$,
+i.e. test whether
+\begin{equation}
+    \mathrm{BinP}\left(\nu_{\pi(k)}, N_2, \leq, \tau_{\pi(k)} \right) < \frac{\alpha}{D_\mathrm{out} + 1 - k}
+\end{equation}
+for $k = 1, \dots, D_\mathrm{out}$.
+In particular, we can use
+\begin{equation}\label{eq:clopper_pearson}
+    \tau_n = \sup_t \ \text{s.t.} \ \mathrm{BinP}\left(\nu_n, N_2, \leq, t \right) < \frac{\alpha}{D_\mathrm{out} + 1 - \pi^{-1}(n)},
+\end{equation}
+i.e. choose the largest threshold such that the null hypothesis can still be rejected.
+\autoref{eq:clopper_pearson} is the lower Clopper-Pearson confidence bound with significance $\frac{\alpha}{D_\mathrm{out} + 1 - \pi^{-1}(n)}$.
+This means that, instead of performing hypothesis tests, we can obtain probabilistic lower bounds $\underline{q}_n \leq q_n$ by computing  Clopper-Pearson confidence bounds with significance parameters $\frac{\alpha}{D_\mathrm{out}}, \dots, \frac{\alpha}{1}$.
+The $\underline{q}_n$ can then be used to compute the base certificates.
+Due to the definition of the $\tau_n$, all of the null hypotheses are rejected, i.e. we obtain valid probabilistic lower bounds on all $q_n$. We can thus use the abstention mechanism from \autoref{section:monte_carlo_continuous}, i.e. only abstain if $\underline{q}_n \leq 0.5$.
+
+\iffalse
+In our experiments (see~\autoref{section:experiments}), we use Holm correction for the na\"ive isotropic randomized smoothing baselines and the weaker Bonferroni correction for our localized smoothing base certificates. This is only meant to slightly skew the results in favor of our baselines. Holm correction can in principle also be used when computing the base certificates, in order to improve our proposed collective cert.
+\fi
+
+\clearpage
+
+\section{Comparison to the Collective Certificate of Fischer et al. (2021)}\label{section:fischer_comparison}
+Our collective certificate based on localized smoothing is designed to bound the number of simultaneously robust predictions.
+\citet{Fischer2021} designed SegCertify to determine whether all predictions are simultaneously robust.
+As discussed in~\autoref{section:recipe}, their work is based on the na\"ive collective certification approach applied to isotropic Gaussian smoothing:
+They first certify each output independently, then count the number of certifiably robust predictions for a specific adversarial budget and then test whether the number of certifiably robust predictions equals the overall number of predictions.
+To obtain better guarantees in practical scenarios, they further propose to
+\begin{itemize}
+    \item use Holm correction to address the multiple comparisons problem (see~\autoref{section:multiple_comparisons}),
+    \item Abstain at a higher rate to avoid ``bad componets'', i.e.\ predictions $y_n$ that have a low consistency $q_n = \Pr_{\vz \sim \mathcal{N}(\vx,\sigma)}\left[g(\vz) = y\right]$ and thus very small certifiable radii.
+\end{itemize}
+A more technical summary of their method can be found in~\autoref{section:multiple_comparisons}.
+
+In the following, we discuss why our certificate can always offer guarantees that are at least as strong as SegCertify,
+both for our notion of collective robustness (number of robust predictions) and their notion of collective robustness (robustness of all predictions).
+In short, isotropic smoothing is a special case of localized smoothing and Holm correction can also be used for our base certificates.
+Before proceedings, please read the discussion on Monte Carlo base certificates and Clopper-Pearson confidence intervals in~\autoref{section:monte_carlo_continuous} and the multiple comparisons problem in~\autoref{section:multiple_comparisons}.
+
+A direct consequence of the results in \autoref{section:multiple_comparisons} is that using Clopper-Pearson confidence intervals and Holm correction will yield stronger per-prediction robustness guarantees and lower abstention rates than the method of \citet{Fischer2021}.
+The Clopper-Pearson-based method only abstains if one cannot guarantee that $q_n > 0.5$ with high probability, while their method abstains if
+one cannot guarantee that $q_n \geq \tau$ with $\tau \geq 0.5$ (or specific other predictions abstain).
+For all non-abstaining predictions, the Clopper-Pearson-based certificate will be at least as strong as the one obtained using a single threshold $\tau$, as it computes the tightest bound for which the null hypothesis can still be rejected (see~\autoref{eq:clopper_pearson}).
+
+Consequently, 
+when certifying our notion of collective robustness, i.e.~determining  \textit{the number} of robust predictions given adversarial budget $\epsilon$,
+a na\"ive collective robustness certificate (i.e. counting the number of predictions whose robustness are guaranteed by the base certificates) based on Clopper-Pearson bounds will also be stronger than the method of \citet{Fischer2021}.
+It should however be noted that their method could potentially be used with other methods of family-wise error rate correction, although they state that ``these methods do not scale to realistic segmentation
+problems'' and do not discuss any further details.
+
+Conversely, when certifying their notion of collective robustness, i.e.~determining whether \textit{all} non-abstaining predictions are robust given adversarial budget $\epsilon$,
+the certificate based on Clopper-Pearson confidence bounds is also at least as strong as that of \citet{Fischer2021}.
+To certify their notion of robustness, they iterate over all predictions and determine whether all non-abstaining predictions are certifiably robust, given $\epsilon$.
+Naturally, as the Clopper-Pearson-based certificates are stronger, any prediction that is robust according to \citep{Fischer2021} is also robust acccording to the Clopper-Pearson-based certificates.
+The only difference is that, for $\tau > 0.5$, their method will have more abstaining predictions.
+But, due to the direct correspondence of Clopper-Pearson confidence bounds and Binomial tests, we can modify our abstention mechanism to obtain exactly the same set of abstaining predictions: We simply have to use $\underline{q}_n \leq \tau$ instead of  $\underline{q_n} \leq 0.5$ as our criterion.
+
+Finally, it should be noted that our proposed collective certificate based on linear programming is at least as strong as the na\"ive collective certificate (see~\hyperref[eq:recipe]{Eq. 1.1} and \hyperref[eq:recipe]{Eq. 1.2} in \autoref{section:recipe}). Thus, letting the set of targeted predictions $\sT$ be the set of all non-abstaining predictions and checking whether the collective certificate guarantees robustness for all of $\sT$ will also result in a certificate that is at least as strong as that of \citet{Fischer2021} in their setting.
+
+
+\clearpage
+
+\section{Comparison to the Collective Certificate of Schuchardt et al. (2021)}\label{section:schuchardt_comparison}
+In the following, we first present the collective certificate for binary graph-structured data proposed by \citet{Schuchardt2021} (see~\autoref{section:schuchardt_summary}.
+We then show that, when using sparsity-aware smoothing distributions \citep{Bojchevski2020} -- the family of smoothing distributions used both in our work and that of \citet{Schuchardt2021} -- our certificate subsumes their certificate. That is, our collective robustness certificate based on localized randomized smoothing can provide the same robustness guarantees (see~\autoref{section:subsumption_proof}).
+
+\subsection{The Collective Certificate}\label{section:schuchardt_summary}
+Their certificate assumes the input space to be $\sG = \{0,1\}^{N \times D} \times \{0,1\}^{N \times N}$ -- the set of undirected attributed graphs with $N$ nodes and $D$ attributes per node.
+The model is assumed to be a multi-output classifier $f : \sG \rightarrow \sY^{N}$ that assigns a label from label set $\sY$ to each of the nodes.
+Given an input graph $\gG = (\mX, \mA)$ and a corresponding prediction $\vy = f(G)$, they want to certify collective robustness to a set of perturbed graphs $\sB \subseteq \sG$.
+The perturbation model $\sB$ is characterized by four scalar parameters $r_\mX^{+}, r_\mX^{-}, r_\mA^{+}, r_\mA^{+} \in \sN_0$, specifying the number of bits the adversary is allowed to add ($0 \rightarrow 1$) and delete ($1 \rightarrow 0$) in the attribute and adjacency matrix, respectively.
+It can also be extended to feature additional constraints (e.g.~per-node budgets). We discuss how these can be integrated after showing our main result.
+A formal definition of the perturbation model can be found in Section B of \citep{Schuchardt2021}.
+
+The goal of their work is to certify collective robustness for a set of targeted nodes $\sT \subseteq \{1,\dots,  N\}$, i.e.~compute a lower bound on
+\begin{equation}
+    \min_{G' \in \sB} \sum_{n \in \sT} \mathrm{I}\left[f_n(G') = \evy_n\right].
+\end{equation}
+Their approach to obtaining this lower-bound shares the same high-level idea as ours (see~\autoref{section:recipe}): Combining per-prediction base certificates and leveraging some notion of locality.
+But while our method uses localized randomized smoothing, i.e.~smoothing different outputs with different non-i.i.d.\ smoothing distributions to obtain base certificates that encode locality, their method uses a-priori knowledge about the strict locality of the classifier $f$.
+A model is strictly local if each of its outputs $f_n$ only operates on a well-defined subset of the input data.
+To encode this strict locality, \citet{Schuchardt2021} associate each output $f_n$ with an indicator vector $\vpsi^{(n)}$ and an indicator matrix $\mPsi^{(n)}$ that fulfill
+\begin{equation}\label{eq:strict_locality}
+    \begin{split}
+    \sum_{m=1}^N \sum_{d=1}^D \evpsi^{(n)}_m \mathrm{I}\left[\emX_{m,d} \neq \emX'_{i,j}\right]
+    +
+    \sum_{i=1}^N \sum_{j=1}^N \emPsi^{(n)}_m \mathrm{I}\left[\emA_{m,d} \neq \emA'_{i,j}\right]
+    = 0
+    \\
+    \implies f_n(\mX, \mA) = f_n(\mX', \mA').
+    \end{split}
+\end{equation}
+for any perturbed graph $\gG' = \left(\mX', \mA'\right)$. \autoref{eq:strict_locality} expresses that the prediction of output $f_n$ remains unchanged if all inputs in its receptive field remain unchanged. Conversely, it expresses that perturbations outside the receptive field can be ignored.
+Unlike in our work, \citet{Schuchardt2021} describe their base certificates as sets in adversarial budget space. That is, some certification procedure is applied to each output $f_n$ to obtain a set
+\begin{equation}
+    \sK^{(n)} \subseteq [r_\mX^{+}] \times [r_\mX^{-}] \times [r_\mA^{+}] \times [r_\mX^{-}]
+\end{equation}
+with $[k] = \{0, \dots, k\}$.
+If
+$\begin{bmatrix} c_\mX^{+} &  c_\mX^{-} & c_\mA^{+} &  c_\mA^{-}\end{bmatrix}^T \in \sK^{(n)}$, then prediction $y_n$ is robust to any perturbed input with exactly $c_\mX^{+}$ attribute additions,  $c_\mX^{-}$ attribute deletions, $c_\mA^{+}$ edge additions and $c_\mA^{-}$ edge deletions.
+A more detailed explanation can be found in Section 3 of \citep{Schuchardt2021}.
+Note that the base certificates only depend on the number of perturbations, not their location in the input.
+Only by combining them using the receptive field indicators from \autoref{eq:strict_locality} can one obtain a collective certificate that is better than the na\"ive collective certificate (i.e.~counting how many predictions are certifiably robust to the collective threat model). The resulting collective certificate is
+\begin{gather}\label{eq:basecert_eval_schuchardt}
+    \min_{\vb^{+},\vb^{+},\mB^{+},\mB^{-}}
+    \sum_{n \in \sT} \mathrm{I}\left[
+    \begin{bmatrix}
+    \left(\vpsi^{(n)}\right)^T \vb_\mX^{+}
+    &
+    \left(\vpsi^{(n)}\right)^T \vb_\mX^{-}
+    &
+    \sum_{i,j}\emPsi^{(n)}_{i,j} \mB_{i,j}^{+}
+    &
+    \sum_{i,j}\emPsi^{(n)}_{i,j} \mB_{i,j}^{-}
+    \end{bmatrix}^T
+    \in \sK^{(n)}
+    \right]
+    \\\label{eq:budget_constraints_schuchardt}
+    \text{s.t.} \quad
+    \sum_{m=1}^N \evb^{+}_m \leq r_\mX^{+},
+    \quad
+    \sum_{m=1}^N \evb^{-}_m \leq r_\mX^{-},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N \emB^{+}_{i,j} \leq r_\mA^{+},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N \emB^{-}_{i,j} \leq r_\mA^{-},
+    \\
+    \label{eq:allocation_variables_schuchardt}
+    \vb^{+}, \vb^{-} \in \sN_0^{N} \quad \mB^{+}, \mB^{-} \in \sN_0^{N \times N}.
+\end{gather}
+The variables defined in~\autoref{eq:allocation_variables_schuchardt} model how the adversary allocates their adversarial budget, i.e.~how many attributes are perturbed per node and which edges are modified.
+\autoref{eq:budget_constraints_schuchardt} ensures that this allocation in compliant with the collective threat model.
+Finally, in \autoref{eq:basecert_eval_schuchardt} the indicator vector and matrix $\vpsi^{(n)}$ and $\mPsi^{(n)}$ are used to mask out any allocated perturbation budget that falls outside the receptive field of $f_n$ before evaluating its base certificate.
+
+To solve the optimization problem, \citet{Schuchardt2021} replace each of the indicator functions with binary variables and include additional constraints to ensure that they have value $1$ i.f.f.\ the indicator function would have value $1$.
+To do so, they define one linear constraint per point separating the set of certifiable budgets $\sK^{(n)}$ from its complement $\overline{\sK}^{(n)}$ in adversarial budget space (the "Pareto front" discussed in Section 3 of \citep{Schuchardt2021}).
+
+From the above explanation, the main drawbacks of this collective certificate compared to our localized randomized smoothing approach and corresponding collective certificate should be clear.
+Firstly, if the classifier $f$ is not strictly local, i.e.~the receptive field indicators $\vpsi$ and $\mPsi$ only have non-zero entries, then all base certificates are evaluated using the entire collective adversarial budget. It thus degenerates to the na\"ive collective certificate.
+Secondly, even if the model is strictly local, each of the outputs may assign varying levels of importance to different parts of its receptive field. Their method is incapable of capturing this additional soft locality.
+Finally, their means of evaluating the base certificates may involve evaluating a large number of linear constraints. Our method, on the other hand, only requires a single constraint per prediction. Our collective certificate can thus be more efficiently computed.
+
+\subsection{Proof of Subsumption}\label{section:subsumption_proof}
+In the following, we show that any robustness certificate obtained by using the collective certificate of \citet{Schuchardt2021} with sparsity-aware randomized smoothing base certificates can also be obtained by using our proposed collective certificate with an appropriately parameterized localized smoothing distribution.
+The fundamental idea is that, for randomly smoothed models, completely randomizing all input dimensions outside the receptive field is equivalent to masking out any perturbations outside the receptive field.
+
+First, we derive the certificate of \citet{Schuchardt2021} for predictions obtained via sparsity-aware smoothing.
+\citet{Schuchardt2021} require base certificates that guarantee robustness when $\begin{bmatrix} c_\mX^{+} &  c_\mX^{-} & c_\mA^{+} &  c_\mA^{-}\end{bmatrix}^T \in \sK^{(n)}$, where the $c$ indicate the number of added and deleted attribute and adjacency bits.
+That is, the certificates must only depend on the number of perturbations, not on their location.
+To achieve this, all entries of the attribute matrix and all entries of the adjacency matrix, respectively, must share the same distribution.
+For the attribute matrix, they define scalar distribution parameters $p_\mX^{+}, p_\mA^{-} \in [0,1]$.
+Given  attribute matrix $\mX \in \{0,1\}^{N \times D}$, they then sample random attribute matrices $\mZ_\mX$ that
+are distributed according to sparsity-aware smoothing distribution $\mathcal{S}\left(\mX, \1 \cdot p_\mX^{+}  , \1 \cdot p_\mX^{-} \right)$
+(see~\autoref{section:appendix_sparsity_cert}), i.e.~ 
+\begin{gather*}
+    \Pr[(\emZ_\mX)_{m,d} =0 ] = \left(1 - p_\mX^{+} \right)^{1 - \emX_{m,d}} \cdot \left( p_\mX^{-} \right)^{\emX_{m,d}}, \\
+    \Pr[(\emZ_\mX)_{m,d} =1 ] = \left(p_\mX^{+} \right)^{1 -\emX_{m,d}} \cdot \left( 1 - p_\mX^{-} \right)^{\emX_{m,d}}.
+\end{gather*}
+Given input adjacency matrix $\mA$, random adjacency matrices $\mZ_\mA$ are sampled from the distribution
+$\mathcal{S}\left(\mA, \1 \cdot p_\mA^{+}  , \1 \cdot p_\mA^{-} \right)$.
+Applying \cref{prop-appendix-sparsity-aware-var-smoothing} (to the flattened and concatenated attribute and adjacency matrices) shows that smoothed prediction $\evy_n = f_n(\mX, \mA)$ is robust to the perturbed graph $\left(\mX', \mA'\right)$ if
+\begin{equation}\label{eq:sparse_iid_cert_1}
+\begin{split}
+        &\sum_{m=1}^{N}\sum_{d=1}^{D}
+            \gamma_\mX^{+} \cdot \mathrm{I}\left[\emX_{m,d} = 0 \neq \emX'_{m,d}\right]  + 
+            \gamma_\mX^{-} \cdot \mathrm{I}\left[\emX_{m,d} = 1 \neq \emX'_{m,d}\right]
+            \\
+            +
+            &
+            \sum_{i=1}^{N}\sum_{i=1}^{N}
+            \gamma_\mA^{+} \cdot \mathrm{I}\left[\emA_{i,j} = 0 \neq \emA'_{i,j}\right]  + 
+            \gamma_\mA^{-} \cdot \mathrm{I}\left[\emA_{i,j} = 1 \neq \emA'_{i,j}\right]
+                        \\
+           <
+           & \ 
+            \eta^{(n)}
+\end{split}
+\end{equation}
+with
+$\evgamma_\mX^+ = \ln\left( \frac{\left(p_\mX^{-}\right)^2}{1 - p_\mX^{+}}
+     +
+     \frac{\left(1 - p_\mX^{-}\right)^2}{p_\mX^{+}}
+\right)$,
+$\evgamma_\mX^- = \ln\left( \frac{\left(1 - p_\mX^{+}\right)^2}{p_\mX^{-}}
++ \frac{\left(p_\mX^{+}\right)^2}{1 - p_\mX^{-}}.
+\right)$,
+$\evgamma_\mA^+ = \ln\left( \frac{\left(p_\mA^{-}\right)^2}{1 - p_\mA^{+}}
+     +
+     \frac{\left(1 - p_\mA^{-}\right)^2}{p_\mA^{+}}
+\right)$,
+$\evgamma_\mA^- = \ln\left( \frac{\left(1 - p_\mA^{+}\right)^2}{p_\mA^{-}}
++ \frac{\left(p_\mA^{+}\right)^2}{1 - p_\mA^{-}}.
+\right)$
+and
+$\eta^{(n)} = \ln\left(1 + \frac{1}{{\sigma^{(n)}}^2}\left(\mu^{(n)} - \frac{1}{2}\right)^2\right)$,
+where $\mu^{(n)}$ is the mean and $\sigma^{(n)}$ is the variance of the base classifier's output distribution, given the input smoothing distribution.
+Since the indicator functions for each perturbation type in~\autoref{eq:sparse_iid_cert_1}  share the same weights,  \autoref{eq:sparse_iid_cert_1} can be rewritten as
+\begin{equation}\label{eq:sparse_iid_compact}
+    \gamma_\mX^{+} c_\mX^{+}  +  \gamma_\mX^{-} c_\mX^{-}
+    +  \gamma_\mA^{+} c_\mA^{+} + \gamma_\mA^{-} c_\mA^{-}  \leq \eta^{(n)},
+\end{equation}
+where $c_\mX^{+},c_\mX^{-},c_\mA^{+},c_\mA^{-}$ are the overall number of added and deleted attribute and adjacency bits, respectively.
+\autoref{eq:sparse_iid_compact} matches the notion of  base certificates defined by \citet{Schuchardt2021},
+i.e.~it corresponds to a set $\sK^{(n)}$ in adversarial budget space for which we provably know that
+prediction $y_n$ is certifiably robust if $\begin{bmatrix} c_\mX^{+} &  c_\mX^{-} & c_\mA^{+} &  c_\mA^{-}\end{bmatrix}^T \in \sK^{(n)}$.
+When we insert the base certificate~\autoref{eq:sparse_iid_compact} into objective function~\autoref{eq:basecert_eval_schuchardt}, the collective certificate of \citet{Schuchardt2021} becomes equivalent to
+\begin{align}\label{eq:schuchardt_final_1}
+    \min_{\vb^{+},\vb^{+},\mB^{+},\mB^{-}}
+    \sum_{n \in \sT} \mathrm{I}
+    \Biggl[
+    \gamma_\mX^{+} \left(\vpsi^{(n)}\right)^T \vb_\mX^{+}  + \gamma_\mX^{-} \left(\vpsi^{(n)}\right)^T \vb_\mX^{-} 
+    \notag\\
+    + \gamma_\mA^{+} \sum_{i,j}\emPsi^{(n)}_{i,j} \mB_{i,j}^{+}  + \sum_{i,j} \gamma_\mA^{-} \emPsi^{(n)}_{i,j} \mB_{i,j}^{-} \leq \eta^{(n)}
+    \Biggr]
+    \\
+    \label{eq:schuchardt_final_2}
+    \text{s.t.} \quad
+    \sum_{m=1}^N \evb^{+}_m \leq r_\mX^{+},
+    \quad
+    \sum_{m=1}^N \evb^{-}_m \leq r_\mX^{-},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N {\emB^{+}}_{i,j} \leq r_\mA^{+},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N {\emB^{-}}_{i,j} \leq r_\mA^{-},
+    \\
+    \label{eq:schuchardt_final_3}
+    \vb^{+}, \vb^{-} \in \sN_0^{N} \quad \mB^{+}, \mB^{-} \in \sN_0^{N \times N}.
+\end{align}
+
+Next, we show that obtaining base certificates through localized randomized smoothing with appropriately chosen parameters 
+and using these base certificates within our proposed collective certificate (see~\autoref{theorem:collective_lp}) will result in the same optimization problem.
+Instead of using the same smoothing distribution for all outputs, we use different distribution parameters for each one.
+For the $n$'th output, we sample random attributes matrices from distribution
+$\mathcal{S}
+\left(\mX, {\mTheta_\mX^{+}}^{(n)},  {\mTheta_\mX^{-}}^{(n)} \right)$
+with  ${\mTheta_\mX^{+}}^{(n)}, {\mTheta_\mX^{-}}^{(n)} \in [0,1]^{N \times D}$.
+Note that, in order to avoid having to index flattened vectors, we overload the definition of sparsity-aware smoothing to allow for matrix-valued parameters.
+For example, the value ${\emTheta_\mX^{+}}^{(n)}_{n,d}$ indicates the probability of flipping the value of input attribute $\emX_{n,d}$ from $0$ to $1$ and the value ${\emTheta_\mX^{-}}^{(n)}_{n,d}$ indicates the probability of flipping the value of input attribute $\emX_{n,d}$ from $1$ to $0$.
+We choose the following values for these parameters:
+\begin{align}
+    \label{eq:subsumption_distribution_1}
+     & {\emTheta_\mX^{+}}^{(n)}_{m,d} = \evpsi^{(n)}_m \cdot p_\mX^{+} + \left(1 - \evpsi^{(n)}_m \right) \cdot 0.5,
+     \\
+     \label{eq:subsumption_distribution_2}
+    & {\emTheta_\mX^{-}}^{(n)}_{m,d} = \evpsi^{(n)}_m \cdot p_\mX^{-} + \left(1 - \evpsi^{(n)}_m \right) \cdot 0.5,
+\end{align}
+where $\vpsi^{(n)}$ is the receptive field indicator vector defined in~\autoref{eq:strict_locality}
+and $p_\mX^{+},\cdot p_\mX^{-} \in [0,1]$ are the same flip probabilities we used for the certificate of \citet{Schuchardt2021}.
+Due to this parameterization, attribute bits inside the receptive field are randomized using the same distribution as in the certificate of \citet{Schuchardt2021}, while attribute bits outside are set to either $0$ or $1$ with equal probability.
+Similarly, we sample random adjacency matrices from distribution 
+$\mathcal{S}
+\left(\mA, {\mTheta_\mA^{+}}^{(n)},  {\mTheta_\mA^{-}}^{(n)} \right)$
+with  ${\mTheta_\mA^{+}}^{(n)}, {\mTheta_\mA^{-}}^{(n)} \in [0,1]^{N \times D}$
+and
+\begin{align}
+\label{eq:subsumption_distribution_3}
+     & {\emTheta_\mA^{+}}^{(n)}_{i,j} = \emPsi^{(n)}_{i,j} \cdot p_\mA^{+} + \left(1 - \emPsi^{(n)}_{i,j} \right) \cdot 0.5,
+     \\
+     \label{eq:subsumption_distribution_4}
+    & {\emTheta_\mA^{-}}^{(n)}_{u,j} = \emPsi^{(n)}_{i,j} \cdot p_\mA^{-} + \left(1 - \emPsi^{(n)}_{i,j} \right) \cdot 0.5,
+\end{align}
+where $\mPsi^{(n)}$ is the receptive field indicator matrix defined in~\autoref{eq:strict_locality}.
+Note that, since we only alter the distribution of bits outside the receptive field, the smoothed prediction $y_n = f_n(\mX, \mA)$ will be the same as the one obtained via the smoothing distribution used by \citet{Schuchardt2021}.
+Applying~\cref{prop-appendix-sparsity-aware-var-smoothing} (to the flattened and concatenated attribute and adjacency matrices) shows that smoothed prediction $y_n = f_n(\mX, \mA)$ is robust to the perturbed graph $\left(\mX', \mA'\right)$ if
+\begin{equation}
+\begin{split}\label{eq:subsumption_base_cert_1}
+        &\sum_{m=1}^{N}\sum_{d=1}^{D}
+            {\tau_\mX^{+}}_{m,d} \cdot \mathrm{I}\left[\emX_{m,d} = 0 \neq \emX'_{m,d}\right]  + 
+            {\tau_\mX^{-}}_{m,d} \cdot \mathrm{I}\left[\emX_{m,d} = 1 \neq \emX'_{m,d}\right]
+            \\
+            +
+            &
+           \sum_{i=1}^{N}\sum_{j=1}^{N}
+            {\tau_\mA^{+}}_{i,j} \cdot \mathrm{I}\left[\emA_{i,j} = 0 \neq \emA'_{i,j}\right]  + 
+           {\tau_\mA^{-}}_{i,j} \cdot \mathrm{I}\left[\emA_{i,j} = 1 \neq \emA'_{i,j}\right]
+                        \\
+           <
+           & \ 
+            \eta^{(n)}.
+\end{split}
+\end{equation}
+Because we only changed the distribution outside the receptive field,
+the scalar $\eta^{(n)}$, which depends on the output distribution's mean and variance $\mu$ and $\sigma$ will be the same as the one obtained via the smoothing scheme used by \citet{Schuchardt2021} et al.
+Due to \cref{prop-appendix-sparsity-aware-var-smoothing} and the definition of our smoothing distribution parameters in
+\cref{eq:subsumption_distribution_1,eq:subsumption_distribution_2,eq:subsumption_distribution_3,eq:subsumption_distribution_4}
+, the scalars ${\tau_\mX^{+}}_{m,d},{\tau_\mX^{-}}_{m,d},{\tau_\mA^{+}}_{i,j},{\tau_\mA^{-}}_{i,j}$ have the following values:
+\begin{align}
+    {\tau_\mX^{+}}_{m,d} = \evpsi^{(n)}_m \cdot \gamma_\mX^{+} + \left(1 - \evpsi^{(n)}_m \right) \cdot 2 \cdot 
+    \ln\left( \frac{\left(1 - 0.5\right)^2}{0.5}
+    + \frac{0.5^2}{1 - 0.5}
+    \right)
+    \\
+    {\tau_\mX^{-}}_{m,d} = \evpsi^{(n)}_m \cdot \gamma_\mX^{-} + \left(1 - \evpsi^{(n)}_m \right) \cdot 2 \cdot 
+    \ln\left( \frac{\left(1 - 0.5\right)^2}{0.5}
+    + \frac{0.5^2}{1 - 0.5}
+    \right)
+    \\
+    {\tau_\mA^{-}}_{i,j} =\emPsi^{(n)}_{i,j} \cdot \gamma_\mA^{+} + \left(1 - \emPsi^{(n)}_{i,j} \right) \cdot 2 \cdot 
+    \ln\left( \frac{\left(1 - 0.5\right)^2}{0.5}
+    + \frac{0.5^2}{1 - 0.5}
+    \right)
+    \\
+    {\tau_\mA^{-}}_{i,j} = \emPsi^{(n)}_{i,j} \cdot \gamma_\mA^{-} + \left(1 - \emPsi^{(n)}_{i,j} \right) \cdot 2 \cdot 
+    \ln\left( \frac{\left(1 - 0.5\right)^2}{0.5}
+    + \frac{0.5^2}{1 - 0.5}
+    \right),
+\end{align}
+where the $\gamma$ are the same weights as those of the base certificate \autoref{eq:sparse_iid_cert_1} of \citet{Schuchardt2021}.
+Inserting the above values of $\tau$ into the base certificate~\autoref{eq:subsumption_base_cert_1} and using the fact that 
+$\ln\left( \frac{\left(1 - 0.5\right)^2}{0.5} + \frac{0.5^2}{1 - 0.5} \right) = \ln(1) = 0$ results in
+\begin{equation}
+\begin{split}\label{eq:subsumption_base_cert_2}
+        &\sum_{m=1}^{N}\sum_{d=1}^{D}
+             \evpsi^{(n)}_m \cdot \gamma_\mX^{+} \cdot \mathrm{I}\left[\emX_{m,d} = 0 \neq \emX'_{m,d}\right]  + 
+             \evpsi^{(n)}_m \cdot \gamma_\mX^{-} \cdot \mathrm{I}\left[\emX_{m,d} = 1 \neq \emX'_{m,d}\right]
+            \\
+            +
+            &
+           \sum_{i=1}^{N}\sum_{j=1}^{N}
+             \emPsi^{(n)}_{i,j} \cdot \gamma_\mA^{-} \cdot \mathrm{I}\left[\emA_{i,j} = 0 \neq \emA'_{i,j}\right]  + 
+            \emPsi^{(n)}_{i,j} \cdot \gamma_\mA^{-} \cdot \mathrm{I}\left[\emA_{i,j} = 1 \neq \emA'_{i,j}\right]
+                        \\
+           <
+           & \ 
+            \eta^{(n)}.
+\end{split}
+\end{equation}
+While our collective certificate derived in~\autoref{section:localized_randomized_smoothing} only considers one perturbation type, we have already discussed how to certify robustness to perturbation models with multiple perturbation types in \autoref{section:appendix_sparsity_cert}:
+We use a different budget variable per input dimension and perturbation type.
+Furthermore, the attribute bits of each node share the same noise level. Therefore, we can use the method discussed in \autoref{section:sharing_input_noise}, i.e.~use a single budget variable per node instead of using one per node and attribute.
+Modelling our collective problem in this way, using \autoref{eq:subsumption_base_cert_2} as our base certificates
+and rewriting the first two sums using inner products 
+results in the optimization problem
+\begin{align}
+    \min_{\vb^{+},\vb^{+},\mB^{+},\mB^{-}}
+    \sum_{n \in \sT} \mathrm{I}
+    \Biggl[
+    \gamma_\mX^{+} \left(\vpsi^{(n)}\right)^T \vb_\mX^{+}  + \gamma_\mX^{-} \left(\vpsi^{(n)}\right)^T \vb_\mX^{-} 
+    \notag\\
+    + \gamma_\mA^{+} \sum_{i,j}\emPsi^{(n)}_{i,j} \mB_{i,j}^{+}  + \sum_{i,j} \gamma_\mA^{-} \emPsi^{(n)}_{i,j} \mB_{i,j}^{-} \leq \eta^{(n)}
+    \Biggr]
+    \\
+    \text{s.t.} \quad
+    \sum_{m=1}^N \evb^{+}_m \leq r_\mX^{+},
+    \quad
+    \sum_{m=1}^N \evb^{-}_m \leq r_\mX^{-},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N {\emB^{+}}_{i,j} \leq r_\mA^{+},
+    \quad
+    \sum_{i=1}^N \sum_{j=1}^N {\emB^{-}}_{i,j} \leq r_\mA^{-},
+    \\
+    \vb^{+}, \vb^{-} \in \sN_0^{N} \quad \mB^{+}, \mB^{-} \in \sN_0^{N \times N}.
+\end{align}
+This optimization problem is identical to that of \citet{Schuchardt2021} from \cref{eq:schuchardt_final_1,eq:schuchardt_final_2,eq:schuchardt_final_3}.
+The only difference is in how these problems would be mapped to a mixed-integer linear program.
+We would directly model the indicator functions in the objective using a single linear constraint.
+\citet{Schuchardt2021} would use multiple linear constraints, each corresponding to one point in the adversarial budget space.
+
+To summarize: For randomly smoothed models, masking out perturbations using a-priori knowledge about a model's strict locality
+is equivalent to completely randomizing (here: flipping bits with probability $50\%$) parts of the input.
+While \citet{Schuchardt2021} only derived their certificate for binary data, it can also be applied to strictly local models for continuous data.
+Considering our certificates for Gaussian (\cref{prop:gaussian_smoothing}) and  uniform (\cref{prop:uniform_smoothing}) smoothing, where the base certificate weights are $\frac{1}{\sigma^2}$ and $\frac{1}{\lambda}$, respectively,
+it is possible to perform the same masking operation as \citet{Schuchardt2021} by using $\sigma \to \infty$ and $\lambda \to \infty$.
+
+Finally, it should be noted that the certificate by \citet{Schuchardt2021} allows for additional constraints, e.g.~on the adversarial budget per node or the number of nodes controlled by the adversary.
+As all of them can be modelled using linear constraints on the budget variables (see Section C of their paper), they can be just as easily integrated into our mixed-integer linear programming certificate.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% This document was modified from the file originally made available by
+% Pat Langley and Andrea Danyluk for ICML-2K. This version was created
+% by Iain Murray in 2018, and modified by Alexandre Bouchard in
+% 2019 and 2021 and by Csaba Szepesvari, Gang Niu and Sivan Sabato in 2022. 
+% Previous contributors include Dan Roy, Lise Getoor and Tobias
+% Scheffer, which was slightly modified from the 2010 version by
+% Thorsten Joachims & Johannes Fuernkranz, slightly modified from the
+% 2009 version by Kiri Wagstaff and Sam Roweis's 2008 version, which is
+% slightly modified from Prasad Tadepalli's 2007 version which is a
+% lightly changed version of the previous year's version by Andrew
+% Moore, which was in turn edited from those of Kristian Kersting and
+% Codrina Lauth. Alex Smola contributed to the algorithmic style files.

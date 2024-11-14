@@ -1,0 +1,54 @@
+
+\subsection{Weakly Supervised Temporal Action Localization}
+\label{section:experiments:wstal}
+
+The goal of weakly supervised temporal action localization (WSTAL) is to localize actions in untrimmed videos with a classifier trained using video-wise class labels only. 
+Given a video input sequence, WSTAL model predicts the sequence's class label and also generates one-dimensional temporal proposals to localize actions in the video. 
+WSTAL models do not exploit temporal action annotations during training and the generated temporal proposals are evaluated on validation videos with validation ground truth annotations. 
+To localize the action instances well, a video model recognizes action categories from full video sequences and not focus on small discriminant frames of the action.
+Through the WSTAL experiments, we verify that VideoMix improves the temporal localization ability of an action recognition models by guiding them to attend on wider frames of action. 
+To evaluate the temporal localizability, we apply VideoMix over the baseline WSTAL methods.
+
+
+
+
+
+
+\paragraph{Dataset.}
+We conduct weakly supervised temporal action localization (WSTAL) task on THUMOS’14 dataset~\cite{THUMOS14}. 
+THUMOS’14 dataset originally consists of 13,320 trimmed videos for training and 2,584 untrimmed videos for validation with 101 action categories.
+We follow previous WSTAL methods' setting~\cite{lee2020bas,nguyen2018weakly,shou2018autoloc}.
+We train WSTAL models with the 20 class subset of the untrimmed videos, which consists of 200 untrimmed videos without temporal annotations. 
+The temporal localization performance of a model is evaluated by 212 untrimmed videos with temporal annotations. 
+WSTAL on THUMOS’14 dataset is a challenging task since the length of untrimmed video could be quite long (up to 26 minute) and multiple actions could exist in a video. 
+
+\paragraph{Training and inference.}
+For training, we first extract I3D~\cite{carreira2017quo} features from the training videos as done in~\cite{lee2020bas}.
+We sample $750$ video segments from a training video and RGB frames and optical flows are separately fed into dual-path I3D network. 
+Each RGB and optical flow frame results in $1024$-dimensional feature, thus the dimension of extracted feature for a video is $750\times1024$ for RGB input, and $750\times2048$ for both using RGB and optical flow input (RGB+flow).
+The WSTAL model, which consists of two $3\times3$ convolutional layers followed with LeakyReLU activation and a $1\times1$ convolutional layer, takes the extracted features and predicts its class label.
+Since the network is trained with pre-computed features, we do not consider spatial VideoMix, but utilize \textbf{temporal VideoMix} on the extracted features.
+Implementation details are in Appendix~\ref{appendix:wstal}.
+For evaluation, temporal class activation mapping (T-CAM)~\cite{zhou2016CAM,nguyen2018weakly} is utilized to localize action instances along the temporal dimension. 
+We threshold T-CAM below 50$\%$ of the highest value, and all 1-dimensional continuous segments are considered as action instance proposals as in~\cite{singh2017hide}. 
+Evaluation metric is average precision (AP) of intersection over union (IoU) thresholds from $0.1$ to $0.9$, and we report their mean value (mAP) as in~\cite{singh2017hide,nguyen2018weakly,lee2020bas}.
+
+
+\input{arxiv_videomix/main/tables/wstal}
+
+\paragraph{Results.}
+Table~\ref{table:experiment:wstal} shows the WSTAL performances with and without optical flow features.
+We compare VideoMix against the baselines including Hide-and-Seek~\cite{singh2017hide}, which has been reported to improve weakly supervised object localization on static images and WSTAL on videos.
+We also compare against Mixup~\cite{zhang2017mixup}. 
+We observe that VideoMix improves the temporal localization accuracy mAP of baseline by $+\mathbf{0.9}\%$ and $+\mathbf{1.5}\%$ with and without optical flows, respectively.
+VideoMix also outperforms the Hide-and-Seek and Mixup in both scenarios showing its superior temporal localization ability.
+We also conducted VideoMix with a stronger baseline, W-TALC~\cite{paul2018w}, and confirmed that VideoMix improves the performance of W-TALC from 31.1 to \textbf{32.3 (+1.2)} mAP, which is at the state-of-the-art level. 
+
+
+
+
+
+
+
+
+

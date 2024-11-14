@@ -1,0 +1,24 @@
+
+
+  \section{Background: Denoising Diffusion Probabilistic Models}
+  Denoising diffusion probabilistic models (DDPMs)~\cite{ho2020denoising,song2020denoising,lam2022bddm} are likelihood-based generative models that have recently succeeded to advance the state-of-the-art results in benchmark generative tasks \cite{dhariwal2021diffusion} and have proved its capability to produce high-quality samples. The basic idea of DDPMs is to train a gradient neural network for reversing a diffusion process. Given i.i.d. samples $\{\vx_{0} \in \mathbb{R}^{D}\}$ from an unknown data distribution $p_{data}(\vx_{0})$, DDPMs try to approximate $p_{data}(\vx_{0})$ by a marginal distribution $p_{\theta}(\vx_{0})=\int\cdots\int p(\vx_T)\prod_{t=1}^{T} p_{\theta}(\vx_{t-1}|\vx_{t}) d \vx_1 \ldots d\vx_T$.
+  
+  In data distribution as $q(\vx_{0})$, the diffusion process is defined by a fixed Markov chain from data $\vx_0$ to the latent variable $\vx_T$. 
+%   \begin{align}
+%       q(x_1,\cdots,x_T|x_0) = \prod_{t=1}^T q(x_t|x_{t-1}),
+%       \quad\ \ 
+%       \end{align}
+For a small positive constant $\beta_t$, a small Gaussian noise is added from $\vx_{t}$ to the distribution of $\vx_{t-1}$ under the function of $q(\vx_t|\vx_{t-1})$. The whole process gradually converts data $\vx_0$ to whitened latents $\vx_T$ according to the fixed noise schedule $\beta_1,\cdots,\beta_T$. 
+%   \begin{align}
+%           q(x_t|x_{t-1}) := \gN(x_t;\sqrt{1-\beta_t}x_{t-1},\beta_t I)
+%   \end{align}
+  The reverse process is a Markov chain from $\vx_T$ to $\vx_0$ parameterized by a shared $\theta$, which aims to recover samples from Gaussian noises though eliminating the Gaussian noise added in the diffusion process in each iteration.
+%   \begin{align}
+%       p_{\theta}(x_0,\cdots,x_{T-1}|x_T)=\prod_{t=1}^T p_{\theta}(x_{t-1}|x_t),
+%       \end{align}
+%   where each iteration eliminate the Gaussian noise added in the diffusion process:
+%   \begin{align}
+%       p(x_t|x_{t-1}) := \mathcal{N}(x_{t-1};\mu_{\theta}(x_t,t), \sigma_{\theta}(x_t,t)^2I)
+%   \end{align}
+  
+  It has been demonstrated that diffusion probabilistic models~\cite{dhariwal2021diffusion,xiao2021tackling} can learn diverse data distribution in multiple domains, such as images and time series. While the main issue with the proposed neural diffusion process is that it requires up to thousands of iterative steps to reconstruct the target distribution during reverse sampling. In this work, we offer a fast conditional diffusion model to reduce reverse iterations and improve computational efficiency. 

@@ -1,0 +1,168 @@
+\section{Proposed model: \approach}
+\label{pm}
+In this paper we present an adaptive anomaly detection model for fixing leaf depths according to labels received from domain experts.
+The core idea of the proposed approach is presented in Algorithm \ref{alg_albif} and relies on developing an Isolation Forest based model in which the detector has the possibility to query domain experts for labels. In this iterative environment, once the Isolation Forest is fully grown, the algorithm can choose the points to be labeled and, based on the novel information achieved, its core structure is modified, in order to obtain a strong increase in the performance, with the use of only a limited number of labeled points. For every iteration, such modification only takes place in the external node containing the queried point, maintaining the main structure of the Isolation Forest untouched. In this way, the main goal is, given the novel information, to update the Isolation Forest structure, readjusting it based on the labeled points.  
+
+%\input{algorithm}
+\input{algorithm2}
+
+Specifically, the proposed approach may be outlined as follows. Let $X=\{x^1,\dots, x^n\}$ be a generic training dataset, where $x^i \in \mathbb{R}^m$, $i=1,\dots,n$. First, the Isolation Forest algorithm is trained, leading to a forest $F=\{T_t\}_{t=1}^{n_T}$ of fixed number $n_T$ of fully grown iTrees. By construction, $T=\{L_l\}_{l=1}^{n_L}$ namely each tree $T$ is characterized by a variable number of leaves $L$. We use the following form to describe each leaf $L$:
+$L=(L_\mathcal{p}, L_H, L_\mathcal{i}, L_\mathcal{o})$
+where 
+\begin{itemize}
+    \item $L_\mathcal{p}$ defines the partition of $X$ made by $L$, describing where a leaf is located with respect to the input space;
+    \item $L_\mathcal{h}$ is the depth of $L$;
+    \item $L_\mathcal{i}$ refers to the number of normal points in $L$;
+    \item $L_\mathcal{o}$ specifies the amount of anomalies contained in $L$.
+\end{itemize}
+As a direct consequence, initially each data $x \in X$ is assigned with the corresponding average path length $E(h^\mathcal{u}(x))$ and anomaly score $a_\psi(x)$ as computed by the Isolation Forest. 
+%aggiungere qui la quaterna? o più sotto?
+
+From this step, the proposed iterative active learning approach can start. At each iteration, a point $x^{\mathcal{s}}$ is selected and the corresponding true label $y_{\mathcal{s}}$ is requested. Accordingly, each iTree $T$ is investigated, determining the leaf where the queried point lies, and modified as a result. We define $X^\mathcal{u}=\{x^{\mathcal{u}}\}$, $X^\mathcal{s}=\{x^{\mathcal{s}}\}$ and $Y^\mathcal{s}=\{y^{\mathcal{s}}\}$ respectively the set of unlabeled training points, the set of labeled inputs and the set of corresponding labels. Note that, by definition we have that $X= X^\mathcal{u} \cup X^\mathcal{s}$. 
+
+The key intuition behind the modification of the structure of each iTree is very simple. First, a queried point is selected and the corresponding trusted label is obtained. Secondly, for each $T$ of the model, the external node containing the point is analysed: its depth is updated based on the achieved information so that true anomalies are located closer to the root node while true normal points are far away from it. 
+
+\input{tikz_tree}
+
+Based on this scenario, it is important to define two essential yet independent tasks on which the entire algorithm relies on:
+\begin{enumerate}
+    \item[i.] \textit{Update strategy:} The actual approach employed to modify the classical Isolation Forest model;
+    \item[ii.] \textit{Query strategy:} The plan of action to choose the optimal method to select the queried points. 
+\end{enumerate}
+Both tasks are detailed in the following.
+
+
+
+\subsection{Update strategy}
+Let $L$ be the leaf under investigation. Then, based on the labeled points contained in it, i.e., based on the proportion of anomalies and normal points contained in $L$, we define the \textit{color} of $L$ 
+%\gas{Couple of words to explain why we call it 'color'?} as
+\begin{equation}
+    k(L) = \frac{L_\mathcal{o}-L_\mathcal{i}}{L_\mathcal{o}+L_\mathcal{i}},
+    \label{color}
+\end{equation}
+where $L_\mathcal{i}$ and $L_\mathcal{o}$ are respectively the number of labeled normal points and the number of labeled anomalies sampled in the leaf. Therefore, the color of a leaf defines its inner structure, describing how the total amount of labeled data contained in it is distributed. Specifically, it outlines the probability of a leaf to be anomalous with respect to the labeled data in it. Based on the color of a leaf, the corresponding fixing procedure is performed. Figure \ref{strat_fig} shows how the \textit{color} of a leaf is computed in a visual way. 
+
+Every time a novel point is queried, the model is updated based on the received information. In relation to each iTree, the update exclusively takes place with respect to the leaf containing the queried point. Specifically, let us consider a generic iTree $T$: once the queried point $x^{\mathcal{s}}$ is selected and the true label is obtained, $T$ is investigated and the leaf containing $x^{\mathcal{s}}$ is considered. Its depth $h^\mathcal{u}(x)$ (computed by the Isolation Forest) is forgotten and substituted with a supervised value $h^\mathcal{s}(x)$, entirely depending on the supervised data contained in the leaf, i.e., on $L_\mathcal{i}$ and $L_\mathcal{o}$. Algorithm \ref{alg_leafDepth} summarizes the above described procedure. 
+
+%Specifically \tommi{forse sposterei sta parte all'inizio, prima ancora di iniziare a spiegare la procedura, le darei come definizioni. Inoltre ne spiegherei il senso: il colore mi dice la probabilità che quella foglia sia anomala o meno, e la credibilità p la probabilità che il colore di quelle foglia sia vero o meno.}, 
+%\\The reliability describes the level of trust of a leaf. Specifically, the reliability of $l$ is given by
+%\begin{equation}
+ %   r = \frac{l_l}{l_l+l_u},
+  %  \label{credibility}
+%\end{equation}
+%where $l_u$ is the number of unlabeled points contained in $l$ and $l_l=l_a+l_n$ is the amount of labeled points in $l$.
+
+Equations (\ref{color}) is used to obtain a leaf coefficient value $\bar{k}(L)$, describing the structure of the leaf with respect to the current labeled point as well as taking into account the past information received.
+Specifically, based on the information in use, the corresponding leaf value becomes
+\begin{equation}
+    \bar{k}(L)= \frac{1}{2} \big(k+1 \big). \label{scol}
+\end{equation}
+%On the contrary, if both color and reliability are used, the leaf coefficient is equal to
+%\begin{equation}
+%    s(l)= \frac{1}{2} \big(c \cdot r +1 \big). \label{scred}
+%\end{equation}
+For consistency with the rest of the manuscript we renamed the function in (\ref{scol}) as $k$. 
+Note that, using Equation (\ref{scol}), the codomain of function $k(L)$ is given by the closed interval $[0, \, 1]$. Specifically, the following evaluations are made:
+\begin{enumerate}
+    \item[$\cdot$] If $L$ contains only normal points and it is fully labeled, then $k(L) \rightarrow 0$;
+    \item[$\cdot$] If $L$ contains only anomalies and it is fully labeled, then $k(L) \rightarrow 1$; 
+    \item[$\cdot$] If $L$ has a balanced number of both anomalies and normal points then $k(L) = \frac{1}{2}$.
+\end{enumerate}
+Obviously $k(L)$ is computed only for leaves containing some labelled data while the algorithm keeps untouched the leaves that are not actively sampled.
+
+%Finally, regardless of which leaf coefficient formulation is employed,
+The novel supervised depth $h^\mathcal{s}(k)$ takes Equation (\ref{scol}) as argument. Specifically, we define two different approaches to compute $h^\mathcal{s}(k)$ defined as:
+\begin{enumerate}
+    \item \textit{Piece-wise Linear} supervised depth
+    \begin{equation}
+    \begin{split}
+    h^\mathcal{s}(k)=\begin{cases}
+     2k\big[c(\psi)-h_{max}\big]+h_{max},  \hspace{0.4cm} & \text{if} \;\; 0 \leq k < \frac{1}{2} \\
+     & \\
+     2k\big[h_{min}-c(\psi)\big]+2c(\psi)-h_{min}, \hspace{0.4cm} &\text{if} \;\; \frac{1}{2} \leq k \leq 1\\
+    \end{cases} \label{syn}
+    \end{split}
+    \end{equation}
+
+where $h_{max}$ and $h_{min}$ are respectively the minimum depth and the maximum depth of the Isolation Forest computed during the unsupervised training. 
+    \item \textit{Logarithmic} supervised depth
+    \begin{equation}
+        h^\mathcal{s}(k)= - c(\psi) \log_2(k).
+        \label{synlog}
+    \end{equation}
+\end{enumerate}
+Note that, in Equations (\ref{syn})
+\begin{enumerate}
+    \item[$\cdot$] when $k(L) \rightarrow 0$, then $h^\mathcal{s}(k) \rightarrow h_{max}$;
+    \item[$\cdot$] when $k(L) \rightarrow 1$, then $h^\mathcal{s}(k) \rightarrow h_{min}$;
+     \item[$\cdot$] when $k(L) = \frac{1}{2}$, then $h^\mathcal{s}(k) = c(\psi)$.
+\end{enumerate}
+Regarding the logarithmic depth described in Equation (\ref{synlog}), when $k(L) = \frac{1}{2}$, then $h^\mathcal{s}(k) = c(\psi)$. Nevertheless, when $k(L) \rightarrow 1$, then $h^\mathcal{s}(k)$ converges to $0$ and, analogously, $h^\mathcal{s}(k) \rightarrow +\infty$ when $k(L) \rightarrow 0$. Unfortunately, this makes the logarithmic choice quite unstable when normal points are labelled. However, it is possible to apply a threshold on the logarithm to saturate it, leading to a behaviour very similar to the piece-wise linear function.
+Figure \ref{syngraph} plots the relation connecting the leaf value $k(L)$ with the supervised depth $h^\mathcal{s}(k)$ for both the piece-wise linear depth and the logarithmic depth. 
+
+It is important to note that, the proposed update strategy does not require to fully retrain the forest but, on the contrary, when novel information is acquired, \approach only modifies the actively sampled leaves, leaving the rest  unchanged. Therefore, the time complexity of the update strategy is linear with respect to the number $n_T$ of trees in the Forest.
+
+% CIAO ELAISA :) %
+
+
+
+%For these reasons, to get acceptable results, at the extremes of the range of domain it is necessary to adjust its values: when $k(l) \rightarrow 0$, then $h(k)$ is automatically set to be $h_{max}$; otherwise, when $k(l) \rightarrow 1$, we fix $h(k)$ as $ h_{min}$.
+\begin{figure}
+\centering
+\input{tikz_graph}
+\caption{Visual representation of the two possible definitions of supervised depth. The blue function represents the piece-wise linear depth: when the leaf value $k(L)$ is close to 0, i.e., the leaf is fully labeled with normal points, the novel supervised depth of $L$ is tends to the maximum depth; if $k(L)$ takes a value close to 1, the leaf will be push to the minimum depth, as this situation corresponds to $L$ fully labeled of anomalies. The red function shows the logarithmic depth: in the range extremes $0$ and $1$, a threshold value is applied and the depth values are forcibly set to respectively $h_{max}$ and $h_{min}$.} \label{syngraph}
+\end{figure}
+
+
+\subsection{Query strategy}
+The idea of incorporating expert feedback in unsupervised anomaly detection algorithms aims at improving the achieved performance adding a relatively small computational and labelling cost. 
+To improve the model in an optimal manner, the choice of the proper strategy to select the points to be queried must be established. 
+Beyond the employed strategy to modify the structure of the Isolation Forest based on the novel information in fact, the proposed model is significantly based on the choice of the queried points. Specifically, for the successful outcome of the method, choosing for the most appropriate point to be labeled is a key factor which could compromise its outcome. 
+%In recent years, several active learning-based anomaly detection algorithms have been proposed \cite{das2016incorporating}, \cite{das2017incorporating}, \cite{pelleg2004active}, \cite{stokes2008aladin}, \cite{nissim2014alpd}, \cite{gornitz2013toward}, \cite{lesouple2021incorporating}, \cite{lesouple2021introduce}, where multiple query strategies are tackled. 
+In classical active learning scenarios, several possible query strategies are presented \cite{settles1995active}. 
+
+%To offer a wider range of possible approaches and have a full and clear vision of the problem, in this paper we test both the following query strategies. 
+For any iTree $T_t \in F$ and input point $x_j \in X^\mathcal{u}$, let $\lambda$ be defined as
+\begin{equation}
+    \lambda_{T_t}(x) = L, \label{lambda}
+\end{equation}
+namely, function $\lambda$ assigns at each input point $x_j$ the leaf containing it with respect to tree $T_t$. Now, using Equation (\ref{lambda}), we define
+\[H_{jt}\coloneqq h^\mathcal{s}(k(\lambda_{T_t}(x_j))) = h^\mathcal{s}(k(L)).\] 
+Then, let $H \in \mathbb{R}^{n_T \times n_\mathcal{u}}$ be the following matrix 
+\begin{equation*}
+H = 
+\begin{bmatrix}
+H_{11} & \cdots & H_{1n_\mathcal{u}}\\
+\vdots  &  \ddots & \vdots  \\
+H_{n_T 1} & \cdots & H_{n_T n_\mathcal{u}}
+\end{bmatrix}.
+\end{equation*}
+The choice of the point to request fully relies on matrix $H$.  
+Details of the design of matrix $H$ can be found in Algorithm \ref{alg_DepthMatrix}.
+
+Based on $H$, we define the two following query strategies:
+\begin{enumerate}
+    \item \emph{Maximum uncertainty}: at each iteration the point selected to be labeled $x^{\mathcal{s}}$ is the one where the iTrees disagree the most, namely
+    %\[x^{\mathcal{s}}=\underset{j =1, \dots,  n_\mathcal{u}}{\operatorname{argmax}} \; \underset{t=1, \dots, n_T}{\text{std}} \; H \]
+    \begin{equation}
+        x^{\mathcal{s}}=\underset{j =1, \dots,  n_\mathcal{u}}{\operatorname{argmax}} \; \underset{t=1, \dots, n_T}{\text{std}} \; H \label{qs1}
+    \end{equation}
+    By doing so, the intended purpose would be to give the greater assistance to the model. %\gas{Riformulerei un attimo}, 
+   Specifically, at each iteration we ask for the label of the data point where the model is more unsure, adding information with respect to the most uncertain data.
+    %\item Minimum uncertainty: the queried point is the point where the iTrees agree the most;
+    %\item Random: the selection of the queried point occurs randomly at each iteration;
+    \item \emph{Most anomalous}: at each iteration the point selected to be labeled $x^{\mathcal{s}}$ is the point having the highest anomaly score value in the current iteration, namely
+    %\[x^{\mathcal{s}}=\underset{j =1, \dots,  n_\mathcal{u}}{\operatorname{argmin}} \; \underset{t=1, \dots, n_T}{\text{mean}} \; H \]
+    \begin{equation}
+        x^{\mathcal{s}}=\underset{j =1, \dots,  n_\mathcal{u}}{\operatorname{argmin}} \; \underset{t=1, \dots, n_T}{\text{mean}} \; H \label{qs2}
+    \end{equation}
+    This query strategy is the less expensive and more straightforward one and involves asking for the label of the point regarded as the most anomalous.
+\end{enumerate}
+Note that, in order to make the proposed approach feasible, for each of the listed strategies, each point may only be queried once.  When a point is queried and the corresponding label is obtained in fact, there is no need to ask for its label again since we are considering the information received undoubtedly true.
+
+From a business process point of view, querying the most anomalous point may represent a sort of DSS, providing assistance to the decision making process and at the same time extracting information from a significant amount of data.  As stated above, a DSS software gathers data considered the most informative and, based on the information achieved, it generates analysis tools useful for the decision making process. 
+\\In this scenario when a point is strongly considered an anomaly from the system, the domain expert is trigged for a checking. In this situation, the expert attention is drawn: the point has to be analysed in order to provide the actual corresponding label. Doing so, novel data information is obtained, combining the expert's knowledge together with the computerized system. In this way, the expert may validate the decision-making process and at the same time quickly extract useful information for the decision-making process. 
+
+From a model based viewpoint, asking for the point where the iTrees are more uncertain may be the most relevant strategy. With this approach in fact, the assistance provided by the expert aims at addressing the decisions where the model struggles the most and, doing so, at updating the most critical situations. Of course, given the unbalanced number of anomalies, it is highly likely that, using the maximum uncertainty strategy, the vast majority of the labeled points would be normal data, making it possibly less suitable in a more practical prospective. 
+
+As specified by Equations (\ref{qs1}) and (\ref{qs2}), \approach query strategy corresponds to searching along the number of rows and columns of matrix $H$ and has time complexity $O(n_X n_T)$.

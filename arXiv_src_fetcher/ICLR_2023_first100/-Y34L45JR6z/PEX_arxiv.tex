@@ -1,0 +1,1134 @@
+\documentclass{article}
+\usepackage{iclr2023_conference,times}
+
+
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{overpic}
+\usepackage{datetime}
+\usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{bbm}
+\usepackage{wrapfig}
+\usepackage{arydshln}
+\usepackage{mathtools}
+
+
+\usepackage{enumitem} % no space between items
+
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage[export]{adjustbox}
+
+
+
+
+\usepackage{multirow}
+
+\newcommand{\vTheta}{{\boldsymbol \Theta}}
+%\newcommand{\vtheta}{{\boldsymbol \theta}}
+\newcommand{\vPhi}{{\boldsymbol{\Phi}}}
+\newcommand{\vphi}{{\boldsymbol{\phi}}}
+\newcommand{\vpsi}{{\boldsymbol{\psi}}}
+\newcommand{\B}{{\mathbf{B}}}
+\newcommand{\W}{\scaleobj{0.85}{\mathbf{W}}}
+\newcommand{\w}{{\mathbf{w}}}
+
+
+\newcommand{\alg}[1]{\textbf{\texttt{#1}}}
+\newcommand{\salg}[1]{{\small\textbf{\texttt{#1}}}}
+\newcommand{\env}[1]{{{\texttt{#1}}}}
+\newcommand{\senv}[1]{{\small{\textbf{\texttt{#1}}}}}
+\newcommand{\ssenv}[1]{{\footnotesize{\texttt{#1}}}}
+
+
+\usepackage{pifont}
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{{\scalebox{0.75}{\ding{55}}}}
+
+\newtheorem{mythe}{Theorem}
+\newtheorem{mydef}{Definition}
+
+\newtheorem{myremark}{Remark}
+
+
+
+
+\title{Policy Expansion for Bridging Offline-to-Online Reinforcement Learning}
+
+
+
+\author{Haichao Zhang \quad Wei Xu \quad Haonan Yu \\
+Horizon Robotics, Cupertino CA  95014 \\
+\texttt{\{haichao.zhang, wei.xu, haonan.yu\}@horizon.ai}}
+
+
+
+\iclrfinalcopy
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Pre-training with offline data and online fine-tuning using reinforcement learning is a promising strategy for learning control policies by leveraging the best of both worlds in terms of sample efficiency and performance. One natural approach is to initialize the policy for online learning with the one trained offline.
+In this work, we introduce a policy expansion scheme for this task. After learning the offline policy, we use it as one candidate policy in a policy set. We then expand the policy set with another policy which will be responsible for further learning. The two policies will be composed in an adaptive manner for interacting with the environment. With this approach, the policy previously learned offline is fully retained during online learning, thus mitigating the potential issues such as destroying the useful behaviors of the offline policy in the initial stage of online learning while allowing the offline policy participate in the  exploration  naturally in an adaptive manner. Moreover, new useful behaviors can potentially be captured by the newly added policy through learning.
+Experiments are conducted on a number of tasks and the results demonstrate the effectiveness of the proposed approach.
+Code is
+available: \url{https://github.com/Haichao-Zhang/PEX}.
+\end{abstract}
+
+
+\section{Introduction}
+
+
+Reinforcement learning (RL) has shown great potential in various fields, reaching or even surpassing human-level performances on many tasks~\citep[e.g.][]{mnih2015humanlevel, alphago, muzero, human_level_planning}.
+However, since  the policy is learned from scratch for a given task in the standard setting, the number of samples required by RL for successfully solving a task is usually large,  which limits its applicability in many practical scenarios such as robotics, where physical interaction and data collection has a non-trivial cost.
+
+
+In many cases, there is a good amount of offline data  that has already been available~\citep{rl_in_robotics, data_driven_driving,data_driven_robotics}, {e.g.}, collected during previous iterations of experiments or from human ({e.g.} for the task of driving).
+Instead of ab initio learning as in the common RL setting, how to effectively leverage the already available offline data for helping with online policy learning is an interesting and open problem~\citep{use_offline_buffer, dqn_demo, sac_bc}.
+
+
+Offline RL is an active recent direction that aims to learn a policy by purely using the offline data,
+without any further online interactions~\citep{BCQ, cql, td3bc, offline_rl, offline_rl_adaptive, DT, TT, yang21, Lu22, zheng22}.
+It holds the promise of learning from suboptimal data and improving over the behavior policy that generates the dataset~\citep{kumar2022should}, but its performance could still be limited because of its full reliance on the provided offline data.
+
+
+To benefit from further online learning, one  possible way is to pre-train with offline RL, and warm start the policy of an online RL algorithm to help with learning and exploration  when learning online.
+While this pre-training + fine-tuning paradigm is natural and intuitive, and has received great success in many fields like computer vision~\citep{finetune_cv, imagenet_transfer} and natural language processing~\citep{bert, gpt1, gpt3},
+it is less widely used in RL.
+Many early attempts  in RL community report a number of negative results along this direction.
+For example, it has been observed that initializing the policy with offline pre-training  and then fine-tuning the policy with standard online RL algorithms ({e.g.} SAC~\citep{sac}) sometimes suffers from non-recoverable performance drop under certain settings~\citep{AWAC, jump_start_RL}, potentially due to the distribution shift between offline and online stages and the change of learning dynamics because of the algorithmic switch.
+
+
+Another possible way is to use the same offline RL algorithm for online learning. However, it has been observed that
+standard offline RL methods generally are not effective in fine-tuning with online data, due to reasons such as conservativeness of the method~\citep{AWAC}.
+Some recent works in offline RL also start to focus on the offline-pre-training + online fine-tuning paradigm~\citep{AWAC, iql}.
+For this purpose, they share the common philosophy of designing an RL algorithm that is suitable for both offline and online phases.
+Because of the unified algorithm across phases, the network parameters (including those for both critics and actor) trained in the offline phase can be reused for further learning in the online phase.
+
+Our work shares the same objective of designing effective offline-to-online training schemes.
+However, we take a different perspective by focusing on how to bridge offline-online learning, and not on developing yet another offline or online RL method, which is orthogonal to the focus of this work.
+We will illustrate the idea concretely by instantiating our proposed scheme by applying it on existing RL algorithms~\citep{iql, sac}.
+The contributions of this work are:
+\begin{itemize}
+	\item we highlight the value of  \emph{properly connecting} existing offline and online RL methods in order to enjoy the best of both worlds, a perspective that is alternative and orthogonal to developing completely new RL algorithms;
+    \item we propose a simple scheme termed as \emph{policy expansion}  for bridging offline and online reinforcement learning. The proposed approach is not only able to preserve the behavior  learned in the offline  stage, but can also leverage it adaptively during online exploration and along the process of learning;
+    \item we verify the effectiveness of the proposed approach by conducting extensive experiments on various tasks and settings, with comparison to a number of baseline methods.
+\end{itemize}
+
+
+
+
+\section{Preliminaries}
+We briefly review some related basics in this section,  first  on
+model-free RL for online policy learning, and then on policy learning from offline dataset.
+
+\subsection{Online Reinforcement Learning}
+Standard model-free RL methods learn a policy
+that maps the current state $s$ to a distribution of action $a$ as $\pi(s)$.
+The policy is typically modeled with a neural network $\pi_{\theta}(s)$ with $\theta$ denoting the learnable parameters.
+To train this policy, there are different approaches including on-policy~\citep{pg, ppo} and off-policy RL methods~\citep{ddpg, sac, TD3, GPM}.
+In this work, we mainly focus on off-policy RL for online learning because of its higher sample efficiency.
+Standard off-policy RL methods rely on the state-action value function $Q(s, a)$ using TD-learning:
+\begin{equation}\label{eq:Q} \nonumber
+Q(s, a) =  r(s, a) + \gamma \mathbb{E}_{s' \sim T(s, a), a'\sim\pi_{\theta}(s')} \big [ Q(s', a')\big],
+\end{equation}
+where $T(s, a)$ denotes the dynamics function and $r(s, a)$ the reward.
+$\gamma \in (0, 1)$ is a discount factor.
+By definition, $Q(s, a)$ represents the accumulated discounted future reward starting from $s$, taking action $a$, and then following policy $\pi_{\theta}$ thereafter.
+
+The optimization of $\theta$ is achieved by maximizing
+the following function:
+\begin{equation}\label{eq:policy_update_online}
+\max_{\theta} \mathbb{E}_{s\sim \mathcal{D}} \mathbb{E}_{a\sim\pi_{\theta}} Q(s, a).
+\end{equation}
+where $\mathcal{D}$ denotes replay buffer for storing online trajectories.
+In the typical RL setting, learning is conducted from scratch by initializing all
+parameters randomly and interacting with the world with the randomly policy.
+$Q(s, a)$ can be implemented as   a neural network  $Q_{\phi}(s, a)$ with parameter $\phi$.
+
+
+
+
+
+
+\subsection{Policy Learning from Offline Dataset}
+Policy learning from offline datasets has been investigated from different perspectives.
+Given expert-level demonstration data, behavior cloning (BC)~\citep{ALVINN, bc} is an effective approach for offline policy learning because of its simplicity and effectiveness.
+In fact, in some recent work, BC has shown to perform competitively with some offline RL methods~\citep{td3bc, DT}.
+Given a dataset $\mathcal{D}_{\rm offline}=\{(s_i, a_i)\}$ consisting of expert's state action pairs $(s_i, a_i)$,
+BC trains the policy  with maximum likelihood over the data:
+\begin{equation} \label{eq:bc}
+    \max_{\theta} \mathbb{E}_{(s, a)\sim \mathcal{D}_{\rm offline}}  \log \pi_{\theta}(a|s).
+\end{equation}
+Although BC has the benefits of reducing the  policy learning task to an ordinary supervised learning task,
+it suffers from the well-known distributional shift issue~\citep{BC_carla, off_road, causal_confusion, copycat}.
+Another limitation is that BC has a relatively strong requirements on the data quality, and is not good at learning
+from suboptimal data.
+
+
+
+Offline RL is a category of methods that are more suitable for policy learning from noisy and suboptimal offline data~\citep{kumar2022should}.
+When focusing on offline learning only, the core challenge is how to address the extrapolation error due to
+querying the critic function with out-of-distribution actions~\citep{BCQ, cql}.
+Common strategies include constraining the actions to be close to dataset actions~\citep{BCQ, td3bc}, and constraining the critic to be conservative for out of data distribution actions~\citep{cql}.
+The recent implicit Q-learning (IQL) method~\citep{iql} addresses this issue by learning a value network to match the expectile of the critic network,  thus avoiding querying the critic with the actions not in the offline dataset.
+For policy update, IQL use a weighted BC formulation
+\begin{equation} \label{eq:awac}
+    \max_{\theta} \mathbb{E}_{(s, a)\sim \mathcal{D}_{\rm offline}}  w(s, a) \cdot \log \pi_{\theta}(a|s),
+\end{equation}
+where $w(s, a)$ denotes a data dependent weight, typically calculated based on the estimated advantages~\citep{AWAC, weighted_bc, iql}.
+
+\section{Offline and Online RL Revisited: Connections and Gaps}
+
+{\flushleft \textbf{Connections between Offline and Online RL.}}
+Offline RL and online RL are closely connected in many aspects.
+Historically, many offline RL approaches are branched off from off-policy RL algorithms to the full offline setting~\citep{BCQ, td3bc}.
+Algorithms more specific to offline setting are then further developed, motivated by the challenges residing in the offline setting~\citep{offline_rl, cql}.
+Besides algorithmic connections, offline and online RL are also complementary to each other
+in terms of strengths and weaknesses.
+Offline RL is sample efficient since
+ no online interactions are required, but the performance is bounded by the fixed data set.
+Online RL enjoys more opportunities for performance improvement, but is comparatively
+much less sample efficient.
+Because of the connections and complementary strengths, instead of treating
+them as two isolated topics, it is more natural to connect both
+in pursuit of a performant policy in practice.
+
+
+
+{\flushleft \textbf{The Direct Offline-Online Approach.}}
+Because of the above mentioned connections, it is tempting to directly use the same algorithm (thus the same network architectures as well)
+for both phases.
+Unfortunately, this is  ineffective in \emph{either directions}: either directly using offline RL algorithms for online learning (\emph{forward} direction), or directly using online RL algorithms for offline learning (\emph{reverse} direction).
+The reverse direction has been explored extensively in the offline RL community.
+The current wisdom is that instead of directly using an existing online  RL algorithm ({e.g.} TD3~\citep{TD3}),
+special treatments need to be incorporated into the algorithm  ({e.g.} incorporating BC into TD3~\citep{td3bc}) for handling the challenges arising
+in offline learning, due to issues such as querying the critic function with out-of-distribution actions.
+
+In the \emph{forward} direction, as noted in previous work~\citep{AWAC}, it is exceptionally difficult to
+first train a policy using offline data and then further improve it using online RL.
+There are some efforts in the literature on directly transferring the parameters learned offline for online fine-tuning, \emph{i.e.},
+by initializing the policy in Eqn.(\ref{eq:policy_update_online}) with parameters learned offline.
+This scheme is illustrated in Figure~\ref{fig:training_schemes} as the \emph{Direct} approach for Offline-to-Online RL.
+While simple, this approach has several potential issues as noted in the literature.
+For example, one common issue is that the behavior of the offline policy can be compromised or even destroyed
+at the initial phase of online training, {e.g.} because of the noisy gradient for policy update due to
+cold start learning of critic network~\citep{jump_start_RL} (as in the case of reward-free pre-training)
+or distribution shift between offline and online dataset~\citep{balanced_replay}.
+Another issue is the conservativeness of the offline RL algorithms. While this is a desirable feature
+when considering only offline training,  it is not preferred for online learning,
+where exploration is valuable for a further improvement~\citep{anti_exploration}.
+This is a phenomenon that is commonly observed and reported in the literature~\citep{balanced_replay, behavior_transfer, jump_start_RL}.
+
+
+
+
+
+\vspace{-0.1in}
+\section{Bridging Offline and Online RL via Policy Expansion}
+\vspace{-0.1in}
+In this section, we will introduce a simple scheme called Policy Expansion for bridging offline and online training.
+It is worthwhile to note that the proposed scheme is orthogonal to specific off/online RL algorithms and is
+compatible to be used with different value-based offline and online algorithms. The final performance of such a combination may vary depend on the selection of methods.
+
+
+\begin{figure}[t]
+	\centering
+	\begin{overpic}[height=4cm]{imgs/offline_and_online}
+		\put(36,94){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{Offline RL}}}}}
+		\put(35,42){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{Online RL}}}}}
+	\end{overpic}
+	\;\vline\;
+	\begin{overpic}[height=4cm]{imgs/offline_to_online}
+		\put(39.5,39.){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{Offline-to-Online RL}}}}}
+		\put(46.5,35){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{Direct}}}}}
+		\put(42.,18){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{Policy Expansion}}}}}
+	\end{overpic}
+	\vspace{-0.1in}
+	\caption{\textbf{Illustration of Different Training Schemes}. Offline training and online RL have been developed within their own training stages. Direct Offline-Online learning approach continues the online training stage after the offline stage is finished, updating the same policy network.
+	The proposed Policy Expansion approach bridges offline  and online training by retaining the policy after offline learning ($\pi_{\beta}$), and expand the policy set with another learnable policy ($\pi_{\theta}$) for capturing further performance improvements.
+	The two policies both participate in interactions with environment and learning in an adaptive fashion.
+	}
+	\vspace{-0.15in}
+	\label{fig:training_schemes}
+\end{figure}
+
+
+\vspace{-0.1in}
+\subsection{Policy Expansion and Adaptive Composition}
+\vspace{-0.05in}
+
+
+{\flushleft \textbf{Policy Expansion.}} To mitigate the above mentioned issues, we propose an alternative scheme that can be readily combined with existing algorithms. The proposed approach is illustrated in Figure~\ref{fig:training_schemes}.
+Given a policy $\pi_{\beta}$ obtained from offline training phase, instead of
+directly fine-tuning the parameters,
+we freeze  $\pi_{\beta}$ and add it into a policy set $\Pi=[\pi_{\beta}]$.
+To enable further learning, instead of directly modifying $\pi_{\beta}$ as in the \emph{Direct} method, which has
+the potential of destroying useful behaviors learned offline,
+we freeze $\pi_{\beta}$ and expand the policy set $\Pi$ with another learnable policy $\pi_{\theta}$ as
+\begin{equation}\label{eq:expand}
+	\Pi=[\pi_{\beta}, \pi_{\theta}]
+\end{equation}
+which is  responsible for a further performance improvement during online training.
+We refer this type of policy construction as Policy Expansion (PEX).
+It is intuitive to understand that the behavior of offline policy $\pi_{\beta}$ is free from being
+negatively impacted, while the newly added policy can be updated.
+The policies in the policy set $\Pi$ will all get involved into exploration and learning
+in an collaborative and adaptive manner as detailed in the following.
+\vspace{-0.1in}
+{\flushleft \textbf{Adaptive Policy Composition.}}  Both policies in the policy set $\Pi$ will form a single composite policy $\tilde{\pi}$, which will
+be used in both exploration and learning.
+More specifically, given the current state $s$,
+we first sample actions for each member of the policy set $\Pi$ and form a proposal
+actions set $\mathbb{A} = \{a_i \!\sim\! \pi_i(s)|\pi_i \in \Pi\}$.
+Then all the action proposals will be taken into consideration and they will be selected
+with the probability related to their potential utilities ({e.g.} values).
+For example, we can compute their values at the current state $\mathbf{Q}_{\phi} \!\!=\!\! [Q_{\phi}(s, a_i)| a_i \in \mathbb{A}]\in \mathbb{R}^{K}$, with $K$ denotes the cardinality of $\Pi$ (here $K\!=\!2$), and   construct a categorical distribution for selecting the final action:
+\begin{equation}\label{eq:w_net}
+	P_{\w}[i] = \frac{\exp (Q_{\phi}(s, a_i)/\alpha)}{\sum_j \exp (Q_{\phi}(s, a_j)/\alpha)}, \quad \forall i \in [1, \cdots K]
+\end{equation}where $\alpha$ is temperature.
+Then we can sample $\w$ from it  for selecting the actions $\w \sim P_{\w}$ to decide which
+action will be used during unroll for interacting with environment.
+Using value for policy composition has been used in different contexts in the literature~\citep{taac, VFS}.
+
+
+Conceptually, the composite policy $\tilde{\pi}$ can be represented  as follows:
+\begin{equation}\label{eq:rex_policy}
+	\vspace{-0.08in}
+    \tilde{\pi}(a|s) = [\delta_{a\sim\pi_{\beta}(s)}, \delta_{a\sim\pi_{\theta}(s)}]  \w, \quad \w \sim P_{\w}
+	\vspace{-0.055in}
+\end{equation}
+where $\w \!\in\! \mathbb{R}^{K}$ a one-hot vector, indicating the policy that is selected for the current state $s$.
+$\delta_{a\sim\pi}$ denotes the Dirac delta distribution centered at $a$ which is sampled from $\pi$.
+
+By allowing only the newly added policy ($\pi_{\theta}$ in this case) to be fine-tuned while freezing all others ($\pi_{\beta}$),
+we can  avoid the problem of compromising ({e.g.}
+ destroying or forgetting) the behavior of offline policy.
+At the same time, we have the advantage of adaptiveness in the sense of  allowing learning of new abilities.
+From this perspective, the   policy expansion plays the role of bridging the offline and online learning phases, while
+mitigating commonly encountered issues.
+It is interesting to note that a similar compositional form of policy has appeared in DAgger~\citep{dagger}, although with a uniform weight across states and under a different context of imitation learning. Here our compositional weight is state adaptive and the compositional policy is used for bridging offline-to-online reinforcement learning.
+
+\vspace{-0.05in}
+PEX has several advantages compared to direct offline-online learning (illustrated in Figure~\ref{fig:training_schemes}):
+\vspace{-0.05in}
+\begin{enumerate}[topsep=0pt,itemsep=0.5ex,partopsep=0ex,parsep=0ex]
+	\item \emph{offline policy preservation}: it can retain the useful behaviors learned during offline training phase by retaining the policy and avoid it being destroyed in the initial online training phase;
+	\item \emph{flexibility in policy form}: the offline policy does not need to be of the same form with the online policy ({e.g.} same network structure) as in the direct offline-online approach, offering more flexibilities in design;
+	\item \emph{adaptive behavior selection}: both the behavior of the offline policy and the
+	online learning policy are used in interacting with the environment and they are involved
+	in an adaptive manner, {e.g.}, according to their respective expertise in handling different states.
+\end{enumerate}
+
+
+
+
+
+
+
+\vspace{-0.05in}
+\begin{algorithm}[h]
+	\centering
+	\caption{PEX: Policy Expansion for Offline-to-Online RL}
+	\label{alg:algo}
+			\begin{algorithmic}
+				\STATE {\bfseries Input:} offline RL algorithm $\{L^{Q_{\phi}}_{\rm offline}, L_{\rm offline}^{\pi_{\beta}}\}$, online RL algorithm $\{L^{Q_{\phi}}_{\rm online}, L_{\rm online}^{\pi_{\theta}}\}$\footnotemark
+				\STATE {\bfseries Initialize:} network parameters $\phi$, $\beta$, $\theta$, \,  offline replay buffer $\mathcal{D}_{\rm offline}$\\
+				\WHILE{in \emph{offline training phase}}
+				\STATE  \% offline policy training using batches from the offline replay buffer $\mathcal{D}_{\rm offline}$
+				\STATE   $\phi \leftarrow \phi  - \lambda_Q \nabla_{\phi} L^{Q}_{\rm offline}(\phi)$, \quad $\beta \leftarrow \beta  - \lambda_{\pi} \nabla_{\beta} L_{\rm offline}^{\pi_{\beta}}(\beta)$
+				\ENDWHILE
+				\STATE {Policy Expansion}:  $\tilde{\pi} = [\pi_{\beta}, \pi_{\theta}]$; transfer $Q_{\phi}$
+				\WHILE{in \emph{online training phase}}
+					\FOR{each environment step}
+						\STATE 	$a_t \sim \tilde{\pi}(a_t|s_t)$ according to (\ref{eq:rex_policy}), \, $s_{t+1} \sim T(s_{t+1}| s_t, a_t)$, \, $\mathcal{D} \leftarrow \mathcal{D}\cup \{(s_{t}, a_t, r(s_t, a_t), s_{t+1})\} $
+					\ENDFOR
+					\FOR{each gradient step}
+					\STATE  \% online  training using batches from both $\mathcal{D}_{\rm offline}$ and  $\mathcal{D}$
+					\STATE   $\phi \leftarrow \phi  - \lambda_Q \nabla_{\phi} L^Q_{\rm online}(\phi)$, \quad $\theta \leftarrow \theta  - \lambda_{\pi} \nabla_{\theta} L_{\rm online}^{\pi_{\theta}}(\theta)$
+					\ENDFOR
+				\ENDWHILE
+			\end{algorithmic}
+\end{algorithm}
+\vspace{-0.15in}
+\footnotetext{We represent a value-based RL algorithm succinctly with a pair of value and policy losses as $\{L^{Q}, L^{\pi}\}$.}
+
+
+
+\vspace{-0.15in}
+\subsection{Bridged Offline-Online Training with Policy Expansion}
+\vspace{-0.1in}
+We focus on value-based RL algorithms for both stages in this work.
+For \emph{offline-training}, we conduct offline RL with an offline RL algorithm ({e.g.} IQL) on the offline dataset to obtain the offline policy $\pi_{\beta}$.
+Then we can construct policy expansion following  Eqn.(\ref{eq:expand}) before entering the online phase.
+And we also transfer the Q function (critic) learned in the offline stage to online stage for further learning.
+We also transfer the offline buffer to online stage as an additional buffer, as shown in Figure~\ref{fig:training_schemes}.
+
+For \emph{online training}, we use the policy adaptively composed from the policy set as in Eqn.(\ref{eq:rex_policy}),
+and then conduct online training by interleaving environmental interaction and
+gradient update.
+The newly collected transitions are stored into the online replay buffer $\mathcal{D}$.
+For training, batches randomly sampled from both $\mathcal{D}$ and $\mathcal{D}_{\rm offline}$
+are used.
+The value loss and policy loss are calculated based on the losses corresponding to the chosen algorithm.
+The proposed scheme can be used together with  different existing RL algorithms.
+The complete procedure is summarized in Algorithm~\ref{alg:algo}, taking an offline RL and online RL algorithm as inputs.
+
+
+
+
+
+\vspace{-0.2in}
+\section{Related Work}
+\vspace{-0.05in}
+
+
+\vspace{-0.1in}
+{\flushleft\textbf{Pre-Training in RL.}}
+A number of different directions have been explored in RL pre-training, including representation pre-training and policy pre-training.
+Note that for RL, pre-training can be either offline or online.
+Representative works include pre-training of the feature representation using standard representation learning methods ({e.g.} contrastive learning~\citep{offlne_rl_pretrain}),  dynamics learning-based representation learning~\citep[{e.g.}][]{repr_pre_training, APV}, unsupervised RL driven by intrinsic rewards in reward-free environments~\citep[{e.g.}][]{behavior_from_void}, or directly using ImageNet pre-training for visual RL tasks~\citep[{e.g.}][]{resnet_pretrain, imagenet_pretrain}.
+Apart from representation pre-training,
+another category of work is on policy pre-training, with the goal of acquiring behaviors
+during the pre-training phase that are useful for the online phase.
+When the downstream task is unknown, there are approaches for unsupervised pre-training, {e.g.},
+maximizing behavior diversity~\citep{DIAYN} or converting the action space~\cite{parrot}, with the hope of discovering some behaviors that are useful for the downstream task.
+When the offline-online task is more aligned, there are some early attempts on directly transferring policy parameters~\citep{DAPG}, based on the intuition that a policy initialized this way can produce more meaningful behaviors than randomly initialized networks.
+Some recent work focuses on behavior transferring, \emph{i.e.}, leveraging the offline trained policy for exploration during online training~\citep{behavior_transfer,jump_start_RL}. Our work falls into this latter category of methods. One notable difference compared to~\cite{behavior_transfer,jump_start_RL} is that for the proposed approach, the offline policy is one part of the final policy,
+and with its role been determined adaptively.
+\vspace{-0.15in}
+{\flushleft\textbf{Data-Driven RL and Offline RL.}}
+Training a policy by leveraging a large amount of existing data (\emph{i.e.} data-driven RL) is a promising
+approach that is valuable to many real-world scenarios, where offline data is abundant.
+Offline RL is one active topic towards this direction. The main motivation of
+offline RL is to train a policy by leveraging a pre-collected dataset, without requiring additional environmental interactions~\citep{offline_rl}.
+Many research works in this direction focus on addressing the special challenges brought by offline learning, including out-of-distribution value issue~\citep{cql}.
+Common strategies include  constraining the value~\citep{cql} to be small for out of distribution actions or the policy to be close to the action distribution of dataset~\citep{BCQ, td3bc}.
+Recently, \cite{iql} proposes an implicit Q-learning (IQL) method as an alternative way
+to handle this issue. It learns a value function that predicts a certain expectile of the values for  state-action pairs from the dataset, which can be used for computing the value target
+without querying the critic with out-of-distribution actions.
+\vspace{-0.1in}
+{\flushleft\textbf{Offline Training with Online Fine-tuning.}}
+Combining offline data with online learning is an effective approach that have been demonstrated by several early attempts with demonstration data~\citep{use_offline_buffer,dqn_demo,sac_bc, DAPG}.
+Traditionally, the offline RL methods are purely focused on the offline training setting.
+However, the offline learned policy could be limited in performance given a fixed dataset.
+In the case when further online interaction is allowed, it would be natural to fine-tune
+the policy further with data collected online.
+This paradigm of two-stage policy training is related to the iterative interleaved policy and data collection schemes used in imitation learning~\citep{dagger, agnoistic_system_id_mbrl}.
+Several different approaches have been explored towards online fine-tuning of a offline pre-trained policy, including balancing offline-online replay data~\citep{balanced_replay}, parameter transferring~\citep{DAPG, policy_finetuing}, policy regularization~\citep{KL_RL, behavior_prior}
+and guided exploration~\citep{behavior_transfer, jump_start_RL}.
+It has been observed that directly applying some offline RL methods does not
+benefit from online interactions~\citep{AWAC,jump_start_RL}, potentially due to the conservative nature of the offline policy~\citep{AWAC}.
+Based on this observation, there are some recent efforts on developing algorithms
+that are not only suitable for offline training, but also can leverage online interactions for further learning.
+\cite{AWAC} shows that an advantage-weighted form of actor-critic method is suitable for this purpose.
+IQL~\citep{iql} also leverages a similar form for policy learning and shows that it can benefit from online fine-tuning.
+Our work falls into this category and we provide an alternative approach for leveraging
+offline pre-training for helping with online training.
+
+
+\begin{figure}[t]
+	\centering
+	\begin{overpic}[width=14cm]{imgs/figure2}
+	\end{overpic}
+	\vspace{-0.2in}
+	\caption{\textbf{Normalized Return Curves} of different methods on benchmark tasks from D4RL~\citep{d4rl}. IQL is used as the backbone apart from the AWAC baseline~\citep{AWAC}.}
+	\vspace{-0.2in}
+	\label{fig:d4rl_results}
+\end{figure}
+
+\vspace{-0.1in}
+\section{Experiments}
+\vspace{-0.1in}
+In this section, we first evaluate the effectiveness of the proposed approach on various types of benchmark tasks with comparison to a number of baseline methods.
+Then we further show a number of extensions where the proposed approach can also be applied.
+
+\vspace{-0.1in}
+\subsection{Offline-to-Online RL Experiments} \label{sec:offline_to_online}
+\vspace{-0.05in}
+
+\textbf{Tasks and Settings.}
+We use the standard D4RL benchmark which has been widely used in offline RL community~\citep{d4rl}.
+For offline learning, we use the provided dataset for training. For online learning, we
+use the accompanied simulator for interaction and training.
+For offline phase,  1M training steps are used for training.
+Then we run online fine-tuning for another 1M environmental steps.
+Here we use IQL~\citep{iql} as the backbone algorithm for all methods listed below.
+The training is repeated with 5 different random seeds.
+
+
+\vspace{-0.35in}
+\textbf{\flushleft{Baselines.}}
+We compare the proposed approach with the following baselines:
+\emph{\textbf{(i)}}~\alg{Offline}:  offline training using IQL, without online fine-tuning;
+\emph{\textbf{(ii)}}~\alg{Scratch}: train IQL online from scratch, without offline-pre-training.
+\emph{\textbf{(iii)}} \alg{Buffer}~\citep{use_offline_buffer}: train IQL online without offline pre-training, but has access to the offline buffer during online training, \emph{i.e.} using a buffer as $\mathcal{D}\cup\mathcal{D}_{\rm offline}$.
+\emph{\textbf{(iv)}}~\alg{Direct}~\citep{iql}: a direct offline-to-online approach by directly transferring parameters trained offline to online stage using IQL~\citep{iql}, which is a recent and representative  RL algorithm that shows state-of-the-art performance on offline RL while allows online fine-tuning;
+\emph{\textbf{(v)}}~\alg{AWAC}~\citep{AWAC}: an approach that uses an advantage-weighted form of actor-critic method for offline-to-online RL;
+\emph{\textbf{(vi)}} \alg{Off2On}~\citep{balanced_replay}: a recent offline-to-online RL method that uses an ensemble of offline trained value and policies together with a balanced offline-online replay scheme;
+\emph{\textbf{(vii)}} \alg{BT}~\citep{behavior_transfer}: Behavior Transfer which is an approach that
+leverages an offline learned policy in exploration,  where the offline policy is used
+for exploration for a consecutive number of steps sampled from a distribution once activated;
+\emph{\textbf{(viii)}} \alg{JSRL}~\citep{jump_start_RL}: Jump Start RL, which divides the rollout of a trajectory into two parts, using the offline  learned  policy for the first part and then  unrolling with the online learning policy for the rest of trajectory.
+\alg{PEX} denotes the proposed approach, which has the same offline and online RL algorithms as \alg{Direct}, and is only different in using \emph{Policy Expansion} for connecting the two stages. More resources are available on the project page.~\footnote{\scriptsize{\url{https://sites.google.com/site/hczhang1/projects/pex}}}
+
+
+
+\begin{wrapfigure}[6]{r}[0\width]{0.38\textwidth}
+\vspace{-0.4in}
+  \begin{overpic}[viewport=0 0 300 240, clip=true, width=4cm]{imgs/curve_agg.pdf}
+	  \put(93, 8){\includegraphics[viewport=305 120 383 260, clip=true, height=2.8cm, cfbox=black 0.3pt 0.3pt]{imgs/curve_agg.pdf}}
+  \end{overpic}
+\vspace{-0.15in}
+\caption{\textbf{Aggregated Return Curves} across tasks (IQL-based).}
+\label{fig:curve_agg_iql}
+\end{wrapfigure}
+The return curves for all the tasks are shown in Figure~\ref{fig:d4rl_results}.
+The aggregated return across all tasks is shown in Figure~\ref{fig:curve_agg_iql}.
+The returns are first averaged across task and then across runs.
+It can be observed that all methods show some improvements after online training in general, compared to the initial performance before online training.
+\alg{Scratch} has the lowest overall performance across all tasks.
+On the challenging sparse reward antmaze tasks, \alg{Scratch} cannot learn a meaningful policy at all.
+\alg{Buffer} has better performance than \alg{Scratch} when incorporating the offline buffer, indicating
+that the offline buffer has some benefits in helping with learning.
+Notably, on the previously zero-performance antmaze tasks, \alg{Buffer} achieves reasonable performance
+with the help of the offline buffer, leading to a large overall improvement over \alg{Scratch}, (\emph{c.f.} Figure~\ref{fig:curve_agg_iql}).
+\alg{Direct} (IQL-based) shows large improvements over \alg{Offline} on average as shown in  Figure~\ref{fig:curve_agg_iql}, implying the benefits brought by the the additional online training over pure offline training.
+\alg{Off2On} also shows large improvement during fine-tuning and achieves strong overall performance (Figure~\ref{fig:curve_agg_iql}).
+\alg{BT} shows some improvements over \alg{IQL} on some tasks such as \ssenv{antmaze-medium-play} and \ssenv{antmaze-large-diverse}, with an overall performance comparable to that of \alg{Direct}.
+\alg{JSRL} outperforms \alg{Direct} and \alg{BT} on some tasks ({e.g.} \ssenv{hopper-medium}, \ssenv{hopper-medium-replay}), potentially due to its different way of leveraging
+the offline policy, and its overall performance is similar to \alg{BT}.
+The proposed \alg{PEX} approach performs comparably to other baselines on some tasks while outperforming all baseline methods on most of the other tasks (\emph{c.f.} Figure~\ref{fig:d4rl_results}), and outperforms baselines methods overall (\emph{c.f.} Figure~\ref{fig:curve_agg_iql}),
+demonstrating its effectiveness.
+
+
+
+
+
+
+\vspace{-0.1in}
+\subsection{Heterogeneous Offline-Online RL Bridging via Policy-Expansion}
+\vspace{-0.1in}
+\begin{wrapfigure}[14]{r}[0\width]{0.28\textwidth}
+	\vspace{-0.15in}
+		\begin{overpic}[viewport=0 0 300 270, clip=true, width=4.5cm]{imgs/curve_agg_sac_w_iql.pdf}
+		\put(58, 13){\includegraphics[viewport=300 125 385 240, clip=true, width=1.3cm, cfbox=black 0.3pt 0.3pt]{imgs/curve_agg_sac_w_iql.pdf}}
+	\end{overpic}
+	\vspace{-0.35in}
+	\caption{\textbf{Aggregated Return Curves} across benchmark tasks (SAC-based).}
+	\label{fig:curve_agg_sac}
+\end{wrapfigure}
+
+
+
+
+We have shown the application of \alg{PEX} to the case where both the offline and online algorithms are the same (referred to as  \alg{PEX-IQL} here since both are IQL) in Section~\ref{sec:offline_to_online}.
+In this section, we further show the applicability of the proposed scheme in
+bridging heterogeneous RL algorithms, \emph{i.e.} different RL methods are used for the offline and online stages.
+As an example, here we use IQL~\citep{iql} and SAC~\citep{sac} for offline and online RL stages respectively.
+We compare with \alg{Scratch} (vanilla SAC~\citep{sac}), \alg{Buffer} (SAC with additional offline replay buffer)
+as well as \alg{Direct} (directly transferring policy and critic parameters learned with offline IQL to SAC for further online learning).
+Again \alg{PEX} uses the same offline and online algorithms as in \alg{Direct} but uses policy expansion instead of the direct transferring approach.
+The normalized return curves aggregated across tasks are shown in Figure~\ref{fig:curve_agg_sac}.
+Individual return curves are shown in  Appendix~\ref{app:heterogeneous_results}.
+It can be observed that there is an overall improvement by simply applying \alg{PEX} to the heterogeneous offline-online RL setting as well.
+
+
+
+
+
+
+
+\vspace{-0.1in}
+\subsection{Ablation Studies}
+\label{sec:ablations}
+We will inspect the impact of several factors on the performance of the proposed method in the sequel.
+\begin{figure}[h]
+	\vspace{-0.05in}
+	\centering
+	\begin{overpic}[height=3.2cm]{imgs/curve_ablation_exp_no_offline_buffer_agg.pdf}
+		\put(35,94){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{Offline Buffer}}}}}
+		\put(5,0){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(a)}}}}}
+	\end{overpic}
+	\begin{overpic}[height=3.2cm]{imgs/curve_ablation_exp_critic_warmup_agg.pdf}
+		\put(32,94){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{Critic Transfer}}}}}
+		\put(5,0){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(b)}}}}}
+	\end{overpic}
+	\begin{overpic}[height=3.2cm]{imgs/curve_ablation_exp_critic_transfer_agg.pdf}
+		\put(31,94){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{Policy Transfer}}}}}
+		\put(5,0){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(c)}}}}}
+	\end{overpic}
+	\begin{overpic}[height=3.2cm]{imgs/curve_ablation_exp_offline_policy_freeze_agg.pdf}
+		\put(23,94){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{Offline Policy Freeze}}}}}
+		\put(5,0){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(d)}}}}}
+	\end{overpic}
+	\vspace{-0.1in}
+	\caption{\textbf{Ablation Results} on a number of factors. Orange curves correspond to ablation variants.}
+		\vspace{-0.1in}
+	\label{fig:ablation}
+\end{figure}
+
+\vspace{-0.1in}
+{\flushleft\textbf{Offline-Buffer.}} This experiment investigates the impacts of including the
+offline replay buffer in online training stage. The results are shown in Figure~\ref{fig:ablation}(a).
+As can be observed, the inclusion of the offline replay buffer helps with the performance, but the performance drop
+caused by disabling offline replay buffer is smaller than the change of other algorithmic components (\emph{c.f.} Figure~\ref{fig:ablation}(b)$\sim$(d)).
+\vspace{-0.05in}
+{\flushleft\textbf{Critic Transfer.}} This experiment studies the impacts of transferring the critic parameters trained
+from offline  to online stage. As can be observed from Figure~\ref{fig:ablation}(b), disabling
+critic transferring will also greatly decrease the performance both in terms of sample efficiency as well as final
+performance.
+\vspace{-0.2in}
+{\flushleft\textbf{Policy Transfer.}}
+This experiment examines the impacts of transferring the offline pre-trained policy in the online training stage.
+When policy transferring is disabled, there is no need to use policy expansion in the online training stage.
+The results are shown in Figure~\ref{fig:ablation}(c).
+It can be observed that there is a clear performance drop when policy transferring is disabled.
+\vspace{-0.1in}
+{\flushleft\textbf{Offline Policy Freeze.}}  The offline learned $\pi_{\beta}$ is freezed during the online learning stage in \alg{PEX}. This experiment investigates the impact of this factor.
+If disabled, $\pi_{\beta}$ will be trained in the same way as $\pi_{\theta}$ during online learning. It is observed from  Figure~\ref{fig:ablation}(d) that freezing the offline policy is important. Training by disabling policy freezing has a clear performance drop. This is consistent with the intuition on the usefulness of offline policy preservation, which is one advantage of our approach.
+Another set of ablation results are deferred to Appendix~\ref{app:addtional_ablations}.
+
+
+
+ \vspace{-0.1in}
+\subsection{Visualization and Analysis}
+ \vspace{-0.05in}
+
+\textbf{Policy Composition Probability.}
+Since a composite policy is involved in the proposed approach, it is interesting to
+inspect the participation of each member policy from the policy set $\Pi\!=\!\{\pi_{\beta}, \pi_{\theta}\}$ when interacting with the
+environment.
+We visualize the policy compositional probability $P_{\w}$ during the rollout within a trajectory after training, as shown in Figure~\ref{fig:viz_composition_traj}.
+It can be observed that composition probability for each member policy is state-adaptive
+and is changing along the progress of a trajectory, implying that both policies contribute to the final policy in an adaptive manner.
+
+
+
+
+\begin{figure}[h]
+	\vspace{0.01in}
+	\centering
+	\;
+	\begin{overpic}[width=6.5cm]{imgs/antmaze_umaze_diverse.png}
+		\put(30, 52){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{antmaze-umaze-diverse}}}}}
+		\put(-5, 17.5){\sffamily\textcolor{black}{\rotatebox{0}{\scalebox{0.8}{$P_{\w}$}}}}
+		\put(18, 11){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\beta}$}}}}
+		\put(18, 7.5){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\theta}$}}}}
+		\put(10, 7){\includegraphics[height=0.35cm]{imgs/policy_usage_legend.png}}
+		\put(37, -2.5){\sffamily\textcolor{black}{{\scalebox{0.7}{Environment Step}}}}
+		\put(-1, -1){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(a)}}}}}
+	\end{overpic}
+	\quad \;
+	\begin{overpic}[width=6.5cm]{imgs/antmaze_medium_diverse.png}
+		\put(27, 52){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{antmaze-medium-diverse}}}}}
+		\put(-5, 17.5){\sffamily\textcolor{black}{\rotatebox{0}{\scalebox{0.8}{$P_{\w}$}}}}
+		\put(18, 11){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\beta}$}}}}
+		\put(18, 7.5){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\theta}$}}}}
+		\put(10, 7){\includegraphics[height=0.35cm]{imgs/policy_usage_legend.png}}
+		\put(37, -2.5){\sffamily\textcolor{black}{{\scalebox{0.7}{Environment Step}}}}
+		\put(-1, -1){\sffamily\textcolor{black}{{\scalebox{0.7}{\rotatebox{0}{(b)}}}}}
+	\end{overpic}
+	\caption{\textbf{Visualization of Policy Composition Probability} during the rollout of one trajectory.
+	The probability curves are smoothed for visualization purpose.
+	}
+	\label{fig:viz_composition_traj}
+\end{figure}
+
+
+\begin{wrapfigure}[8]{r}[0.3\width]{0.35\textwidth}
+    \vspace{-0.2in}
+	\begin{overpic}[height=3.cm]{imgs/tsne_medium_diverse_4.png}
+		\put(25, 17){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\beta}$}}}}
+		\put(25, 10){\sffamily\textcolor{black}{{\scalebox{0.7}{$\pi_{\theta}$}}}}
+		\put(15, 10){\includegraphics[viewport=0 0 40 80, clip=true, height=0.35cm]{imgs/policy_usage_legend.png}}
+	\end{overpic}
+  \vspace{-0.25in}
+  \label{fig:tsne_d4rl}
+\end{wrapfigure}
+\vspace{-0.1in}
+\textbf{State Space Associations of Member Policies.}
+To get a better understand of the role of  the member policies in the policy set, we visualize the association between
+the states and its selected policy.
+For this purpose, we embed a set of states into a 2D space using t-SNE~\citep{tsne},
+and then visualize the association of offline policy $\pi_{\beta}$ and the newly expanded policy $\pi_{\theta}$ to states in the projected space. States that select the offline policy $\pi_{\beta}$ are colored with blue and states that select $\pi_{\theta}$ are colored with red.
+It can be observed that $\pi_{\theta}$ and $\pi_{\theta}$ cover different parts of the state space, indicating that
+they have some complementary functionalities and are preferred differently at different states.
+
+
+
+
+\vspace{-0.15in}
+\section{Conclusions, Limitations and Future Work}
+\vspace{-0.1in}
+We highlight the usefulness of properly connecting offline and online stages of reinforcement learning to gain the benefits of both worlds
+and present a policy expansion scheme as an attempt toward this direction. This scheme is an instance in the direction orthogonal to developing completely new offline-to-online RL algorithms.
+The proposed approach is simple and can be combined with  existing RL algorithms, and is illustrated with two different
+combinations in this work.
+Experiments demonstrate the effectiveness of the proposed approach on a number of benchmark tasks.
+
+While achieving promising performance, the proposed approach also has some limitations.
+One limitation is that the number of parameters grows with the number of policies in the policy set.
+While this might not be an issue when the policy set is small as the case in this work, it will
+be less parameter efficient in the presence of a large policy set.
+One possible way to address this issue is by introducing a distillation stage~\citep{policy_distillation}, by
+consolidating the multiple policies into a network with a smaller number of parameters.
+Generalizing the proposed scheme to the case with a set of pre-trained skill policies is an interesting direction~\citep{DIAYN, MTRL}.
+For offline learning, we have built upon the strong IQL method.
+It would be interesting to see how much  we can gain by upgrading it with more recently developed offline RL methods together with different online methods.
+The idea of using a policy set itself can potentially be applied to other cases beyond offline to online RL. We leave the exploration of its generalization and application as an interesting future work.
+
+
+
+\newpage
+\bibliography{PEX}
+\bibliographystyle{iclr2023_conference}
+
+
+
+
+\appendix
+
+
+\section{Appendix}
+
+
+\subsection{Details on Baselines}
+In this section, we provide more details on the baseline methods.
+\vspace{-0.1in}
+
+
+{\flushleft{\textbf{Behavior Transfer (\alg{BT}).}}}
+This approach is originally proposed for the case of pre-training using unsupervised
+reinforcement learning and then transfers the learned behaviors for later learning.
+It is also originally used in discrete action cases. Here we adapt this idea to build a
+baseline in our setting based on the approach of transferring behaviors in \citep{behavior_transfer}.
+Following~\citep{behavior_transfer}, a Zeta distribution with parameter $a=2$ is used for determining the number of steps of
+persistent unroll using the offline policy.
+The number of persistent unroll steps is re-sampled when currently not in the middle of a persistent unroll and with a random number sampled from $[0, 1]$ is smaller than a threshold $\epsilon$. $\epsilon=0.1$ is used in experiments.
+
+{\flushleft{\textbf{Jump Start RL (\alg{JSRL}).}}}
+\alg{JSRL} divides the complete unroll of one trajectory into two parts, with the first part
+obtained with the offline policy $\pi_{\beta}$, while the second part is obtained with the
+current learning policy $\pi_{\theta}$. The core idea of \alg{JSRL} is to initially
+make the first part longer, and then progressively reducing the length of the first part,
+thus forming a type of curriculum to help with exploration and learning.
+We follow this core idea by using
+a linear scheduler that anneals from the max episode length to 0 for
+progressively decreasing the first stage of unroll using the prior policy $\pi_{\beta}$.
+
+
+{\flushleft{\textbf{Offline-to-Online RL (\alg{Off2On}).}}}
+\alg{Off2On} is an approach that aims to improve offline to online RL performance~\citep{balanced_replay}.
+It incorporates two components to cope with the challenges of offline-to-online RL:
+1) an ensemble of critic networks and policy networks are trained during offline training stage, in contrast to typical offline RL, which only learns one policy network and critic network.~\footnote{Here we refer the commonly used double critic replica to reduce value overestimation as in SAC~\citep{sac} and TD3~\citep{TD3} as a single critic network. The ensemble used in \cite{balanced_replay} is applied on top of this.}
+Following the setting in \cite{balanced_replay}, ensemble size of $5$ is used.
+2) balanced replay: a balanced offline-online replay scheme to properly trade off between the usage of offline and online samples.
+We used the code released by the authors of \citep{balanced_replay}.~\footnote{\scriptsize\url{https://github.com/shlee94/Off2OnRL}}
+
+
+
+
+
+
+
+
+\subsection{Implementation Details on Policy Expansion}
+
+
+{\flushleft{\textbf{Policy Expansion} (\alg{PEX} with IQL-backbone).}}
+The proposed scheme can be combined with many different existing RL methods.
+Here we illustrate with an concrete instantiation using IQL~\citep{iql}.
+For pre-training, we conduct offline RL with IQL on the offline dataset to obtain the offline policy $\pi_{\beta}$.
+Then we conduct policy expansion  as Eqn.(\ref{eq:rex_policy}) before switching to online phase.
+
+For \emph{offline training}, we follow IQL~\citep{iql} to train the parameters of the value function using the TD-learning approach as follows:
+\begin{equation}\label{eq:Q_rex}
+   L_Q(\phi) =  \mathbb{E}_{(s, a, r, s')\sim \mathcal{D}_{\rm offline}} \Vert Q_{\phi}(s, a) - (r + \gamma V(s')) \Vert^2
+\end{equation}
+\begin{equation}\label{eq:V_rex}
+	L_V(\psi) = \mathbb{E}_{(s, a)\sim \mathcal{D}_{\rm offline}}  L_2^{\tau} [Q_{\bar{\phi}}(s, a) - V_{\psi}(s)]
+\end{equation}
+where $L_2^{\tau}(u)=\vert\tau-\mathbbm{1}(u<0)\vert u^2$~\citep{iql}, with $\tau$ denotes the expectile value~\citep{iql}.
+$\bar{\phi}$ denotes a set of target parameters that are periodically copied from ${\phi}$.
+The policy network $\pi_{\theta}$ can be further updated by leveraging the updated critic network.
+Here we again follow IQL~\citep{iql} and use the weighted form for actor training:
+\begin{equation} \label{eq:pi_rex}
+   L_{\pi}(\beta)  = \mathbb{E}_{(s, a)\sim \mathcal{D}_{\rm offline}}  - \lfloor w(s, a)\rfloor  \cdot \log \pi_{\beta}(a|s),
+\end{equation}
+with $w(s, a) = \exp((Q(s, a) - V(s)) / \alpha)$ and $\lfloor \cdot\rfloor$ denotes the gradient stopping operator.
+
+For \emph{online training}, we first expand the policy set as in Eqn.(\ref{eq:expand}),
+and then conduct online training by interleaving environmental interaction and
+gradient update.
+The newly collected transitions are saved into replay buffer $\mathcal{D}$.
+For training, batches randomly sampled from both $\mathcal{D}$ and $\mathcal{D}_{\rm offline}$
+are used. The values losses are the same as the offline phase, and the policy loss is computed against $\pi_{\theta}$:
+\begin{equation} \label{eq:pi_rex_online}
+	L_{\pi}(\theta)  = \mathbb{E}_{s\sim  \mathcal{D}_{\rm offline}\cup \mathcal{D}, a\sim \tilde{\pi}(s)}  - \lfloor w(s, a)\rfloor  \cdot \log \pi_{\theta}(a|s),
+ \end{equation}
+
+
+For $a_0 \sim \pi_{\beta}(s_t)$, in practice, we simply take the greedy action from the policy.
+Following \cite{iql}, we model the policy using a non-squashed Gaussian distribution with mean squashed to action range, and use state independent standard deviations.
+
+
+{\flushleft{\textbf{Policy Expansion} (\alg{PEX} with with SAC as online backbone)}}.
+The main procedure of online training is the same as SAC~\citep{sac},
+with an adaptation for the actor training by changing the part of the loss based on Q-function from $\mathbb{E}_{s\sim \mathcal{D}} \mathbb{E}_{a\sim\pi_\theta} \left\Vert \lfloor \frac{\partial Q(s, a)}{ \partial a} + a\rfloor  - a \right\Vert^2$ (which is an equivalent form of loss to $\mathbb{E}_{s\sim \mathcal{D}} \mathbb{E}_{a\sim\pi_\theta} -Q(s, a)$)  to
+$ \mathbb{E}_{s\sim \mathcal{D}} \mathbb{E}_{a\sim\tilde{\pi}, a_0\sim\pi_\theta} \left\Vert \lfloor \frac{\partial Q(s, a)}{ \partial a} + a\rfloor  - a_0 \right\Vert^2$.
+
+
+
+\subsection{Theoretical Justification of PEX}
+Here we provide some theoretical justification of the proposed form of adaptive policy compostional distribution $P_{\mathbf{w}}$ in Eqn.(\ref{eq:w_net}):
+\begin{equation}
+	P_{\w}[i] = \frac{\exp (Q_{\phi}(s, a_i)/\alpha)}{\sum_j \exp (Q_{\phi}(s, a_j)/\alpha)}, \quad \forall i \in [1, \cdots K],
+    % P_{\w} = {\rm Cat}((\mathbf{Q} - V(s))/\alpha),
+\end{equation}
+where $K$ denotes the number of actions and in our case $K=2$.
+
+$P_{\mathbf{w}}$ can be viewed as a discrete policy with action dimension of two, which selects between two candidate actions $a_1$, $a_2$, one from offline policy $\pi_{\beta}$ and the other from $\pi_{\theta}$, i.e., $a_1 \sim \pi_{\beta}$ and $a_2\sim\pi_{\theta}$.
+Ideally, it assigns a higher probability to actions with higher values at the current state $s$.
+The definition of $P_{\w}$ essentially a reflection of this intuition, Actually, it can also be derived as shown below.
+
+By definition, we have the following form for the compositional policy $\tilde{\pi}$:
+\begin{equation} \label{eq:policy_def}
+	{\tilde{\pi}(a|s)} = \int_{a_1,a_2}\pi_{\beta}(a_1|s)\pi_{\theta}(a_2|s)\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)\delta(a=a_i)da_1da_2
+\end{equation}
+which is essentially another form of Eqn.(\ref{eq:rex_policy}).
+
+For V-value, we can have the following derivations
+\begin{eqnarray}
+	V(s)&=&\int_a \tilde{\pi}(a|s)Q_{\phi}(s,a)da\\
+	&&\text{(plug in the definition of policy in Eqn.(\ref{eq:policy_def}))}\\
+	&=&\int_a \left[ \int_{a_1,a_2}\pi_{\beta}(a_1|s)\pi_{\theta}(a_2|s)\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)\delta(a=a_i)da_1da_2\right]Q_{\phi}(s,a)da\\
+	&=&\int_{a_1,a_2}\pi_{\beta}(a_1|s)\pi_{\theta}(a_2|s)\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)\left[\int_a\delta(a=a_i)Q_{\phi}(s,a)da\right]da_1da_2\\
+	&=&\int_{a_1,a_2}\pi_{\beta}(a_1|s)\pi_{\theta}(a_2|s)\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)Q(s,a_i)da_1da_2\\
+	&=&\mathbb{E}_{a_1\sim\pi_{\beta},a_2\sim\pi_{\theta}}\left[\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)Q_{\phi}(s,a_i) \right ]
+\end{eqnarray}
+Applying entropy regularization term for policy learning, we have
+\begin{eqnarray}
+\mathbb{E}_{a_1\sim\pi_{\beta},a_2\sim\pi_{\theta}}\left[\sum_i P_{\mathbf{w}}(i|s,a_1,a_2)\left(Q_{\phi}(s,a_i) -\alpha \log P_{\mathbf{w}}(i|s,a_1,a_2)\right) \right ].
+\end{eqnarray}
+Solving for $P_{\mathbf{w}}$ given $\pi_{\beta}$ and $\pi_{\theta}$, we have
+\begin{equation}
+	P_{\mathbf{w}}(i|s,a_1,a_2)\propto \exp(Q_{\phi}(s,a_i)/\alpha), \quad \forall i \in [1, 2].
+\end{equation}
+% for each state $s$ and sampled action  $a_1$, $a_2$.
+
+Therefore, for the case of two actions, we have
+\begin{equation}
+	P_{\mathbf{w}}(i|s,a_1,a_2) = \frac{\exp (Q_{\phi}(s, a_i)/\alpha)}{\sum_j \exp (Q_{\phi}(s, a_j)/\alpha)}, \quad \forall i \in [1, 2].
+\end{equation}
+
+
+
+\subsection{Additional Ablation Results}
+\vspace{-0.05in}
+\label{app:addtional_ablations}
+We provide more ablations experiments and results in this section.
+{\flushleft\textbf{Double Parameters.}} Since there are two member policies in the proposed approach. A natural question to ask is whether properly doubling the number of parameters of a policy could achieve similar performance.
+\begin{wrapfigure}[11]{r}[0\width]{0.3\textwidth}
+	\vspace{-0.1in}
+		\begin{overpic}[height=4cm]{imgs/curve_ablation_exp_double_param_agg.pdf}
+		\put(30,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{Double Parameters}}}}}
+	\end{overpic}
+	\vspace{-0.35in}
+\end{wrapfigure}
+To verify this, we construct a type of policy network with (roughly) doubled number of parameters as
+$\pi_{\theta}(s) \!=\! g_{\theta_g} \!\circ\! f_{\theta_f}(s)$,
+where $f_{\theta_f}(s)$ encodes the observation $s$ into a feature vector and $g$ maps the feature vector to
+the action distribution.
+To (approximately) double the number of parameters, we implement $f_{\theta_f}$ as
+$f_{\theta_f}(s)\!\triangleq\! f_{\theta_1}(s) \!+\! f_{\theta_2}(s).$
+$f_{\theta_1}$ is initialized by transferring parameters $\theta$ learned in the pre-train stage. The aggregated return
+curves are shown on the right, for doubling the number of policy parameters as described above (\salg{Double-Param}), and the proposed approach. It can be observed that by comparison that simply increasing the number of parameters cannot help much with the performance,  implying the importance of the proposed structure in  \alg{PEX}.
+
+
+
+
+\subsection{More Details on Tasks}
+We summarized the tasks used for experiments and their corresponding D4RL environment names in Table~\ref{tab:gym_env}.
+
+\begin{table}[h]
+	\centering
+	\resizebox{9cm}{!}{
+		\begin{tabular}{|c|c|c|}
+			\hline
+			Task & D4RL Environment Name  \\
+			\hline \hline
+			{\salg{antmaze-umaze}}  & \senv{antmaze-umaze-v0}  \\
+			{\salg{antmaze-umaze-diverse}}  & \senv{antmaze-umaze-diverse-v0}  \\
+			{\salg{antmaze-medium-play}}  & \senv{antmaze-medium-play-v0}  \\
+			{\salg{antmaze-medium-diverse}}  & \senv{antmaze-medium-diverse-v0}  \\
+			{\salg{antmaze-large-play}}  & \senv{antmaze-large-play-v0}  \\
+			{\salg{antmaze-large-diverse}}  & \senv{antmaze-large-diverse-v0}  \\
+			{\salg{halfcheetah-random}}  & \senv{halfcheetah-random-v2}  \\
+			{\salg{hopper-random}}  & \senv{hopper-random-v2}  \\
+			{\salg{walker-random}}  & \senv{walker-random-v2}  \\
+			{\salg{halfcheetah-medium}}  & \senv{halfcheetah-medium-v2}  \\
+			{\salg{hopper-medium}}  & \senv{hopper-medium-v2}  \\
+			{\salg{walker-medium}}  & \senv{walker-medium-v2}  \\
+			{\salg{halfcheetah-medium-replay}}  & \senv{halfcheetah-medium-replay-v2}  \\
+			{\salg{hopper-medium-replay}}  & \senv{hopper-medium-replay-v2} \\
+			{\salg{walker-medium-replay}}  & \senv{walker-medium-replay-v2}  \\
+			\hline
+		\end{tabular}
+	}
+	\caption{\textbf{Tasks and the corresponding environment names in D4RL}.}
+	\label{tab:gym_env}
+\end{table}
+
+
+
+
+\subsection{Hyper-parameters}
+The hyper-parameters and values are summarized in Table~\ref{tab:hyperparameters}.
+There are two algorithmic related hyper-parameters inherited from IQL since we instantiate PEX based on it: temperature
+$\alpha$ (corresponding to $\beta^{-1}$ in IQL paper~\citep{iql}) and expectile value $\tau$.
+The rest of the hyper-parameters are common ones in RL algorithms, including for example batch size, network structure and size, target update etc.
+We use the hyper-parameter values from the IQL paper~\citep{iql} in our experiments.
+\begin{table}[h]
+			\centering
+			\tabcolsep=0.9cm
+			\centering
+			\resizebox{9cm}{!}{
+			\begin{tabular}{l| c}
+				\hline
+				Hyper-parameters &  Values \\
+				\hline \hline
+				number of parallel env &  1 \\
+				discount & 0.99\\
+				replay buffer size & 1e6 \\
+				batch size &  256  \\
+				MLP hidden layer size & [256, 256] \\
+				learning rate & 3e-4 \\
+				initial collection steps& 5000 \\
+				target update speed & 5e-3 \\
+				expectile value $\tau$ & 0.9 (0.7) \\
+				inverse temperature $\alpha^{-1}$ & 10 (3) \\
+				number of offline iterations & 1M \\
+				number of online iterations & 1M \\
+				number of iteration per rollout step & 1 \\
+				target entropy (SAC) & $-d$ \\
+				\hline
+			\end{tabular}
+				}
+		\caption{Hyper-parameter values. Values in brackets are used for locomotion tasks. The rest of the hyper-parameter values are shared across all tasks. $d$ denotes the action dimension.}
+		\label{tab:hyperparameters}
+	\end{table}
+
+
+
+\subsection{Hyper-parameter Ablations}
+
+\textbf{Impact of $\alpha$}.
+$\alpha$  scales the Q values before constructing $P_{\w}$:
+\begin{equation}
+	P_{\w}[i] = \frac{\exp (\alpha^{-1} Q_{\phi}(s, a_i))}{\sum_j \exp (\alpha^{-1} Q_{\phi}(s, a_j))}, \quad \forall i \in [1, \cdots K].
+\end{equation}
+
+We show the impacts of its value on performance in Figure~\ref{fig:alpha}.
+We have use a fixed value ($\alpha^{-1}\!=\!10$ for all antmaze tasks and $\alpha^{-1}\!=\!3$ for all locomotion tasks according to the IQL paper~\citep{iql} (the $\beta$ parameter of IQL).
+Here we show the impacts of different values for $\alpha^{-1}$ by setting the inverse temperature
+as $0.5 \alpha^{-1}$, $1 \alpha^{-1}$, $2 \alpha^{-1}$.
+We note that other values are possible for different environments.
+While it is impractical to tune this parameter for each task, it is possible to make it more adaptive
+by auto-tuning in a way similar to the temperature turning scheme used in SAC~\citep{sac}.
+
+
+
+\begin{figure}[h]
+	\vspace{0.01in}
+	\centering
+	\;
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_temperature_antmaze-umaze-diverse}
+		\put(25, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{antmaze-umaze-diverse}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_temperature_agg-antmaze-medium-play}
+		\put(22, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{antmaze-medium-play}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_temperature_halfcheetah-medium}
+		\put(25, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{halfcheetah-medium}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_temperature_hopper-medium}
+		\put(30, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{hopper-medium}}}}}
+	\end{overpic}
+	\vspace{-0.05in}
+	\caption{Impact of inverse temperature $\alpha^{-1}$. Results with inverse temperature as $0.5 \alpha^{-1}$, $1 \alpha^{-1}$, $2 \alpha^{-1}$ respectively.}
+	\label{fig:alpha}
+\end{figure}
+
+
+
+
+\textbf{Impact of Policy Entropy}.
+The entropy of $\pi_{\theta}$ is  auto-tuned to match a target entropy~\citep{sac},
+which is empirically set as $e_{\rm target}\triangleq-d$ where $d$ denotes the dimensionality of action.
+This is inherited from SAC and the same setting ($-d$) is applied to all tasks.
+To show the impact of different target entropy values, we experiment with three different
+settings: $0.5 e_{\rm target}$, $1\cdot e_{\rm target}$, $2e_{\rm target}$ on several tasks.
+The results are summarized in Figure~\ref{fig:entropy}.
+It can be observed that overly small or large target entropy values could decrease the performance on some tasks.
+
+
+
+\begin{figure}[h]
+	\vspace{0.01in}
+	\centering
+	\;
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_entropy_antmaze-umaze-diverse}
+		\put(20, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{antmaze-umaze-diverse}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_entropy_antmaze-medium-play.pdf}
+		\put(22, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{antmaze-medium-play}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_entropy_halfcheetah-medium.pdf}
+		\put(25, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{halfcheetah-medium}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.3cm]{imgs/curve_ablation_entropy_hopper-medium.pdf}
+		\put(30, 95){\sffamily\textcolor{black}{{\scalebox{0.6}{\rotatebox{0}{hopper-medium}}}}}
+	\end{overpic}
+	\caption{Impact of policy entropy (SAC-based online stage). Results with target entropy as $0.5 e_{\rm target}$, $1e_{\rm target}$, $2e_{\rm target}$ respectively.}
+	\label{fig:entropy}
+\end{figure}
+
+
+
+
+
+
+
+
+
+\subsection{More Results on Heterogeneous Offline-Online RL}\label{app:heterogeneous_results}
+
+Here we show detailed return curves for each task when using SAC~\citep{sac} as the backbone online RL algorithm.
+The results are shown in Figure~\ref{fig:d4rl_results_sac}.
+
+
+
+\begin{figure}[h]
+	\centering
+	\begin{overpic}[width=14cm]{imgs/figure9}
+		\put(36,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{antmaze-umaze}}}}}
+	\end{overpic}
+	\vspace{-0.1in}
+	\caption{\textbf{Return Curves} of different methods using SAC~\citep{sac} as the online RL backbone algorithm, including the Off2On method~\citep{balanced_replay}. The returns are normalized according to D4RL benchmark~\citep{d4rl}.}
+	\label{fig:d4rl_results_sac}
+\end{figure}
+
+
+
+\vspace{-0.1in}
+\subsection{Offline-Online Training with Reward-Free Offline Setting}
+We have shown using policy expansion for bridging offline IQL with online IQL/SAC in the main paper.
+Here we further demonstrate the applicability of the proposed approach by using BC as the offline learning
+module. We use IQL as the online module for illustration.
+In this section, we further demonstrate the applicability of the proposed approach
+to the setting with offline dataset without reward annotations.
+This is sometimes an encountered setting in practice, where
+plenty of offline data exist ({e.g.} from previous iteration of experiments or other agents),
+but without reward annotations.
+Since the offline dataset is only broadly related to the task and could potentially contain
+irrelevant or noisy data (\emph{w.r.t.} the current task in consideration), direct behavior cloning
+could be sub-optimal.
+
+
+Standard offline RL methods are inapplicable for offline pre-training in this case.
+We therefore use behavior cloning (\alg{BC})~\citep{ALVINN}, which is a simple and widely used
+approach for imitation learning.
+After offline pre-training using \alg{BC}, the offline policy $\pi_{\beta}$ is obtained and
+transferred to the second stage of online training.
+In terms of Algorithm~\ref{alg:algo}, only the policy loss $L_{\pi_{\beta}}$ is present
+in the offline training phase. The offline datasets not used
+in online training since it has no rewards.
+
+
+\begin{figure}[h]
+	\centering
+	\begin{overpic}[width=3.2cm]{imgs/curve_bc_antmaze-umaze-v0.pdf}
+		\put(36,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{antmaze-umaze}}}}}
+	\end{overpic}
+	\;
+	\begin{overpic}[width=3.2cm]{imgs/curve_bc_antmaze-umaze-diverse-v0.pdf}
+		\put(28,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{antmaze-umaze-diverse}}}}}
+	\end{overpic}
+	\;
+	\begin{overpic}[width=3.2cm]{imgs/curve_bc_hopper-medium-v2.pdf}
+		\put(33,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{hopper-medium}}}}}
+	\end{overpic}
+	\begin{overpic}[width=3.2cm]{imgs/curve_bc_walker2d-medium-v2.pdf}
+		\put(33,94){\sffamily\textcolor{black}{{\scalebox{0.5}{\rotatebox{0}{walker2d-medium}}}}}
+	\end{overpic}
+	\vspace{-0.1in}
+	\caption{\textbf{Return Curves} for reward-free offline pre-training setting.}
+	\label{fig:d4rl_results_reward_free}
+\end{figure}
+
+We use subset of tasks from D4RL~\citep{d4rl} where \alg{BC} has non-trivial performances.
+The results are shown in Figure~\ref{fig:d4rl_results_reward_free}.
+It can be observed that \alg{JSRL}, which performs well under the case of having offline rewards,
+performs less well in the reward-free case.
+One potential reason is that it hinges on the offline policy to induce the state distribution~\citep{jump_start_RL}. In the case where the offline policy is not highly performant, as the
+case here obtained from \alg{BC}, its effectiveness could be compromised.
+\alg{BT} performs comparable to or better than \alg{Direct} online fine-tuning with IQL, potentially due to the fact that \alg{BT} leverage the  $\pi_{\beta}$ in a way that has a shorter
+commitment length for each time the offline policy is selected.
+The proposed approach also shows similar online improvements comparable or sometimes better than the best performing methods.
+
+
+
+
+
+
+
+
+\subsection{Policy Usage}
+We show the policy usage of $\pi_{\beta}$ and $\pi_{\theta}$ during online unroll along the process of one training session for \alg{BT} and \alg{JSRL} as well as \alg{BC-PEX} (pre-trained with BC) and \alg{IQL-PEX} (pre-trained with IQL) in Figure~\ref{fig:policy_usage}.
+The return curves of \alg{BC-PEX} are shown in Figure~\ref{fig:d4rl_results_reward_free}.
+The corresponding return curves of \alg{IQL-PEX} are shown in Figure~\ref{fig:d4rl_results}.
+As can be observed, the usage of offline policy is changing along the course of training, and the dynamics of the usage evolution is different for different tasks.
+
+
+
+
+
+
+\begin{figure}[h]
+	\centering
+	\begin{overpic}[width=14cm]{imgs/figure11}
+	\end{overpic}
+	\caption{\textbf{Policy Usage} of $\pi_{\beta}$ and $\pi_{\theta}$ along the process of online training for different methods.}
+	\label{fig:policy_usage}
+\end{figure}
+
+
+
+
+
+
+\end{document}

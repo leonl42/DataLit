@@ -1,0 +1,83 @@
+\section{Results}\label{section:eval}
+
+
+\subsection{Overall Performance}
+
+Each combination of task, model aspect ratio, and attention, is ran three times with mean and standard deviations recorded.
+We first summarise the differences in accuracy for our deepest and widest models in \Cref{table:summary}.\footnote{For standard deviations see relevant entries in \Cref{table:tct,table:listops}.}
+For \textbf{Deep} models on the IMDb and Listops classification tasks, we mean a Transformer with 6 layers each with 8 attention heads.
+On the document matching task this is reduced to 4 layers each with 4 attention heads due to the 4k input sequence length greatly increasing the computational burden.
+These are the deepest models we consider in our setup.
+These model aspect ratios are also the setup used in \cite{lra}.
+For \textbf{Wide} models, we consider a single layer network that has its number of heads matching the total number in the Deep models.
+For instance, if the original \textbf{Deep} model has a model aspect ratio of 6-8, its wider counterpart is 1-48.
+These are the widest models in our setup.
+
+\Cref{table:summary} shows that Wide models achieved $+0.3\%$ accuracy compared to Deep models, averaged across $10$ different attention types and $5$ different datasets.
+On most tasks the performance of Wide and Deep was similar, with Listops being the exception ($+1.5\%$).
+This result holds for both the `vanilla' Transformer with dot product attention, and in general for many other types of attention.
+Sinkhorn sees the largest average gain by going wide ($+1.0\%$) and of all the attention mechanisms only Longformer gets worse ($-2.0\%$).
+\subsection{Performance breakdowns for each task}
+
+Performance breakdowns for each task and model aspect ratio are given in \Cref{table:tct,table:listops} with standard deviations and averages.
+
+\begin{table}[!t]
+    \caption{Test accuracy on all tasks for deepest and widest models.}
+    \label{table:summary}
+    \begin{center}
+        \begin{tabular}{l | l l l l l l l l | l l}
+            \toprule
+            {\bf Attention} & \multicolumn{2}{c}{\bf IMDb Token} & \multicolumn{2}{c}{\bf IMDb Byte} & \multicolumn{2}{c}{\bf Listops} & \multicolumn{2}{c}{\bf Doc Matching} & \multicolumn{2}{c}{\bf Average} \\
+            {\bf Type} & Deep & Wide & Deep & Wide & Deep & Wide & Deep & Wide & Deep & Wide \\
+            \midrule
+BigBird & 86.0 & 85.3 & 62.7 & 62.4 & 36.7 & 37.3 & 63.9 & 64.0 & 62.3 & 62.3 \\
+Linear & 86.7 & 88.0 & 64.5 & 64.7 & 37.1 & 37.4 & 64.2 & 63.9 & 63.1 & 63.5 \\
+Linformer & 84.2 & 84.1 & 56.3 & 52.6 & 29.9 & 37.0 & 64.5 & 63.1 & 58.7 & 59.2 \\
+Local & 74.2 & 73.9 & 55.5 & 57.0 & 36.8 & 37.7 & 58.0 & 58.1 & 56.1 & 56.7 \\
+Longformer & 86.0 & 84.1 & 61.6 & 57.5 & 36.8 & 37.7 & 61.2 & 58.1 & 61.4 & 59.4 \\
+Performer & 87.0 & 87.0 & 64.4 & 64.8 & 36.2 & 36.6 & 65.0 & 66.3 & 63.1 & 63.7 \\
+Sinkhorn & 86.1 & 86.5 & 62.3 & 61.6 & 19.4 & 21.7 & 64.0 & 65.7 & 57.9 & 58.9 \\
+Sparse & 85.7 & 85.7 & 61.2 & 62.9 & 37.0 & 36.9 & 63.2 & 63.6 & 61.8 & 62.3 \\
+Synthesizer & 86.7 & 86.5 & 61.4 & 61.1 & 36.5 & 37.3 & 71.1 & 72.3 & 63.9 & 64.3 \\
+Transformer & 85.8 & 85.5 & 62.6 & 62.4 & 35.7 & 37.2 & 64.0 & 64.4 & \textbf{62.0} & \textbf{62.4}  \\
+\bottomrule
+Average & 84.8 & 84.7 & 61.2 & 60.8 & 34.2 & 35.7 & 63.9 & 64.0 & \textbf{61.0} & \textbf{61.3} \\
+        \end{tabular}
+    \end{center}
+\end{table}
+
+\input{tables/imdb}
+
+For IMDb token level text classification, the results (\Cref{table:tct}, left) show that model performance is invariant to model aspect ratio, with all 4 averages across attention mechanisms being within 0.2\%.
+Comparing the widest and deepest models for each attention mechanism, only Longformer has a $>$1\% accuracy increase when deep (+1.9\%).
+Conversely, only Linear Transformer has a $>$1\% accuracy increase when wide (+1.3\%).
+
+At the byte level (\Cref{table:tct}, right) there's a similar picture, with all 4 averages within 0.5\%.
+There are however some notable deviations from the pattern of aspect ratio invariance.
+Two models perform better by $>$1\% in their deepest configuration than widest: Linformer (+3.7\%) and Longformer (+4.1\%).
+Likewise two models perform better by $>$1\% when widest: Local (+1.5\%) and Sparse (+1.7\%).
+
+\input{tables/listop_matching}
+
+In the Listops task (\Cref{table:listops}, left) we see a strong tendency for wider models to do better.
+For this task individual models in training would often reach 17-20\% accuracy and then possibly make a jump to 36-38\% accuracy as training went on.
+Illustrated by the Linformer and Sinkhorn entries, wider models were more likely to make this jump.
+The data also shows us that even if all the runs of an attention and model aspect ratio combination make the jump, the wider variants still have 0.3-1.5\% higher accuracy.
+Overall there's an average increase in accuracy of 1.5\% from deepest to widest models with many models seeing a $>$1\% increase in accuracy.
+
+On the matching task (\Cref{table:listops}, right), there's a small difference in performance between wide and deep networks with the three averages being within 0.1\% of each other.
+Two models perform better by $>$1\% when deepest than widest: Linformer (+1.4\%) and Longformer (+3.1\%).
+Three models perform better by $>$1\% when widest than deepest: Performer (+1.3\%), Sinkhorn (+1.7\%), and Synthesizer (+1.2)\%.
+
+The results in \Cref{table:tct,table:listops} demonstrate some general trends.
+First, for some attention types, the original 6-8 model aspect ratio never shows optimal performance, \textit{e.g.} the original Transformer model.
+Second, the nature of the task seems to affect the impact of going wider.
+Listops saw significant increases compared to the others, perhaps this is due to hierarchical reasoning benefiting from more attention heads.
+Overall, we would like to highlight the following observations from our results:
+
+\begin{itemize}
+    \item \emph{Wide Transformer networks typically offer equal or sometimes greater accuracy on a range of classification tasks with different sequence lengths.}
+    \item Increases in accuracy are task dependant. Listops had an average accuracy increase of $1.5\%$ when going wide, whereas all the others had changes of $<0.5\%$.
+    \item The attention mechanism has some effect on whether wider or deeper is better with Longformer and Sinkhorn being more sensitive to the model aspect ratio. We provide possible explanations for these outliers in \Cref{sec:theory}.
+\end{itemize}
+

@@ -1,0 +1,91 @@
+\section{Real world experiments}
+\label{sec:experiments}
+
+
+\begin{table}
+    \centering
+    \begin{tabular}{l@{\hspace{1\tabcolsep}} l@{\hspace{1\tabcolsep}} c c c}
+        \toprule
+        & Method & Unbiased & Bias-conflicting\\
+        \midrule
+        \multirow{6}{*}{\rotatebox{90}{Hair Color}}
+        & Vanilla~\cite{nam2020learning} & 70.25\std{0.35} & 52.52\std{0.19} \\
+        & Group DRO~\cite{sagawa2019distributionally} & \underline{85.43}\std{0.53} & \underline{83.40} \std{0.67}\\
+        & EnD~\cite{tartaglione2021end} & \textbf{91.21}\std{0.22} & \textbf{87.45}\std{1.06}\\\addlinespace[1ex]
+        \cline{2-4}\addlinespace[1ex]
+        & LfF$^\dagger$~\cite{nam2020learning} & \underline{84.24}\std{0.37} & \textbf{81.24}\std{1.38} \\
+        & U-EnD$^\dagger$ ($T$=50) & 83.97\std{2.90} & \underline{74.18}\std{6.07} \\
+        & U-EnD$^\dagger$ ($T$=30) & \textbf{84.39}\std{2.38} & 72.53\std{4.47} \\
+        \midrule
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}{\small Heavy Makeup}}
+        & Vanilla~\cite{nam2020learning} & 62.00\std{0.02} & 33.75\std{0.28} \\
+        & Group DRO~\cite{sagawa2019distributionally} & \underline{64.88}\std{0.42} & \underline{50.24}\std{0.68} \\
+        & EnD~\cite{tartaglione2021end} & \textbf{75.93}\std{1.31} & \textbf{53.70}\std{5.24}  \\\addlinespace[1ex]
+        \cline{2-4}\addlinespace[1ex]
+        & LfF$^\dagger$~\cite{nam2020learning} & 66.20\std{1.21} & \textbf{45.48}\std{4.33} \\
+        & U-EnD$^\dagger$ ($T$=50) & \textbf{72.22}\std{0.00} & \underline{44.44}\std{0.00} \\
+        & U-EnD$^\dagger$ ($T$=30) & \underline{67.59}\std{3.46} & 35.19\std{6.93} \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Performance on CelebA.} Techniques which can be used in an unsupervised way are denoted with $^\dagger$.}
+    \label{table:celeba-results}
+\end{table}
+
+
+\begin{table}
+    \centering
+    \resizebox{\columnwidth}{!}{%
+    \begin{tabular}{@{}l@{\hspace{0.8\tabcolsep}} l c c c c}
+        \toprule
+        &\multirow{2}{*}{Method}& \multicolumn{2}{c}{Trained on EB1} & \multicolumn{2}{c}{Trained on EB2} \\
+        & & EB2 & Test & EB1 & Test \\
+        \midrule
+        \multirow{6}{*}{\rotatebox{90}{Learn Gender}}
+        & Vanilla~\cite{Kim_2019_CVPR}                                & 59.86             & 84.42             & 57.84             & 69.75 \\
+        & BlindEye~\cite{alvi2018turning}         & 63.74             & 85.56             & 57.33             & 69.90 \\
+        & LNL~\cite{Kim_2019_CVPR}  & \underline{68.00} & 86.66 & 64.18 & 74.50 \\
+        & EnD~\cite{tartaglione2021end}   & 65.49\std{0.81} & \underline{87.15}\std{0.31}  & \underline{69.40}\std{2.01}   & \underline{78.19}\std{1.18} \\
+        & U-EnD$^\dagger$ ($T$=50) & \textbf{81.32}\std{2.17} & \textbf{90.98}\std{0.46} & \textbf{78.10}\std{0.70} & \textbf{83.03}\std{0.45} \\
+        \midrule
+        \multirow{6}{*}{\rotatebox{90}{Learn Age}} 
+        &Vanilla~\cite{Kim_2019_CVPR}                                & 54.30 & 77.17 & 48.91 & 61.97 \\
+        &BlindEye~\cite{alvi2018turning}        & 66.80 & 75.13 & {64.16} & 62.40 \\
+        &LNL~\cite{Kim_2019_CVPR} & 65.27 & 77.43 & 62.18 & {63.04} \\
+        & EnD~\cite{tartaglione2021end} & \underline{76.04}\std{0.25} & \underline{80.15}\std{0.96}  & \textbf{74.25}\std{2.26}  & \textbf{78.80}\std{1.48} \\  
+        & U-EnD$^\dagger$ ($T$=50) & \textbf{80.41}\std{2.96} & \textbf{83.43}\std{2.49} & \underline{70.82}\std{1.04} & \underline{76.09}\std{0.91} \\
+        \bottomrule
+    \end{tabular}
+    }
+    \caption{\textbf{Performance on IMDB Face.} When gender is learned, age is the bias, and when age is learned the gender is the bias. Techniques which can be used in an unsupervised way are denoted with $^\dagger$.}
+    \label{table:imdb-results}
+\end{table}
+
+
+In this section we present the experiments we performed on real-world datasets, where biases can be much harder to identify and overcome. In these experiments, we deal with different common kinds of biases in real datasets, 
+specifically gender bias and age bias in facial images.
+We use two very common datasets for facial recognition tasks, CelebA~\cite{liu2015faceattributes} and the IMDB face dataset~\cite{Rothe-IJCV-2018}. 
+
+\subsection{Setup}
+We use the common convolutional architecture ResNet-18 proposed by He~\emph{et~al.}~\cite{he2016deep}. The network is pre-trained on ImageNet~\cite{imagenetcvpr09}, except for the last fully connected layer. The same architecture is used both for training the biased encoder and the unbiased model. As in the previous experiments, the EnD regularization is applied on the encoder embeddings (average pooling layer). More experimental details are provided in the supplementary material
+\footnote{Source code will be made pubicly available upon publication}.
+
+
+\subsection{CelebA}
+CelebA~\cite{liu2015faceattributes} is a widely known facial image dataset, comprising 202,599 images. It is built for face-recognition tasks, and provides 40 binary attributes for every image. 
+Similarly to Nam~\emph{et al.}~\cite{nam2020learning}, we use attributes indicating the hair color and the presence of makeup as target attributes, while using the gender as bias. The reason is that there is a high correlation between these choices of attributes, with most of the woman in the dataset being blond or having heavy facial makeup.  We utilize the official train-validation split for training (162,770 images) and testing (19,867 images). As in~\cite{nam2020learning} we build two different testing datasets starting from the original one: an \emph{unbiased} set, in which we select the same number of samples for every possible pair of target and bias attributes, and a \emph{bias-conflicting}, where we only select samples where the values of target and bias attributes are different (e.g. men with blonde hair, women without makeup, and so on). This allows us to evaluate the model performance on the most difficult setting where the target is not aligned with the bias. Experimental details are provided in
+the supplementary material. %
+
+\subsubsection{Results} 
+Denoting with $t$ and $b$ the target and bias attribute respectively, we computed the final accuracy as average accuracy across all the $(t, b)$ pairs, as in~\cite{nam2020learning}. We report the results in Table~\ref{table:celeba-results}. Results are reported for both the target attributes hair color and makeup. Techniques which can be used in an unsupervised manner are denoted with $^\dagger$. We report baseline results (vanilla) and we observe how vanilla models suffer significantly from the presence of the bias, scoring a quite low accuracy (especially since this is a binary task). This is evident on the bias-conflicting set, where the performance is close random-guess on hair color prediction, and even lower on the makeup detection. We report reference results~\cite{nam2020learning} of other debiasing algorithms, specifically Group~DRO~\cite{sagawa2019distributionally}, LfF~\cite{nam2020learning} and EnD~\cite{tartaglione2021end}. Focusing on supervised techniques (Group DRO and EnD) we observe a significant increase in performance, in both the tasks and test sets combinations. For the unsupervised methods, we report results of our U-EnD at different $T$ of the biased encoder, as done in Table~\ref{table:mnist-results}, and compare to LfF. We achieve better performance than the vanilla baseline in all settings, even though we still observe a gap with respect to the fully supervised techniques. The same observation can be made for LfF, which in general performs better on the harder cases in the bias-conflicting set, while U-EnD provides better performance in the more general case of the unbiased test set. 
+The observed results are similar to the lower $\rho$ settings of BiasedMNIST: the amount of biased information is sufficient for it to be considered as a malignant bias, although it becomes slightly harder to perform pseudo-labeling in the biased encoder latent space. However, the assumptions we make in Sec.~\ref{sec:phase3} about the pseudo-labeling accuracy hold, resulting in better results with respect to the baseline models. 
+
+
+\subsection{IMDB Face}
+The IMDB Face dataset~\cite{Rothe-IJCV-2018} contains 460,723 face images annotated with age and gender information. This dataset is known to present noisy labels for age, thus Kim~\emph{et al.}~\cite{Kim_2019_CVPR} perform a cleaning step to filter out noisy labels from the data, by using a model trained on the Audience benchmark dataset~\cite{eidinger2014age}. Only the samples for which the original age value matches the predicted one are considered. As done in~\cite{Kim_2019_CVPR}, the filtered dataset is then split with a 80\%-20\% ratio between training and testing data. To construct a biased training set, the full training set subsequently  split into two \emph{extreme bias} (EB) sets: \emph{EB1}, which contains women only in the age range 0-29 and men with age 40+, and \emph{EB2} which contains man only in the age range 0-29 and women with age 40+. This way, a strong correlation between age and gender is obtained: when training age prediction, the bias is given by the gender, and when recognizing the gender, the bias is given by the age. 
+Experimental details are provided in the supplementary material. %
+
+
+\subsubsection{Results}
+We report the results on the IMDB Face dataset in Table~\ref{table:imdb-results}, with regards to both gender and age prediction. Besides the test set, every model is also tested on the opposite EB set, to better evaluate the debiasing performance. As in the previous experiments, we use $^\dagger$ to denote the techniques which can be used in an unsupervised way. Focusing on the supervised techniques, we observe a significant improvement with respect to the baselines, especially with EnD and LNL, across the different combinations of test sets and task. Interestingly, in this case we are able to achieve even better results when employing the U-EnD approach, contrarily to the CelebA results. Especially for learning gender, we notice the the performance are noticeable higher than the best supervised results. This might be due to the noisy age labels in the dataset, and even if the described cleaning procedure is applied some labels could still be incorrect. With pseudo-labeling, on the other hand, we do not make use of the provided labels. This might be confirmed by the performances obtained when training for age prediction. As the gender label is of course far less noisy than the age, the performance gap between EnD and U-EnD is far less noticeable. We believe these results are very important, as they show that it is sometimes possible to achieve better results with unsupervised approaches.
+

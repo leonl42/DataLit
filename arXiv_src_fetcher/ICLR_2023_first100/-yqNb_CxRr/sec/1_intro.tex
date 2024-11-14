@@ -1,0 +1,41 @@
+\section{Introduction}
+\label{sec:intro}
+
+Human action recognition (HAR) is one of the hotspots in computer vision, widely applied to intelligent surveillance, human-computer interaction, and virtual reality \cite{aggarwal2014human,escalera2017challenges,han2017space,wang2018rgb}.
+The main methods are RGB-based, RGBD-based, and Skeleton-based \cite{ji20123d,feichtenhofer2016convolutional,feichtenhofer2019slowfast,carreira2017quo,yang2019asymmetric,li2019actional}. 
+In contrast, the Skeleton is a simple structure that is robust to changes in appearance features, complex backgrounds, and occlusion interference in RGB data. Therefore, Skeleton-based HAR is gradually becoming a mainstream method.
+
+In recent years, graph convolutional networks (GCN) \cite{yan2018spatial,shi2019two,bai2022skeleton,cai2021jolo} have rapidly developed to extract spatio-temporal relationships among joints.
+Applications of GCNs have achieved outstanding performance in skeleton-based HAR.
+These results are largely dependent on the availability of large amounts of data.
+However, human action data can only be obtained for a few or even one sample because of privacy, low probability of occurrence, and high cost, e.g., cheating on exams, robbery, and homicide.
+These issues limit the quantity of human action data, thereby limiting the generalization ability of HAR. With the continuous development of data generation techniques, the possibility of generating large datasets has emerged. 
+
+The traditional data generation methods include geometric transformations, noise injection, and data interpolation \cite{shorten2019survey,he2019parametric}. The original data limits this method, cannot generate new data, and is easily distorted. 
+Subsequently, many deep learning-based data generation methods have been proposed, such as generative adversarial networks (GAN) \cite{choi2018stargan,choi2020stargan,karras2019style,karras2020analyzing,wang2018unregularized}, variational autoencoders (VAE) \cite{kingma2013auto,lopez2018information,lopez2020decision}, flow models \cite{rezende2015variational,kingma2018glow}, and diffusion models \cite{ho2020denoising,liu2022compositional,zhang2023inversion}. 
+These methods are effective only for generating static data such as images and text \cite{liu2019wasserstein, radford2015unsupervised, mao2017least}. However, for dynamic data such as human actions, the generated actions may be unnatural and discontinuous between frames and lack temporal consistency. 
+In addition, when only a few training samples are available, it leads to a poor generalization of the generated model, and the generated data lacks diversity.
+Few-shot generation approaches \cite{antoniou2017data,hong2022deltagan,clouatre2019figr,hong2020matchinggan,hong2020f2gan,finn2017model,nichol2018reptile} aim to generate a large amount of natural and diverse data for a few new categories, partly solving this problem. 
+However, the method mainly uses a small number of samples for data generation and does not utilize the rich information of many base categories. Many base category action for human actions have more complete data distribution information. Incorporating this feature information into the generation process can provide richer features for new actions.
+
+To address the above, motion style transfer provides an excellent solution. Motion style transfer \cite{jang2022motion, aberman2020unpaired, ParkSoomin2021Diverse, 2016A} aims to extract the target style from a action example and transfer it to another action with the desired content. The problem of temporal consistency is improved by the adaptive instance normalization (AdaIN) \cite{huang2017arbitrary,saito2020coco} aligning the two action features rather than simply fusing them.
+The recent work by JANG et al. \cite{jang2022motion} proposes a novel motion style transfer network. The network consists of multi-layer ST-GCNs that can achieve arbitrary motion transfer without style labeling. Our work follows the same approach.
+Motion Puzzle divides the human skeleton into five parts, allowing flexible control over the migration of specified parts during generation. This approach is effective for single-action generation tasks.
+However, it is usually time-consuming to control parts for generation when generating many actions. In addition, Motion Puzzle's target motion encoder is connected to the decoder at multiple scales, which may constrain the diversity of action.
+Although motion style transfer is a generative network, it is not designed to solve the problem of data sparsity but is purely a one-to-one feature transfer. The quality of generation is only partially guaranteed when generating lots of data. 
+To this end, we select and utilize the most informative samples by incorporating active learning \cite{du2021contrastive, sinha2019variational, zhang2020state} to guide human action generation.
+
+In this paper, a novel action generation network called Active Generation Network (AGN) is proposed for skeleton data generation. Our method adaptively learns various action categories by motion style transfer. With only a few or even a single sample, AGN can generate many new actions without assigning body parts. A unique advantage is incorporating active learning into the generation process. For a large number of action samples generated, the most valuable samples are implicitly selected using an uncertainty metric in active learning to ensure the quality of the generation. To the best of our knowledge, our work is the first that guides the generation of human actions using active learning.
+
+The AGN consists of a action generation network (AcGN) and an uncertainty metric network (UMN). The MGN consists of two encoders and a decoder. The encoders extract action features by the graph convolution layer and instance normalization layer, and then the decoder synthesizes new actions. The MGN can implicitly learn the skeletal morphology of the target actions without stylizing any actions while preserving the categories of the original actions. Inspired by active learning, we developed UMN to guide the MGN. 
+Firstly, we train ST-GCN using a few or a single sample to generate prediction vectors for new actions. Then, a score is obtained from the uncertainty metric, based on which samples are selected and added to the train set to train the ST-GCN again. 
+This process is repeated until the data meets the requirements. 
+
+The contributions of our work can be summarized as follows:
+
+\begin{itemize}
+    \item We propose a generative network called MGN for skeletal data to generate high-quality human action data with only a few or a single sample.
+    \item We propose AGN for Human Skeletons for HAR. Introducing active learning into the generation process implicitly selects the most valuable samples using an uncertainty metric to ensure the generation quality.
+    \item FMD and Accuracy are used to evaluate the results on the NTU-RGB+D dataset. The results show that our method is competitive with other methods. The method requires only 10\% of the original data for the same accuracy.
+\end{itemize}
+

@@ -1,0 +1,22 @@
+\subsection{Tokenizer Fertility Definition}\label{tokenizer fertility}
+Fertility is defined as the average number of tokens per word \cite{acs2019}. Words are defined by the Universal Dependencies framework, which gives a "consistent annotation of grammar (parts of speech, morphological features, and syntactic dependencies) across different human languages" \cite{nivre-etal-2016-universal}. To calculate the fertility we tokenize each word from the treebank individually to get the sum total number of tokens, and then divide this by the number of words in the treebank. For Hungarian we used the test set of the "Szeged Dependency Treebank" \cite{vincze-etal-2010-hungarian}, for Thai we used the test set of the Thai "CoNLL 2017" treebank \cite{zeman-etal-2017-conll} and for English we used the test set of the "Gold Standard Universal Dependencies Corpus" \cite{silveira14gold}.
+
+\subsection{Token Replacement Details} \label{token details}
+
+In our work, instead of extending the tokenizer's vocabulary, we replace the least frequent tokens from it with tokens from the new language. This way, we keep the model capacity the same by controlling the vocabulary and embedding table size. 
+
+\begin{enumerate}
+\item{}Train a tokenizer limited to a vocabulary size $k$, where $k$ is the number of tokens you want to replace in the original tokenizer
+\item{}Find the number of overlapping tokens $o$ between the new tokenizer of vocab size $k$, and the original tokenizer
+\item{} Replace the least frequently used $k-o$ tokens from the original tokenizer with the $k-o$ tokens from the new tokenizer. Ensure that all the unchanged tokens from the original tokenizer keep the same vocabulary indices as they had before.
+\begin{enumerate}
+\item{}note that in the GPT2 tokenizer the tokens in the vocabulary and merges file are ordered from most frequent to least frequent, so we replace the last $k-o$ vocabulary indices in a GPT2 Tokenizer.
+\end{enumerate}
+\item{} The GPT2 Tokenizer executes the merges rules in the merges.txt file line by line, so to improve the efficiency on the newly added tokens, Add the merges rules from the $k-o$ new tokens to the beginning of the merges.txt file. 
+\begin{enumerate}
+\item{}Note that various BPE encoding algorithms are implemented without using the merges rules, so ensure that you examine your tokenizer to see how to improves the tokenizer efficiency. 
+\end{enumerate}
+\item{}Randomize the embeddings of the replaced tokens in the original model so the new embeddings can be learned.
+\end{enumerate}
+
+We tested this tokenizer to ensure that the encoding and decoding of text works properly, and figure \ref{fig:fertility} shows that it also improves the fertility.

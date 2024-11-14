@@ -1,0 +1,713 @@
+\documentclass{article} % For LaTeX2e
+\usepackage{style/iclr2023_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{style/math_commands.tex}
+
+\usepackage{url}
+
+% Additional stuff
+
+\usepackage{titletoc}
+\usepackage{hyperref}
+
+\usepackage{graphicx}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage[nameinlink,capitalize]{cleveref}
+\usepackage{makecell}
+\usepackage{pgfplots}
+\usepackage{subcaption}
+\usepackage{siunitx}
+\usepackage{wrapfig}
+\usepackage{booktabs}
+
+% THEOREMS
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+
+\newtheorem{innercustomthm}{Theorem}
+\newenvironment{customthm}[1]
+{\renewcommand\theinnercustomthm{#1}\innercustomthm}
+{\endinnercustomthm}
+
+% AUTOREF
+\renewcommand*{\figureautorefname}{Fig.}
+\renewcommand*{\equationautorefname}{Eq.}
+\renewcommand{\sectionautorefname}{§}
+\renewcommand*{\subsectionautorefname}{\sectionautorefname}
+\renewcommand*{\subsubsectionautorefname}{\sectionautorefname}
+\renewcommand{\appendixautorefname}{\sectionautorefname}
+\newcommand{\lemmaautorefname}{Lemma}
+\newcommand{\propositionautorefname}{Proposition}
+\newcommand{\definitionautorefname}{Definition}
+\newcommand{\innercustomthmautorefname}{Theorem}
+\newcommand{\innercustompropautorefname}{Proposition}
+\crefname{definition}{Definition}{Definitions}
+
+\title{Localized Randomized Smoothing\\for Collective Robustness Certification}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Jan Schuchardt$^{1}$\thanks{equal contribution}~, ~Tom Wollschl\"ager$^{1 \fnsymbol{footnote}}$, ~Aleksandar Bojchevski$^{2}$, ~Stephan G\"unnemann$^{1}$\\
+\texttt{\{j.schuchardt,t.wollschlaeger,s.guennemann\}@tum.de}\\
+\texttt{\{bojchevski\}@cispa.de} \\
+\textsuperscript{1}Technical University of Munich \\
+\textsuperscript{2}CISPA Helmholtz Center for Information Security \\
+}
+
+\iffalse
+\author{Jan Schuchardt, Tom Wollschläger, Aleksandar Bojchevski \thanks{ Use footnote for providing further information
+about author (webpage, alternative address)---\emph{not} for acknowledging
+funding agencies.  Funding acknowledgements go at the end of the paper.} \\
+Department of Computer Science\\
+Cranberry-Lemon University\\
+Pittsburgh, PA 15213, USA \\
+\texttt{\{hippo,brain,jen\}@cs.cranberry-lemon.edu} \\
+\And
+Ji Q. Ren \& Yevgeny LeNet \\
+Department of Computational Neuroscience \\
+University of the Witwatersrand \\
+Joburg, South Africa \\
+\texttt{\{robot,net\}@wits.ac.za} \\
+\AND
+Coauthor \\
+Affiliation \\
+Address \\
+\texttt{email}
+}
+\fi
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Models for image segmentation, node classification and many other tasks map a single input to multiple labels.
+By perturbing this single shared input (e.g.~the image) an adversary can manipulate several predictions (e.g.~misclassify several pixels).
+Collective robustness certification is the task of provably bounding the number of robust predictions under this threat model.
+The only dedicated method that goes beyond certifying each output independently is limited to \textit{strictly local} models, where each prediction is associated with a small receptive field.
+We propose a more general collective robustness certificate for all types of models. We further show that this approach is beneficial for the larger class of \textit{softly local} models, where each output is dependent on the entire input
+but assigns different levels of importance to different input regions (e.g.~based on their proximity in the image).
+The certificate is based on our novel localized randomized smoothing approach, where the random perturbation strength for different input regions is proportional to their importance for the outputs.
+%The resulting locally smoothed model yields strong collective guarantees while maintaining high prediction quality on both image segmentation and node classification tasks.
+Localized smoothing Pareto-dominates existing certificates on both image segmentation and node classification tasks, simultaneously offering higher accuracy and stronger certificates.
+\end{abstract}
+
+\section{Introduction}\label{section:introduction}
+There is a wide range of tasks that require models making multiple predictions based on a single input.
+For example,  semantic segmentation  requires assigning a label to each pixel in an image.
+When deploying such \textit{multi-output} classifiers in practice, their robustness should be a key concern.
+After all -- just like simple classifiers \citep{Szegedy2014} -- they can fall victim to adversarial attacks \citep{Xie2017, Zuegner2018,  Belinkov2018}. Even without an adversary, random noise or measuring errors can cause predictions to unexpectedly change.
+
+We propose a novel method providing provable guarantees on \textit{how many} predictions can be changed by an adversary.
+As all outputs operate on the same input, they have to be attacked simultaneously by choosing a single perturbed input,
+which can be more challenging for an adversary than attacking them independently.
+We must account for this to obtain a proper \textit{collective robustness certificate}.
+
+The only dedicated collective certificate that goes beyond certifying each output independently~\citep{Schuchardt2021} is only beneficial for models we call \textit{strictly local}, where each output depends  on a small, pre-defined subset of the input. 
+Multi-output classifiers
+%used in practic
+, however, are often only \textit{softly local}.
+While all
+%of 
+their predictions are in principle dependent on the entire input, each output may assign different importance to different subsets.
+For example, convolutional networks for image segmentation can have small effective receptive fields \citep{Luo2016,Liu2018}, i.e.\ primarily use a small region of the image in labeling each pixel.
+Many models for node classification are based on the homophily assumption that connected nodes are mostly of the same class. Thus, they primarily use features from neighboring nodes.
+Transformers, which can in principle attend to arbitrary parts of the input, may in practice learn ``sparse'' attention maps, with the prediction for each token being mostly determined by a few (not necessarily nearby) tokens \citep{Shi2021}.
+\begin{figure}
+	\centering
+	\includegraphics[width=\columnwidth]{figures/main_figure_new.png}
+	\caption{Localized randomized smoothing applied to semantic segmentation.
+		We assume that the most relevant information for labeling a pixel is contained in other nearby pixels.
+		We partition the input image into multiple grid cells.
+		For each grid cell, we sample noisy images from a \textit{different} anisotropic distribution that applies more noise to far-away, less relevant 
+		cells.
+		Segmenting all noisy images, cropping the result and computing the majority vote %(i.e.~the most common label for each pixel)
+		yields a local segmentation mask.
+		These per-cell segmentation masks can then be combined into a complete segmentation mask.}
+	\label{fig:main_figure}
+	\vskip-0.2in
+\end{figure}
+
+Softly local models pose a \textit{budget allocation problem} for
+an adversary that tries to simultaneously manipulate multiple predictions by crafting a single perturbed input.
+When each output is primarily focused on a different part of the input, the attacker has to distribute their limited adversarial budget and may be unable to attack all predictions at once.
+
+We propose \textit{localized randomized smoothing}, a novel method for the collective robustness certification of softly local models that exploits this budget allocation problem.
+%Randomized smoothing \citep{Liu2018b, Lecuyer2019, Cohen2019} is a versatile black-box certification method. Instead of directly analysing a model, it constructs a smoothed classifier that returns the expected prediction of the model under random perturbations of its input. This smoothed classifier can then be efficiently certified using statistical methods (more details in \autoref{section:background}). Randomized smoothing is typically applied to single-output models with isotropic Gaussian noise.
+%Our localized randomized smoothing approach, however, 
+It is an extension of randomized smoothing \citep{Lecuyer2019,Li2019,Cohen2019}, a versatile black-box certification method which is based on constructing a smoothed classifier that returns the expected prediction of a model under random perturbations of its input (more details in \autoref{section:background}).
+Randomized smoothing is typically applied to single-output models with \textit{isotropic} Gaussian noise.
+In localized smoothing however, we smooth each output (or set of outputs) of a multi-output classifier using a \textit{different}
+distribution that is \textit{anisotropic}.
+This is illustrated in \autoref{fig:main_figure}, where the predicted segmentation masks for each grid cell are smoothed using a different distribution.
+%that applies more noise to farther away cells.
+For instance, the distribution for segmenting the top-right cell applies less noise to the top-right cell.
+The smoothing distribution for segmenting the bottom-left cell applies significantly more noise to the top-right cell.
+
+Given a specific output of a softly local model, using a low noise level for the most relevant parts of the input lets us preserve a high prediction quality. 
+Less relevant parts can be smoothed with a higher noise level to guarantee more robustness.
+The resulting certificates (one per output) explicitly quantify how robust each prediction is to perturbations of which part of the input.
+This information about the smoothed model's locality can then be used to combine the per-prediction certificates into a stronger collective certificate that accounts for the adversary's budget allocation problem.\footnote{An implementation will be made available at 
+\href{https://www.cs.cit.tum.de/daml/localized-smoothing/}{https://www.cs.cit.tum.de/daml/localized-smoothing}.}
+
+Our core contributions are:
+\vspace{-0.9em}
+\begin{itemize}%[itemsep=0pt,topsep=0pt]
+	\itemsep-0.2em 
+	\item \emph{Localized randomized smoothing}, a novel smoothing scheme for multi-output classifiers.
+	%\vskip0.09cm
+	\item An efficient anisotropic randomized smoothing certificate for discrete data.
+	%\vskip0.09cm
+	\item A collective certificate
+	based on localized randomized smoothing.
+\end{itemize}
+
+
+\section{Background and Related Work}\label{section:background}
+\textbf{Randomized smoothing.}\label{section:background_smoothing} Randomized smoothing is a certification technique that can be used for various threat models and tasks. %other than classification.
+For the sake of exposition, let us discuss a certificate for $l_2$ perturbations \citep{Cohen2019}. %To simplify our discussion
+Assume we have a $D$-dimensional input space $\sR^D$, label set $\sY$ and classifier $g : \sR^D \rightarrow \sY$.
+We can use isotropic Gaussian noise to construct the \textit{smoothed classifier} 
+$f = \mathrm{argmax}_{y \in \sY} \Pr_{\vz \sim \mathcal{N}(\vx,\sigma)}\left[g(\vz) = y\right]$ that returns the most likely prediction of \textit{base classifier} $g$ under the input distribution\footnote{In practice, all probabilities have to be estimated using Monte Carlo sampling (see discussion in~\autoref{section:monte_carlo}).}.
+Given an input $\vx \in \sR^D$ and smoothed prediction $y = f(\vx)$, we can then easily determine whether $y$ is robust to all $l_2$ perturbations of magnitude $\epsilon$, i.e.~whether $\forall \vx' : || \vx' - \vx||_2 \leq \epsilon : f(\vx') = y$.
+Let $q = \Pr_{\vz \sim \mathcal{N}(\vx,\sigma)}\left[g(\vz) = y\right]$ be the probability  of predicting label $y$.
+%By appealing to the Neyman-Pearson lemma, one can prove that the prediction of our smoothed classifier is robust if $\epsilon < \sigma \Phi^{-1}(p)$.
+The prediction is certifiably robust if $\epsilon < \sigma \Phi^{-1}(q)$ \citep{Cohen2019}.
+This result showcases a trade-off inherent to randomized smoothing:
+Increasing the noise level ($\sigma$) may strengthen the certificate,
+but could also lower the accuracy of $f$ or reduce $q$ and thus weaken the certificate.
+
+%\textbf{White-box certificates for multi-output classifiers.} Aside from the black-box randomized smoothing approach, there are various white-box certification techniques. These methods analyze the specific architecture and weights of a model to certify its robustness (see, for example, \citep{Katz2017, Wong2018, Raghunathan2018, Gehr2018}).
+%More recently, such white-box techniques have been developed for models commonly used in multi-output tasks, such as  convolutional neural networks with upscaling operations \citep{Tran2021}, graph neural networks \citep{Zuegner2019,Bojchevski2019,Zuegner2020}, recurrent neural networks \citep{Ko2019,Ryou2021} and transformers \citep{Shi2020,Bonaert2021}.
+%While these methods account for architectural particularities, they are not designed to certify collective robustness. They can only determine independently for each prediction whether or not it can be adversarially attacked.
+
+\textbf{White-box certificates for multi-output classifiers.} There are multiple recent methods for certifying the robustness of multi-output models by analyzing their specific architecture and weights (for example, see \citep{Tran2021, Zuegner2019, Bojchevski2019, Zuegner2020, Ko2019, Ryou2021, Shi2020,Bonaert2021}). They are however not designed to certify collective robustness, i.e.\ determine whether multiple outputs can be simultaneously attacked using a single perturbed input.
+They can only determine independently for each prediction whether or not it can be attacked.
+%The resulting guarantees are pessimistic because they virtually construct a new adversarial example for each prediction.
+
+\textbf{Black-box certificates for multi-output classifiers.} 
+Most directly related to our work is the aforementioned certificate of \citet{Schuchardt2021}, which is only beneficial for strictly local models (i.e.~models where each output has a small receptive field).
+%A detailed comparison can be found in~\autoref{section:schuchardt_comparison}.
+In~\autoref{section:schuchardt_comparison} we show that, for randomly smoothed models, their certificate is a special case of ours.
+SegCertify \citep{Fischer2021} is a collective certificate for segmentation.
+This method certifies each output independently using isotropic smoothing (ignoring the budget allocation problem) and uses Holm correction~\citep{Holm1979} to obtain tighter Monte Carlo estimates.
+It then counts the number of certifiably robust predictions and tests whether it equals the number of predictions.
+In~\autoref{section:fischer_comparison} we demonstrate that our method can always provide guarantees that are at least as strong.
+Another method that
+can in principle be used to certify collective robustness 
+is center smoothing \citep{Kumar2021}.
+It bounds the change of a vector-valued function w.r.t\ to a distance function. 
+%under adversarial perturbations.
+Using the $l_0$ pseudo-norm, it can bound how many predictions can be simultaneously changed.
+More recently, \citet{Chen2022} proposed a collective certificate for bagging classifiers. Different from our work, they consider poisoning (train-time) instead of evasion (test-time) attacks.
+\citet{Yatsura2022} prove robustness for segmentation, but consider patch-based instead of $\ell_p$-norm attacks and certify each prediction independently.
+
+\textbf{Anisotropic randomized smoothing.} While only designed for single-output classifiers, two recent certificates for anisotropic  Gaussian and uniform smoothing~\citep{Fischer2020,Eiras2021}
+can be used as a component of our collective certification approach:
+They can serve as per-prediction certificates, which we can then combine into our stronger collective certificate
+(more details in~\autoref{section:recipe}).
+%Note that we do not use the procedure for optimizing the smoothing distribution proposed by~\citet{Eiras2021}, as this would enable adversarial attacks on the smoothing distribution itself and invalidate the certificate (see discussion by \citet{Wang2021}).
+
+\section{Preliminaries}\label{section:preliminaries}
+\subsection{Collective Threat Model}\label{section:collective_threat_model}
+We assume a multi-output classifier $f : \sX^{D_\mathrm{in}} \rightarrow \sY^{D_\mathrm{out}}$, that maps  $D_\mathrm{in}$-dimensional inputs to $D_\mathrm{out}$ labels from label set $\sY$.
+We further assume that this classifier $f$ is the result of randomly smoothing each output of a base classifier $g$.
+Given this multi-output classifier $f$, an input $\vx \in \sX^{D_\mathrm{in}}$ and the corresponding predictions $\vy = f(\vx)$, the objective of the adversary is to cause as many predictions from a set of targeted indices $\sT \subseteq \{1,\dots,D_\text{out}\}$ to change. That is, their objective is  
+$\min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[f_n(\vx') = \evy_n \right]$, 
+where $\mathrm{I}$ is the indicator function and $\sB_\vx \subseteq \sX^{D_\mathrm{in}}$ is the perturbation model. As is common in robustness certification, we assume a $\ell_p$-norm perturbation model, i.e.\ $\sB_\vx = \left\{\vx' \in \sX^{D_\mathrm{in}} \mid ||\vx' - \vx||_p \leq \epsilon \right\}$ with $p, \epsilon \geq 0$.
+Importantly, note that the minimization operator is outside the sum, meaning the predictions have to be attacked using a single input.
+
+
+\subsection{A Recipe for Collective Certificates}\label{section:recipe}
+Before discussing localized randomized smoothing,
+we show how to combine arbitrary per-prediction certificates
+into a collective certificate,
+a procedure that underlies both our method and that of~\citet{Schuchardt2021} and~\citet{Fischer2021}. The first step is to apply an arbitrary certification procedure to each prediction $y_1, \dots, y_{D_\mathrm{out}}$
+in order to obtain per-prediction \textit{base certificates}.
+\begin{definition}[Base certificates]\label{definition:base_certs}
+	A base certificate for a prediction $\evy_n = f_n(\vx)$
+	is a set $\sH^{(n)} \subseteq \sX^{D_\mathrm{in}}$ of perturbed inputs s.t.\ $\forall \vx' \in \sH^{(n)}: f_n(\vx') = y_n $.
+\end{definition}
+%Note that base certificates do not have to be exact, but have to be sound, i.e.~they do not have to specify \textit{all} inputs to which the $f_n$ are robust but they must not contain any adversarial examples.
+
+Using these base certificates, one can derive two bounds on the adversary's objective:
+\begin{equation}
+	\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[f_n(\vx') = \evy_n \right]
+	\underset{(1.1)}{\geq}
+	\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[\vx' \in \sH^{(n)} \right]
+	\underset{(1.2)}{\geq}
+	\smashoperator{\sum_{n \in \sT}} \min_{\vx' \in \sB_\vx}  \mathrm{I}\left[\vx' \in \sH^{(n)} \right].
+	\label{eq:recipe}
+\end{equation}
+\hyperref[eq:recipe]{Eq. 1.1} follows from \autoref{definition:base_certs} (if a prediction is certifiably robust to $\vx'$, then $f_n(\vx') = y_n$), while \hyperref[eq:recipe]{Eq. 1.2} results from moving the $\min$ operator inside the summation.
+
+\hyperref[eq:recipe]{Eq. 1.2} is the \textit{na\"ive collective certificate}: It iterates over the predictions and counts how many are certifiably robust to perturbation model $\sB_\vx$.
+Each summand involves a separate minimization problem.
+Thus, the certificate
+%completely
+neglects that the adversary has to choose a single perturbed input
+to attack all outputs. SegCertify~\citep{Fischer2021} applies this to isotropic Gaussian smoothing.
+
+While \hyperref[eq:recipe]{Eq. 1.1} is seemingly tighter than the na\"ive collective certificate, 
+it may lead to identical results.
+For example, let us consider the most common case where the base certificates guarantee robustness within an $l_p$ ball, i.e.\ $\sH^{(n)} = \left\{\vx'' \mid ||\vx'' - \vx||_p \leq r^{(n)}\right\}$ with certified radii $r^{(n)}$. Then, the optimal solution to both \hyperref[eq:recipe]{Eq. 1.1} and \hyperref[eq:recipe]{Eq. 1.2} is to choose an arbitrary
+$\vx'$ with $||\vx' - \vx|| = \epsilon$:
+\begin{equation*}
+		\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[\vx' \in \sH^{(n)} \right]
+		= \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[\epsilon < r^{(n)} \right]
+		=  \smashoperator{\sum_{n \in \sT}} \min_{\vx' \in \sB_\vx} \mathrm{I}\left[\vx' \in \sH^{(n)} \right].
+\end{equation*}
+
+The main contribution of \citet{Schuchardt2021} is to notice that, by exploiting strict locality (i.e.\ the outputs having small receptive fields), one can augment certificate \hyperref[eq:recipe]{Eq. 1.1} to make it  tighter than the naive collective certificate from \hyperref[eq:recipe]{Eq. 1.2}.
+One must simply mask out all perturbations falling outside a given receptive field when evaluating the corresponding base certificate:
+\begin{equation*}
+	\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[
+	\left( \vpsi^{(n)} \odot \vx' + (1 - \vpsi^{(n)}) \odot \vx  \right) \in \sH^{(n)}
+	\right].
+\end{equation*}
+Here, $\vpsi^{(n)} \in \{0,1\}^{D_\mathrm{in}}$ encodes the receptive field
+%\footnote{i.e.\ $\vpsi^{(n)}_d = 1$ means that the $d$'th input dimension may potentially influence the $n$'th output.}
+of $f_n$ and $\odot$ is the elementwise product.
+If two outputs $f_n$ and $f_m$ have disjoint receptive fields (i.e.\ ${\vpsi^{(n)}}^T \vpsi^{(m)} = 0$), then the adversary has to split up their  limited adversarial budget and may be unable to attack both at once.
+
+\section{Localized Randomized Smoothing}\label{section:localized_randomized_smoothing}
+The core idea behind localized smoothing is that, rather than
+improving upon the na\"ive collective certificate by 
+using external knowledge about \textit{strict} locality,
+we can use anisotropic randomized smoothing to obtain base certificates that directly encode \textit{soft} locality.
+Here, we explain our approach in a domain-independent manner 
+before turning to specific distributions and data-types in \autoref{section:base_certificates}.
+
+In localized randomized smoothing, we associate base classifier outputs $g_1, \dots, g_{D_\mathrm{out}}$
+%of the base classifier with their own, 
+with distinct anisotropic
+%\footnote{We denote any distribution that applies different levels of noise to different input dimensions anisotropic.}
+smoothing distributions $\Psi^{(1)}_\vx, \dots, \Psi^{(D_\mathrm{out})}_\vx$
+that depend on input $\vx$.
+For example, they could be
+%different
+%anisotropic
+Gaussian distributions with mean $\vx$ and distinct covariance matrices -- like in \autoref{fig:main_figure}, where we use a different distribution for
+%the segmentation of
+each grid cell. 
+We
+%then
+use these distributions to construct the smoothed classifier $f$, where each output $f_n(\vx)$ is the result of randomly smoothing $g_n(Z)$ with $\Psi_\vx^{(n)}$. 
+%For example, it could return the most likely class under the smoothing distribution (like in \citet{Cohen2019}).
+
+%Finally, t
+To certify robustness for a vector of predictions $\vy = f(\vx)$, we follow the procedure discussed in \autoref{section:recipe},
+i.e.~compute
+%per-prediction
+base certificates $\sH^{(1)}, \dots, \sH^{(D_\mathrm{out)}}$ and solve
+%optimization problem
+\hyperref[eq:recipe]{Eq. 1.1}.
+We do not make any assumption about how the base certificates are computed.
+However, we require that they comply with a common interface, which will later allow us 
+%to evaluate the collective certificate
+combine them via linear programming:
+\begin{definition}[Base certificate interface]\label{definition:interface}
+	A base certificate $\sH^{(n)} \subseteq \sX^{D_\mathrm{in}}$ is compliant with our base certificate interface for $l_p$-norm perturbations if there is a $\vw \in \sR^{D_\mathrm{in}}_{+}$ and $\eta^{(n)} \in \sR_{+}$ such that
+	\begin{equation}\label{eq:base_cert_interface}
+		\sH^{(n)} = \left\{\vx'
+		\left| \
+		\smashoperator{\sum_{d=1}^{D_\mathrm{in}}}
+		\evw_{d}^{(n)} \cdot |\evx'_d - \evx_d|^p < \eta^{(n)}
+		\right.
+		\right\}.
+  %,
+	\end{equation}
+	%where $l_p$ is the norm of our collective perturbation model and $x_d$ is the $d$-th element of the vector $x$.
+\end{definition}
+The weight $\evw_d^{(n)}$ quantifies how sensitive $y_n$ is to perturbations of input dimension $d$.
+It will be smaller where the anisotropic smoothing distribution applies more noise.
+The radius $\eta^{(n)}$ quantifies the overall level of robustness.
+In \autoref{section:base_certificates} we present different distributions and corresponding certificates that comply with this interface.
+Inserting \autoref{eq:base_cert_interface} into \hyperref[eq:recipe]{Eq. 1.1} results in the collective certificate
+\begin{equation}\label{eq:main_cert}
+	\min_{\vx' \in \sB_\vx} \sum_{n \in \sT} \mathrm{I}\left[
+	\sum_{d=1}^{D_\mathrm{in}}
+	\evw_{d}^{(n)} \cdot |\evx'_d - \evx_d|^p < \eta^{(n)}
+	\right].
+\end{equation}
+\autoref{eq:main_cert}
+showcases why locally smoothed models admit a collective certificate that is stronger than na\"ively certifying each output independently (i.e.~\hyperref[eq:recipe]{Eq. 1.2}).
+Because we use different distributions for different outputs, any two outputs $f^{(n)}$ and $f^{(m)}$
+will have distinct certificate weights $\vw^{(n)}$ and $\vw^{(m)}$.
+If they are sensitive in different parts of the input, i.e. ${\vw^{(n)}}^T \vw^{(m)}$ is small, then the adversary has to split up their  limited adversarial budget and may be unable to attack both at once.
+One particularly simple example is the case ${\vw^{(n)}}^T {\vw^{(m)}} = 0$, where attacking predictions $y_n$ and $y_m$ requires allocating adversarial budget to two entirely disjoint sets of input dimensions.
+In \autoref{section:schuchardt_comparison} we show that, with appropriately parameterized smoothing distributions, we can obtain base certificates with $\vw^{(n)} = c \cdot \vpsi^{(n)}$, with indicator vector $\vpsi^{(n)}$ encoding the receptive field of output $n$.
+Hence, the collective guarantees from \citep{Schuchardt2021} are a special case of our certificate.
+%In \autoref{section:schuchardt_comparison} we show that, for strictly local models,
+%we can use appropriately parameterized anisotropic distributions to obtain base certificates with $\vw^{(n)} = c %\cdot
+%\vpsi^{(n)}$, without affecting the model's predictions.
+%That is, localized smoothing can provide the same type of masking-based collective robustness guarantees as %\citep{Schuchardt2021}.
+
+\subsection{Computing the Collective Certificate}\label{section:computing_collective_cert}
+While~\autoref{eq:main_cert} constitutes a valid certificate, it is not immediately clear how to evaluate it.
+However, we notice that the perturbation set $\sB_\vx$ imposes linear constraints on the elementwise differences $|x_d' - x_d|^p$,  the values of the indicator functions are binary variables and that the base certificates inside the indicator functions are characterized by linear inequalities.
+We can thus reformulate~\autoref{eq:main_cert} as a mixed-integer linear program (MILP), which leads us to our main result (proof in~\autoref{section:proof_lp}):
+\begin{theorem}\label{theorem:collective_lp}
+	Given locally smoothed model $f$, input $\vx \in \sX^{(D_\mathrm{in})}$, smoothed prediction $\vy = f(\vx)$ and base certificates $\sH^{(1)},\dots,\sH^{D_\mathrm{out}}$ complying with interface \autoref{eq:base_cert_interface}, the number of simultaneously robust predictions
+	$\min_{\vx' \in \sB_\vx} \smashoperator{\sum_{n \in \sT}} \mathrm{I}\left[f_n(\vx') = \evy_n \right]$ is lower-bounded by \vskip -0.3in
+	\begin{align}
+		& \min_{\vb \in \sR_+^{D_\mathrm{in}}, \vt \in \{0,1\}^{D_\mathrm{out}}} \sum_{n \in \sT} \evt_n \quad \\
+		\text{s.t.} \quad
+		& \forall n: 
+		\vb^T \vw^{(n)} \geq (1 - \evt_n) \eta^{(n)}, \label{eq:indicator_constraint} \enskip \mathrm{sum}\{\vb\} \leq \epsilon^p.
+	\end{align}
+\end{theorem}
+\vskip-0.1in
+The vector $\vb$ models the allocation of adversarial budget (i.e.\ the elementwise differences $\evb_d = |\evx'_d - \evx_d|^p$). The vector $\vt$ serves the same role as the indicator functions from~\autoref{eq:main_cert}, i.e.\ it indicates which predictions are certifiably robust.
+\autoref{eq:indicator_constraint} ensures that $\vb$ does not exceed the overall budget $\epsilon$ (i.e.\ $\vx' \in \sB_\vx)$\ 
+and that 
+$\evt_n$ can only be set to $0$ if $\vb^T \vw^{(n)}  \geq \eta^{(n)}$, i.e.~only when the base certificate cannot guarantee robustness for prediction $y_n$.
+This problem can be solved using any MILP solver.
+Its optimal value provably bounds the number of simultaneously robust predictions.
+
+\subsection{Improving Efficiency}
+Solving large MILPs is expensive.
+In~\autoref{section:appendix_efficiency} we show that partitioning the outputs into $N_\mathrm{out}$ subsets sharing the same smoothing distribution and the inputs into $N_\mathrm{in}$ subsets sharing the same noise level (for example like in~\autoref{fig:main_figure}, where we partition the image into a $2 \times 3$ grid), as well as quantizing the base certificate parameters $\eta^{(n)}$ into $N_\mathrm{bin}$ bins, reduces the number of variables and constraints from $D_\mathrm{in} +  D_\mathrm{out}$ and $D_\mathrm{out} + 1$ to
+$N_\mathrm{in} + N_\mathrm{out} \cdot  N_\mathrm{bins}$ and $N_\mathrm{out} \cdot  N_\mathrm{bins} + 1$, respectively.
+We can thus control the problem size independent of the data's dimensionality.
+%This allows us to, for example, efficiently apply our method to high-resolution segmentation datasets.
+We further derive a linear relaxation of the MILP that can be efficiently solved while preserving the soundness of the certificate.
+%We further derive a linear relaxation of the mixed-integer problem, which can be more efficiently solved while preserving the soundness of the certificate.
+
+\subsection{Accuracy-Robustness Tradeoff}\label{section:accuracy_robustness_tradeoff}
+When discussing \autoref{eq:main_cert}, we only explained why
+our collective certificate for \textit{locally smoothed} models is better than a na\"ive combination of localized smoothing base certificates.
+However, this does not necessarily mean that our certificate is also stronger than  na\"ively certifying an \textit{isotropically smoothed} model.
+This is why we focus on soft locality.
+With isotropic smoothing, high certified robustness requires using large noise levels, which degrade the model's prediction quality.
+Localized smoothing, when applied to softly local models, can circumvent this issue.
+For each output, we can use low noise levels for the most important parts of the input to retain high prediction quality.
+Our LP-based collective certificate allows us to still provide strong collective robustness guarantees.
+We investigate this improved accuracy-robustness trade-off in our experimental evaluation (see~\autoref{section:experiments}).
+
+\section{Base Certificates}\label{section:base_certificates}
+To apply our collective certificate in practice, we require smoothing distributions $\Psi^{(n)}_\vx$ and corresponding per-prediction  base certificates that comply with the interface from~\autoref{definition:base_certs}.
+As base certificates for $l_2$ and $l_1$ perturbations we can reformulate existing anisotropic Gaussian~\citep{Fischer2020,Kumar2021} 
+and uniform~\citep{Kumar2021} smoothing certificates for single-output models:
+For $\smash{\Psi^{(n)}_\vx = \mathcal{N}(\vx, \mathrm{diag}(\vs^{(n)}))}$ we have $\evw^{(n)}_d = 1 / (\evs_d^{(n)})^2$ and 
+$\eta^{(n)} = (\Phi^{-1}(q_{n, y_n}))^2$ with $\smash{q_{n, y_n} = \Pr_{\vz \sim \Psi_\vx^{(n)} } \left[g_n(\vz) = y\right]}$.
+For $\smash{\Psi^{(n)}_\vx = \mathcal{U}\left(\vx, \vlambda^{(n)}\right)}$ we have $\evw^{(n)}_d = 1 / \evlambda^{(n)}_d$ and $\smash{\eta^{(n)} = \Phi^{-1}\left(q_{n, y_n}\right)}$. We prove the correctness of these reformulations in~\autoref{sec-appendix-base-cert}.
+
+For $l_0$ perturbations of binary data, we can use a distribution $\mathcal{F}(\vx, \vtheta)$ that  flips $\evx_d$ with probability $\evtheta_d \in [0,1]$, i.e. $\Pr[\evz_d \neq \evx_d ] = \evtheta_d$ for $\vz \sim \mathcal{F}(\vx, \vtheta)$.
+Existing methods (e.g.~\citep{Lee2019}) can be used to derive per-prediction certificates for this distribution, but have  exponential runtime in the number of unique values in $\vtheta$.
+Thus, they are not suitable for localized smoothing, which uses different $\evtheta_d$ for different parts of the input.
+We therefore propose a novel, more efficient approach: \textit{Variance-constrained certification},
+which smooths the base classifier's softmax scores instead of its predictions and then uses both their expected value and variance to certify robustness 
+(proof in~\autoref{section:variance_smoothing}):
+\begin{theorem}[Variance-constrained certification]\label{theorem:variance_constrained_cert}
+	Given a function $g : \sX \rightarrow \Delta_{|\sY|}$ mapping from discrete set $\sX$ to scores from the $\left(|\sY| -1\right)$-dimensional probability simplex, let 
+	$f(\vx) = \mathrm{argmax}_{y \in \sY}
+	\mathbb{E}_{\vz \sim \Psi_\vx}
+	\left[g(\vz)_y\right]$ with smoothing distribution $\Psi_\vx$ and probability mass function
+	$\pi_{\vx}(\vz) = \Pr_{\tilde{\vz} \sim \Psi_\vx}\left[\tilde{\vz} = \vz\right]$.
+	Given an input $\vx \in \sX$ and smoothed prediction $\evy = f(\vx)$, 
+	let $\mu = \mathbb{E}_{\vz \sim \Psi_\vx}\left[g(\vz)_y\right]$
+	and $\zeta = \mathbb{E}_{\vz \sim \Psi_\vx}\left[\left(g(\vz)_y - \nu \right)^2\right]$ with $\nu \in \sR$.
+	Assuming $\nu \leq \mu$, then $f(\vx') = y$ if 
+	\begin{equation}\label{eq:variance_constrained_cert}
+		\sum_{\vz \in \sX} \frac{\pi_{\vx'}(\vz)}{\pi_{\vx}(\vz)} \cdot \pi_{\vx'}(\vz)
+		< 1 + \frac{1}{\zeta - \left(\mu - \nu  \right)^2} \left(\mu - \frac{1}{2}\right).
+	\end{equation}
+\end{theorem}
+The l.h.s.\ of~\autoref{eq:variance_constrained_cert} is the expected ratio between the probability mass functions of the smoothing distributions for the perturbed ($\pi_{\vx'}$) and unperturbed ($\pi_\vx$) input.\footnote{{This term is equivalent to the exponential of the R\'enyi-divergence
+$\exp\left(\mathcal{D}_\alpha\left(\Psi_{\vx'} || \Psi_\vx\right)\right)$
+with $\alpha=2$.}}
+It is equal to $1$ if both densities are the same, i.e.\ there is no adversarial perturbation, and greater than $1$ otherwise.
+The r.h.s.\ of~\autoref{eq:variance_constrained_cert} depends on 
+the expected softmax score $\mu$, a variable $\nu \leq \mu$ and the expected squared difference $\zeta$ between $\mu$ and $\nu$.
+For $\nu = \mu$ the parameter $\zeta$ is the variance of the softmax score.
+%\footnote{In practice, we use a probabilistic lower bound on $\mu$ and $\zeta$, see~\autoref{section:monte_carlo_variance_smoothing}.}
+A higher expected value and a lower variance allow us to certify robustness for larger adversarial perturbations.
+
+Applying~\autoref{theorem:variance_constrained_cert} with flipping distribution $\mathcal{F}(\vx, \vtheta)$ to each of the $D$ softmax vectors of our model's outputs
+yields $l_0$-norm certificates for binary data 
+%that comply with our interface and
+that can be computed in linear time (see~\autoref{section:appendix_bernoulli_cert}).
+In \autoref{section:appendix_sparsity_cert}, we also apply it to the sparsity-aware smoothing distribution~\citep{Bojchevski2020}, allowing us to differentiate between adversarial deletions and additions of bits.
+\autoref{theorem:variance_constrained_cert} can also be generalized to continuous distributions (see~\autoref{section:variance_constrained_gaussian}). But, for fair comparison with our baselines, we use the certificates of~\cite{Eiras2021} as our base certificates for continuous data.
+In practice, the smoothed classifier and the base certificates cannot be evaluted exactly. One has to use Monte Carlo sampling to provide  guarantees that hold with high probability (see~\autoref{section:monte_carlo}).
+
+\section{Limitations}\label{section:limitations}
+%We propose a method  to increase the robustness of machine learning models against adversarial perturbations and to certify their robustness. We see this as an important step towards general usage of models in practice, as many existing methods are brittle to crafted attacks. However, robust models also have to be seen with caution. As they are harder to fool, harmful purposes like mass surveillance are harder to avoid. We believe that it is still necessary to further research robustness of machine learning models as the positive effects can outweigh the negatives, but it is necessary to discuss the ethical implications of the usage in any specific application area.
+
+%The main
+A limitation of our approach is that it assumes soft locality.
+%of the base model.
+It can be applied to arbitrary models, but may not necessarily result in better certificates than isotropic smoothing (recall
+%our discussion in
+~\autoref{section:accuracy_robustness_tradeoff}).
+Also, choosing the smoothing distributions requires some
+%a-priori
+%knowledge or
+assumptions about which parts of the input are how relevant to making a prediction.
+Our experiments show that natural assumptions like homophily can be sufficient.
+%for choosing effective smoothing distributions.
+But choosing a distribution may be more challenging for other tasks.
+A limitation of (most) randomized smoothing methods is that they use sampling to approximate the smoothed classifier.
+Because we use multiple distributions, we can only use a fraction of the samples per distribution.
+We can alleviate this problem by sharing smoothing distributions among outputs (see~\autoref{section:sharing_noise}).
+%Our experiments show that despite this issue, our method can outperform certificates that use a single
+%isotropic
+%distribution.
+Still, future work should try to improve the sample efficiency of randomized smoothing or develop deterministic base certificates (e.g.\ by generalizing \citep{Levine2020} to anisotropic distributions), which could then be incorporated into our
+%localized smoothing
+linear programming framework.
+
+
+
+\section{Experimental Evaluation}\label{section:experiments}
+\begin{figure*}[tp]
+	%\vskip 0.2in
+	\centering
+	\begin{minipage}{0.49\columnwidth}
+		\centering
+		\resizebox{\textwidth}{!}{\input{figures/experiments/pascal/iou_vs_avg_radius_masked.pgf}}
+		\caption{Comparison of isotropic smoothing with $\sigma_\mathrm{iso} \in \{0.01,\dots,0.5\}$ to our LP-based certificate with $\left(\sigma_\mathrm{min},\sigma_\mathrm{max}\right) = (\sigma_\mathrm{iso}, \infty)$, using a modified, strictly local U-Net on Pascal-VOC.
+			Localized smoothing offers the same mIOU as SegCertify\textsuperscript{*} and stronger robustness certificates.
+		}
+		\label{fig:pascal_iou_vs_avg_radius_masked}
+	\end{minipage}
+	\hfill
+	\begin{minipage}{0.49\columnwidth}
+		\centering
+		\resizebox{\textwidth}{!}{\input{figures/experiments/pascal/0_2_vs_0_15_1_0.pgf}}
+		\caption{Certified accuracy of U-Net on Pascal-VOC. We compare SegCertify\textsuperscript{*}  %the na\"ive isotropic smoothing certificate 
+			($\sigma_\mathrm{iso}=0.2$) to localized smoothing   
+			($\left(\sigma_\mathrm{min},\sigma_\mathrm{max}\right) = (0.15, 1.0)$).
+			Combining the base certificates (dashed blue line) via our collective LP (solid blue line) outperforms the baseline.
+			%Combining the base certificates via our LP (solid blue line) instead of evaluating them independently (dashed blue line) outperforms the baseline.
+		}
+		\label{fig:pascal_collective_lp}
+	\end{minipage}
+	\vskip -0.2in
+\end{figure*}
+In this section, we compare our method to all existing collective certificates for $\ell_p$-norm perturbations:
+Center smoothing using isotropic Gaussian noise~\citep{Kumar2021}, 
+SegCertify~\citep{Fischer2021} 
+and the collective certificates of~\citet{Schuchardt2021}. 
+To compare SegCertify to the other methods, we report the number of certifiably robust predictions and not just whether all predictions are robust.
+We write SegCertify\textsuperscript{*} to highlight this.
+When considering models that are not strictly local (i.e.\ all outputs depend on all inputs)
+%and because we are interested in the number of robust predictions -- not the simultaneous robustness of \textit{all} predictions -- 
+the certificates of \citet{Schuchardt2021} and \citet{Fischer2021} are identical, i.e.,~do not have to be evaluated separately.
+A more detailed description of the experimental setup, hardware and computational cost can be found in \autoref{section:detailed_exp_setup}.
+
+\textbf{Metrics.}
+Evaluating randomized smoothing methods based on certificate strength alone is not sufficient.
+Different distributions lead to different tradeoffs between prediction quality and certifiable robustness (as discussed in~\autoref{section:accuracy_robustness_tradeoff}).
+As metrics for prediction quality, we use \textit{accuracy} and \textit{mean intersection over union} (mIOU).\footnote{I.e.\ add up confusion matrices over the entire dataset, compute per-class IOUs and average over all classes.}
+The main metric for certificate strength is the \textit{certified accuracy} $\xi(\epsilon)$, i.e.,~the percentage of predictions that are correct and certifiably robust, given adversarial budget $\epsilon$. 
+%\footnote{In image segmentation, we average $\xi(\epsilon)$ over the dataset.}. 
+Following~\citep{Schuchardt2021}, we use the  \textit{average certifiable radius} (ACR) as an aggregate metric, i.e.\ 
+$\sum_{n=1}^{N-1} \epsilon_n \cdot \left(\xi(\epsilon_n) - \xi(\epsilon_{n+1}\right)$ with budgets $\epsilon_1 \leq \epsilon_2 \dots \leq \epsilon_N$ and $\epsilon_1 = 0$, $\xi(\epsilon_N) = 0$.
+%The ACR is identical to the area under the curve of $\xi(\epsilon)$.
+
+\textbf{Evaluation procedure.}
+We assess the accuracy-robustness tradeoff of each method by computing accuracy / mIOU and ACR for a wide range of smoothing distribution parameters.
+We then eliminate all points that are Pareto-dominated, i.e.~for which there exist diffent parameter values that yield higher accuracy / mIOU and ACR.
+Finally, we assess to if  localized smoothing dominates the baselines, i.e.~whether it can be parameterized to achieve strictly better accuracy-robustness tradeoffs.
+\iffalse
+Importantly, note that \textit{the accuracy-robustness plots} in~\cref{fig:pascal_iou_vs_avg_radius_masked,fig:cityscapes_iou_vs_avg_radius,fig:citeseer_pm_appnp} \textit{are not to be read like line graphs}!
+Even if there is a combination of baseline parameters and localized smoothing parameters that offer similar accuracy and robustness (i.e.\ two points are close in the plot), there may be other localized smoothing parameters that offer significantly higher accuracy and/or robustness (i.e.\ points to the top right) than any baseline parameters.
+\fi
+%Note that, for improved efficiency, we use the linearly relaxed version of the proposed collective certificate (see~\autoref{section:linear_relaxation}).
+
+%\textbf{Computational Cost} The added computational cost for our approach due to the LP is small. For more information we refer the reader to \todo{pointer here}.
+
+%To obtain accurate and robust smoothed models, base models should be trained on randomly perturbed data.
+%We use models trained with isotropic noise for both the baselines and our method (more details in~\autoref{section:detailed_exp_setup}).
+
+\subsection{Image Segmentation}\label{section:experiments_pascal}
+
+\begin{figure*}[t]
+	\centering
+	\begin{subfigure}[b]{0.49\columnwidth}
+		\resizebox{\textwidth}{!}{\input{figures/experiments/pascal/iou_vs_avg_radius_many_samples.pgf}}
+		\caption{
+			$10240$ samples per output pixel.
+		}
+        \label{fig:many_samples}
+	\end{subfigure}
+	\begin{subfigure}[b]{0.49\columnwidth}
+		\resizebox{\textwidth}{!}{\input{figures/experiments/pascal/iou_vs_avg_radius_few_samples.pgf}}
+		\caption{
+		      $15$ times as many samples for baselines.
+		}
+        \label{fig:few_samples}
+	\end{subfigure}
+	\caption{Comparison of isotropic smoothing  to our LP-based certificate with a $3 \times 5$ grid and U-Net on Pascal-VOC.
+            U-Net is sufficiently local to benefit from localized smoothing (\autoref{fig:many_samples}), but not enough to offset the increased sample complexity (\autoref{fig:few_samples}) for the probabilistic base certificates.
+   }
+   \label{fig:not_masked}
+	\vskip-0.2in
+\end{figure*}
+
+\textbf{Dataset and model.}
+We evaluate our certificate for $l_2$ perturbations on $100$ images from the Pascal-VOC~\citep{Everingham2010} 2012 segmentation validation set.
+Training is performed on $10582$ samples extracted from SBD, also known as "Pascal trainaug" \citep{Hariharan2011}.
+Additional experiments on Cityscapes~\citep{Cordts2016} can be found in~\autoref{section:extra_experiments_cityscapes}.
+%\footnote{Due to the high cost for the extensive comparisons we use half the number of samples as related work \citep{Fischer2021}.}
+To increase batch sizes and thus allow a thorough investigation of different smoothing parameters, all images are  downscaled to $50\%$ of their original size, similar to \citep{Fischer2021}.
+Our base model is a U-Net segmentation model \citep{Ronneberger2015} with a ResNet-18 backbone.
+For isotropic randomized smoothing, we use Gaussian noise
+$\mathcal{N}\left(0, \sigma_\mathrm{iso}\right)$ with different $\sigma_\mathrm{iso} \in \{0.01,0.02,\dots,0.5\}$.
+To perform localized randomized smoothing, we choose parameters $\sigma_\mathrm{min}, \sigma_\mathrm{max} \in \sR_+$ and partition all images into regular grids (similar to~\autoref{fig:main_figure}).
+To smooth outputs in grid cell $(i,j)$, we sample noise for grid cell $(k,l)$ from $\mathcal{N}(0,\sigma' \cdot \1)$, with $\sigma' \in  [\sigma_\mathrm{min}, \sigma_\mathrm{max}]$ chosen proportional to the distance of $(i,j)$ and $(k,l)$ (more details in~\autoref{sec-detailed-exp-setup-segmentation}).
+All training data is randomly perturbed using samples from the same smoothing distribution that is used for certification.
+
+\textbf{Accuracy-robustness tradeoff under strict locality.}
+Our goal is to verify that, if a model is sufficiently local, localized smoothing offers a better accuracy-robustness tradeoff than isotropic smoothing.
+As an extreme example, we construct a strictly local model from our U-Net segmentation model.
+This modified model partitions each image into a grid of size $2 \times 2$. It then iterates over cells $(i, j)$, sets all values outside $(i,j)$ to $0$ and applies  the original model. Finally, it stitches all $4$ segmentation masks into a single one.
+For such a strictly local model, we can apply localized smoothing with the same $2 \times 2$ grid and $\sigma_\mathrm{max} \rightarrow \infty$ to recover the certificate of~\citet{Schuchardt2021} (see~\autoref{section:schuchardt_comparison}).\footnote{Note that they never evaluated their approach on image segmentation.}
+\autoref{fig:pascal_iou_vs_avg_radius_masked}  compares the resulting trade-off for $\sigma_\mathrm{min} = \sigma_\mathrm{iso}$ to that of both isotropic smoothing baselines using $153600$ Monte Carlo samples.
+Localized smoothing yields the same mIOUs as SegCertify\textsuperscript{*}, but up to \SI{22.4}{p{.}p{.}} larger ACR. Both approaches Pareto-dominate center smoothing.
+
+\textbf{Accuracy-robustness tradeoff under soft locality.}
+Next, we want to verify our claim about the existence of softly local models for which localized smoothing is beneficial.
+To this end, we randomly smooth the U-Net model itself, without using masking to enforce strict locality.
+We perform localized smoothing with grid size $3 \times 5$, various $\sigma_\mathrm{min} \in \{0.01,0.02,\dots,0.5\}, \sigma_\mathrm{max} \in [0.02,1.0]$ and $10240$ samples per output pixel (i.e. $10240 \cdot 15 = 153600$ samples in total). Isotropic smoothing is also performed with $10240$ samples per output pixel.
+\autoref{fig:many_samples} shows that localized smoothing Pareto-dominates SegCertify\textsuperscript{*} for high-accuracy models with mIOU $> 35.3\%$.
+Importantly the figure is not to be read like a line graph! Even if the vertical distance between two methods is small, one may significantly outperform the other.
+For example, $\sigma_\mathrm{iso}=0.1$, with an mIOU of $46.34\%$ and an ACR of $0.24$ (highlighted with a bold cross)
+is dominated by $\left(\sigma_\mathrm{min},\sigma_\mathrm{max}\right) = (0.09, 0.2)$ (highlighted with a large circle), which has a larger ACR of $0.25$ and a mIOU that is a whole \SI{6.1}{p{.}p{.}} higher.
+
+\textbf{Benefit of linear programming.}
+\autoref{fig:pascal_collective_lp} demonstrates how the linear program derived in \autoref{section:computing_collective_cert} enables this improved  tradeoff.
+We compare SegCertify\textsuperscript{*} with $\sigma_\mathrm{iso} = 0.2$ to localized smoothing with $\left(\sigma_\mathrm{min},\sigma_\mathrm{max}\right) = (0.15, 1.0)$.
+Na\"ively combining the base certificates (dashed line) is not sufficient for outperforming the baseline, as they cannot certify robustness beyond $\epsilon=0.45$. However, 
+%leveraging locality by
+solving the collective LP (solid blue line) extends the maximum certifiable radius to $\epsilon=1.15$.
+%Note that both models have the same accuracy of $79.1\%$. The baseline could potentially achieve higher certified accuracy by increasing $\sigma_\mathrm{iso}$, but this would make it less accurate than the locally smoothed model.
+
+\textbf{Sample efficiency.}
+Using the same number of samples per output pixel for both localized and isotropic smoothing neglects that localized smoothing requires sampling from $15$ different distributions, i.e.\ sampling $15$ times as many images.\footnote{This is however not necessary for the previously discussed strictly local model.}
+In~\autoref{fig:few_samples} we allow the baselines to sample the same number of images.
+Now, localized smoothing is mostly dominated by SegCertify\textsuperscript{*}, except for high-accuracy models with mIOU $\in [52.4\%,57.8\%]$ or mIOU $>60.8\%$.
+We conclude that U-Net is local enough to benefit from localized smoothing, but not enough to offset the practical problem of having to work with fewer Monte Carlo samples (see also discusion in~\autoref{section:limitations})
+in the entire range of possible isotropic smoothing parameters.
+Note, however, that we can always recover the guarantees of SegCertify\textsuperscript{*} by using a $1 \times 1$ grid (see~\autoref{section:fischer_comparison}).
+
+\begin{figure*}[t]
+	\centering
+	\begin{subfigure}[b]{0.49\columnwidth}
+		\resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_appnp_deletion.pgf}}
+		\caption{
+			Robustness to deletions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+		}
+		\label{fig:citeseer_pm_appnp_deletion}
+	\end{subfigure}
+	\begin{subfigure}[b]{0.49\columnwidth}
+		\resizebox{\textwidth}{!}{\input{figures/experiments/graphs/citeseer_pm_appnp_addition.pgf}}
+		\caption{
+			Robustness to additions, using $\mathcal{S}\left(\vx, 0.01, \theta^{-}\right)$.
+		}
+		\label{fig:citeseer_pm_appnp_addition}
+	\end{subfigure}
+	\caption{Comparison of our LP-based collective certificate
+ %for localized randomized smoothing
+ to \citet{Bojchevski2020}, using APPNP on Citeseer. We consider both adversarial deletions (\autoref{fig:citeseer_pm_appnp_deletion}) and additions (\autoref{fig:citeseer_pm_appnp_addition}) of attribute bits. Locally smoothed models offer a better accuracy-robustness tradeoff
+ %than any of the baseline models
+ , especially for deletions. Transparent points signal that they are Pareto-dominated by points from the same method.}
+	\label{fig:citeseer_pm_appnp}
+	\vskip-0.2in
+\end{figure*}
+
+\subsection{Node Classification on Citeseer}\label{section:experiments_graphs}
+
+\textbf{Dataset and model.}
+Finally, we
+%turn to a class of
+consider models that are
+%often explicitly
+designed with locality in mind: Graph neural networks.
+We take APPNP~\citep{klicpera2019predict}, which aggregates per-node predictions from the entire graph based on personalized pagerank scores, and apply it  to the Citeseer~\citep{Sen2008} dataset.
+To certify its robustness, we perform randomized smoothing with sparsity-aware noise
+$\mathcal{S}\left(\vx, \theta^{+}, \theta^{-}\right)$, where $\theta^{+}$ and $\theta^{-}$ control the probability
+of randomly adding or deleting node attributes, respectively (more details in~\autoref{section:appendix_sparsity_cert}).
+As a baseline %\footnote{Center smoothing has only been derived for Gaussian smoothing and continuous data.},
+we apply the tight certificate SparseSmooth of~\citet{Bojchevski2020} to distributions
+$\mathcal{S}\left(\vx, 0.01, \theta^{-}_\mathrm{iso}\right)$
+with $\theta^{-}_\mathrm{iso} \in \{0.1, 0.15, \dots, 0.95\}$.
+The
+%fixed,
+small addition probability $0.01$  is meant to preserve the sparsity of the graph's attribute matrix and was used in most experiments in~\citep{Bojchevski2020}.
+For localized smoothing, we partition the graph into $5$ clusters and define a minimum deletion probability $\theta^{-}_\mathrm{min} \in \{0.1, 0.15, \dots, 0.95\}$.
+We then sample each cluster's attributes from
+$\mathcal{S}\left(\vx, 0.01, \theta'^{-}\right)$
+with $\theta'^{-} \in \left[\theta^{-}_\mathrm{min},0.95\right]$ 
+chosen based on cluster affinity.
+To compute the base certificates, we use the variance-constrained certificate from~\autoref{section:appendix_sparsity_cert}.
+In all cases, we take $5 \cdot 10^5$ samples (i.e.~$10^5$ per cluster for localized smoothing).
+Further discussions, as well as experiments on different models and datasets can be found in~\autoref{section:extra_node_experiments}.
+
+
+\textbf{Accuracy-robustness tradeoff.}
+\autoref{fig:citeseer_pm_appnp} shows the
+%Pareto-optimal 
+accuracy and ACR pairs achieved by the na\"ive isotropic smoothing certificate and the LP-based certificate for localized smoothing.
+Despite having fewer samples per prediction, our method outperforms the baseline, offering higher accuracy certifying larger ACRs, especially for attribute deletions. Notably, in some cases, our approach even improves accuracy by over \SI{7}{p{.}p{.}} percentage points compared to isotropically smoothed models.
+%Despite having fewer samples available per prediction, our method offers a better accuracy-robustness tradeoff than  the baseline, Pareto-dominating it entirely. The difference is particularly large for attribute deletions, where localized smoothing can certify ACRs that are more than three times as large. Surprisingly, it even leads to an increase in accuracy compared to all isotropically smoothed models, in some cases by more than \SI{7}{p{.}p{.}}.\
+Similar to the observation made by \cite{Bojchevski2020} in their Section K, we also find that increasing the probability of attribute perturbations can improve accuracy to some extent. We posit that localized smoothing can leverage this phenomenon as a form of test-time regularization while preserving the crucial attributes of nearby nodes. In ~\autoref{section:naive_variance_constrained} we show that the stems from the smoothing scheme and is not solely due to using our novel variance-constrained certificate.
+%The phenomenon that increasing the probability of attribute perturbations increases accuracy to some extent has already been observed by~\citep{Bojchevski2020} (see their §K), who pointed out its similarity to dropout regularizaton on GNN inputs. We posit that localized smoothing provides an avenue for leveraging test-time regularization while retaining the critical attributes of nearby nodes. It may seem that this is due to the utilization of the variance-constrained certificate for localized smoothing, but we demonstrate otherwise in ~\autoref{section:naive_variance_constrained}. %, as opposed to the baseline method
+%We posit that localized smoothing allows us to benefit from this test-time regularization, while simultaneously preserving the majority of attributes in the most important, nearby nodes. One might also suspect that this is due to the fact that we use the variance-constrained certificate for localized smoothing, but not for the baseline. We disprove this in~\autoref{section:naive_variance_constrained}.
+
+\section{Conclusion}
+We proposed a novel approach to achieve provable collective robustness in multi-output classifiers that extends beyond strict locality, utilizing our introduced localized randomized smoothing scheme. %We proposed the first approach to achieve collective robustness multi-output classifiers that are not strictly local using localized randomized smoothing. 
+Our approach involves smoothing different outputs with anisotropic smoothing distributions that match the model's soft locality. We demonstrated how per-output certificates obtained through localized smoothing can be combined into a strong collective robustness certificate using (mixed-integer) linear programming.
+Our experiments indicate that localized smoothing can achieve superior accuracy-robustness tradeoffs compared to isotropic smoothing methods. However, not all models match our distance-based locality assumption, particularly for image segmentation tasks. Node classification tasks are more amenable to localized smoothing due to their inherent locality. Our results highlight the importance of locality in achieving collective robustness and emphasize the need for future research to develop effective local models for multi-output tasks.
+
+\clearpage
+\section{Reproducibility statement}
+We prove all theoretic results that were not already derived in the main text in~\autoref{section:proof_lp} to~\autoref{section:monte_carlo}.
+To ensure reproducibility of the experimental results we provide detailed descriptions of the evaluation process with the respective parameters in \autoref{section:detailed_exp_setup}. An implementation, including configuration files, will be made available at 
+\href{https://www.cs.cit.tum.de/daml/localized-smoothing/}{https://www.cs.cit.tum.de/daml/localized-smoothing}.
+
+\section{Ethics statement}
+In this paper, we propose a method  to increase the robustness of machine learning models against adversarial perturbations and to certify their robustness. We see this as an important step towards general usage of models in practice, as many existing methods are brittle to crafted attacks. Through the proposed method, we hope to contribute to the safe usage of machine learning.
+%However, methods for increasing robustness can also potentially offer new insights for crafting new adversarial %attacks. Thus, it is necessary to continuously develop new defenses.
+However, robust models also have to be seen with caution. As they are harder to fool, harmful purposes like mass surveillance are harder to avoid. We believe that it is still necessary to further research robustness of machine learning models as the positive effects can outweigh the negatives, but it is necessary to discuss the ethical implications of the usage in any specific application area.
+
+\section{Acknowledgements}
+This research is funded by the Bavarian Ministry of Economic Affairs, Regional Development and Energy with funds from the Hightech Agenda Bayern. Further, it is supported by the German Research Foundation, grant GU 1409/4-1.
+
+\bibliography{references.bib}
+\bibliographystyle{style/iclr2023_conference}
+
+\clearpage
+
+\input{appendix}
+
+\end{document}

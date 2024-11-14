@@ -1,0 +1,22 @@
+\section{Experimental details}
+\label{appendix:experiments-details}
+
+In this section we provide the detailed description of the setup for all the experiments presented.
+
+\subsection{Biased-MNIST}
+We use the network architecture proposed by Bahng~\emph{et~al.}~\cite{bahng2019rebias}, consisting of four convolutional layers with $7 \times 7$ kernels. The EnD regularization term is applied on the average pooling layer, before the fully connected classifier of the network. 
+Following Bahng~\emph{et~al.}, we use the Adam optimizer with a learning rate of $0.001$, a weight decay of $10^{-4}$ and a batch size of 256. 
+We train for 80 epochs. We do not use any data augmentation scheme. We use 30\% of the training set as validation set, and we colorize it using a $\rho$ value of 0.1.
+
+
+\subsection{CelebA}
+
+Following Nam~\emph{et~al.}~\cite{nam2020learning}, we use the Adam optimizer with a learning rate of $0.001$, a batch size of 256, and a weight decay of $10^{-4}$. We train for 50 epochs. Images are resized to $224\times224$ and augmented with random horizontal flip. To construct the validation set, we sample $N$ images from each pair $(t, b)$ of the training set, where $N$ is 20\% the size of the least populated group $(t, b)$. 
+The EnD hyperparameters $\alpha$ and $\beta$ are searched using the Bayesian optimization~\cite{snoek2012practical} implementation provided by \emph{Weights and Biases}~\cite{wandb} on the validation set, in the interval $[0;50]$.
+To provide a mean performance along with the standard deviation, we select the top 3 models based on the best validation accuracy obtained, and we report the average accuracy on the final test sets.
+
+\subsection{IMDB}
+
+We use the Adam optimizer with a learning rate of 0.001, a batch size of 256 and a weight decay of $10^{-4}$. We train for 50 epochs. As with CelebA, images are resized to $224\times224$ and randomly flipped at training time for augmentation. In this case, it is not possible to construct a validation set including samples from both EB1 and EB2, without altering the test set composition. Hence, we perform a 4-fold cross validation for every experiment. For example, when training on EB1, we use one fold of EB2 as validation set and the remaining three folds as EB2 test set. We repeat this process until each EB2 fold is used both as validation and as test set. The same process is repeated when training on EB2, by splitting EB1 in validation and test folds. When training for age prediction, we follow Kim~\emph{et ~al.}~\cite{Kim_2019_CVPR}, by binning the age values in the intervals 0-19, 20-24, 25-29, 30-34, 34-39, 40-44, 45-49, 50-54, 55-59, 60-64, 65-69, 70-100, proposed by Alvi~\emph{et~al.}~\cite{alvi2018turning}.
+For every fold, the EnD hyperparameters $\alpha$ and $\beta$ are searched using the Bayesian optimization~\cite{snoek2012practical} implementation provided by \emph{Weights and Biases}~\cite{wandb} on the validation set, in the interval $[0;50]$.
+To provide a mean performance along with the standard deviation, we select the top model for each fold, based on the best validation accuracy obtained. We report the accuracy obtained on the final test sets, as average accuracy among the different folds. 

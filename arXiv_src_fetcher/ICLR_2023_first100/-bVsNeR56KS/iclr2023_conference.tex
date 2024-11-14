@@ -1,0 +1,320 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2023_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb} % mathbb available
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{booktabs} 
+\usepackage{hyperref}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{makecell}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{xspace}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{mathtools}
+\usepackage{lipsum}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{makecell}
+\usepackage{color}
+
+\usepackage{floatrow}
+\floatsetup{heightadjust=object}
+\floatsetup[table]{style=plaintop}
+
+% \floatsetup[figure]{capposition=bottom}
+% \floatsetup{heightadjust=all, floatrowsep=columnsep}
+\newfloatcommand{figurebox}{figure}[\nocapbeside][\dimexpr(\textwidth-\columnsep)/2\relax]
+\newfloatcommand{tablebox}{table}[\nocapbeside][\dimexpr(\textwidth-\columnsep)/2\relax]
+
+% compactitem
+\newcommand{\tydi}{Mr.~TyDi\xspace}
+\newcommand{\xor}{XOR~Retrieve\xspace}
+\newcommand{\news}{Mewsli-X\xspace}
+\newcommand{\lqa}{LAReQA\xspace}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+
+
+\title{Modeling Sequential Sentence Relation to Improve Cross-lingual Dense Retrieval}
+
+
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+% \author{Shunyu Zhang\thanks{Work is done during internship at Microsoft Research Asia.}, Yaobo Liang, Ming Gong, Daxin Jiang, Nan Duan\\
+% Microsoft Corporation \\
+% \texttt{shunyuzh@foxmail.com}
+% }
+
+% \author{ Shunyu Zhang$^{1,}$\thanks{\enspace Work done during internship at Microsoft Research Asia.}\enspace , Yaobo Liang$^{2}$, Ming Gong$^{3}$, Daxin Jiang$^{3}$, Nan Duan$^{2}$\\
+%   $^1$Beihang University,  $^2$Microsoft Research Asia,  $^3$Microsoft STC Asia \\
+% \tt  shunyuzh@foxmail.com,
+% \tt  \{yalia, migon, djiang, nanduan\}@microsoft.com
+% }
+
+\author{ Shunyu Zhang$^{1,}$\thanks{Work done during internship at Microsoft Research Asia.}\enspace , Yaobo Liang$^{1}$, Ming Gong$^{2}$, Daxin Jiang$^{2}$, Nan Duan$^{1}$\\
+ $^1$Microsoft Research Asia,  $^2$Microsoft STC Asia \\
+\tt  shunyuzh@foxmail.com,
+\tt  \{yalia, migon, djiang, nanduan\}@microsoft.com
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+
+
+
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+% Starting from an observation that sequential sentence relation are universal across languages, we propose a multilingual PLM leveraging it to improve cross-lingual retrieval, called masked sentence model (MSM). It consists of a sentence encoder to generate the sentence representations, and a document encoder applied to a sequence of sentence vectors from a document. The document encoder is shared for all languages to model the universal sequential sentence relation across languages. To predict the masked sentence in MSM task, we propose a hierarchical contrastive loss with sampled negatives. 
+
+
+Recently multi-lingual pre-trained language models (PLM) such as mBERT and XLM-R have achieved impressive strides in cross-lingual dense retrieval. Despite its successes, they are general-purpose PLM while the multilingual PLM tailored for cross-lingual retrieval is still unexplored. Motivated by an observation that the sentences in parallel documents are approximately in the same order, which is universal across languages, we propose to model this sequential sentence relation to facilitate cross-lingual representation learning. Specifically, we propose a multilingual PLM called masked sentence model (MSM), which consists of a sentence encoder to generate the sentence representations, and a document encoder applied to a sequence of sentence vectors from a document. The document encoder is shared for all languages to model the universal sequential sentence relation across languages. To train the model, we propose a masked sentence prediction task, which masks and predicts the sentence vector via a hierarchical contrastive loss with sampled negatives. Comprehensive experiments on four cross-lingual retrieval tasks show MSM significantly outperforms existing advanced pre-training models, demonstrating the effectiveness and stronger cross-lingual retrieval capabilities of our approach. Code and model will be available.
+
+% Cross-lingual Dense Retrieval, Pre-training for Retrieval
+
+% Cross-lingual Dense Retrieval, Multi-lingual Pre-training for Retrieval
+
+
+% It contains a hierarchical model in which the document encoder reconstruct masked sentence vector generated by the sentence encoder from a sequence of sentences in a document.
+
+\end{abstract}
+
+
+
+\section{Introduction}
+\label{sec:intro}
+
+% \footnote{Note most of our mention of cross-lingual retrieval also include multi-lingual retrieval for short, and we will clarify it when necessary.}
+
+% In this context, several multilingual pre-trained models have emerged, which help to extend the progress on NLP to a wide range of languages and to determine multilingual pre-training was beneficial for a wide range of downstream multilingual tasks. 
+
+Cross-lingual retrieval (also including multi-lingual retrieval) is becoming increasingly important as new texts in different languages are being generated every day, and people query and search for the relevant documents in different languages~\citep{zhang-etal-2021-mr, asai-etal-2021-xor}. This is a fundamental and challenging task and plays an essential part in real-world search engines, for example, Google and Bing search which serve hundreds of countries across diverse languages. In addition, it's also a vital component to solve many cross-lingual downstream problems, such as open-domain question answering~\citep{asai-etal-2021-xor} or fact checking~\citep{huang2022concrete}. 
+
+With the rapid development of deep neural models, cross-lingual retrieval has progressed from translation-based methods~\citep{nie2010cross}, cross-lingual word embeddings~\citep{sun-duh-2020-clirmatrix}, and now to dense retrieval built on the top of multi-lingual pre-trained models~\citep{bert2019, conneau2019unsupervised}. 
+Dense retrieval models usually adopt pretrained models to encode queries and passages into low-dimensional vectors, so its performance relies on the representation quality of pretrained models, and for multilingual retrieval it also calls for cross-lingual capabilities. 
+
+% ~\cite{asai2021one, asai-etal-2021-xor} have adopted bi-encoder equipped with mBERT model as the retriever in the multilingual open-QA system, and it played an crucial part in the pipeline, resulting to the promising performance improvement. Though mBERT and XLMR are effective and widely adopted in cross-lingual retrieval, they are general pre-trained models and not tailored for dense retrieval.
+
+Models like mBERT~\citep{bert2019}, XLMR~\citep{conneau2019unsupervised} pre-trained with masked language model task on large multilingual corpora, have been applied widely in cross-lingual retrieval~\citep{asai-etal-2021-xor, asai2021one, shi-etal-2021-cross} and achieved promising performance improvements. However, they are general pre-trained models and not tailored for dense retrieval. 
+Except for the direct application, there are some pre-trained methods tailored for monolingual retrieval. \citet{lee-etal-2019-latent} and \citet{gao2021cocondenser} propose to perform contrastive learning with synthetic query-document pairs to pre-train the retriever. They generate pseudo pairs either by selecting a sentence and its context or by cropping two sentences in a document. Although showing improvements, these approaches have only been applied in monolingual retrieval and the generated pairs by hand-crafted rules may be low-quality and noisy. In addition, learning universal sentence representations across languages is more challenging and crucial than monolingual, so better multilingual pre-training for retrieval needs to be explored.
+
+% Specifically, it consists of a sentence encoder and a document encoder, and the latter is applied on the sentence vectors generated by the sentence encoder from a sequence of sentences in a document.
+
+
+
+% sequential sentences are usually approximately parallel to each other across languages
+
+% The sentences in parallel documents are in approximately the same order, while the words in parallel sentences are in different order. It means the sequential relation on sentence level are similar across languages.
+
+% We start from an observation that the parallel documents should each contain approximately the same information, in approximately the same order. It means that there exists universal sequential sentence relation across languages. 
+
+In this paper, we propose a multilingual PLM to leverage sequential sentence relation across languages to improve cross-lingual retrieval. 
+We start from an observation that the parallel documents should each contain approximately the same sentence-level information. Specifically, the sentences in parallel documents are approximately in the same order, while the words in parallel sentences are usually not. It means the sequential relation at sentence-level are similar and universal across languages. 
+This idea has been adopted for document alignment~\citep{thompson-koehn-2020-exploiting, resnik-1998-parallel} which incorporates the order information of sentences.
+Motivated by it, we propose a novel Masked Sentence Encoder (MSM) to learn this universal relation and facilitate the isomorphic sentence embeddings for cross-lingual retrieval.
+It consists of a sentence encoder to generate sentence representations, and a document encoder applied to a sequence of sentences in a document. The document encoder is shared for all languages and can learn the sequential sentence relation that is universal across languages.
+In order to train MSM, we adopt a sentence-level masked prediction task, which masks the selected sentence vector and predicts it using the output of the document encoder. Distinct from MLM predicting tokens from pre-built vocabulary, we propose a hierarchical contrastive loss with sampled negatives for sentence-level prediction.
+
+% Meantime, the pre-training objective forces the sentence encoder to aggregate distinctive feature into the sentence vectors, so that the masked vector can be reconstructed by their contextual sentence vectors. 
+
+% We propose a novel two-level contrastive loss consider intra-doc sentence as sampled negatives with a dynamic bias except for cross-doc negatives.
+
+We conduct comprehensive experiments on 4 cross-lingual dense retrieval tasks including \tydi, \xor, Mewsli-X and LAReQA. Experimental results show that our approach achieves state-of-the-art retrieval performance compared to other advanced models, which validates the effectiveness of our MSM model in cross-lingual retrieval. 
+Our in-depth analysis demonstrates that the cross-lingual transfer ability emerges for MSM can learn the universal sentence relation across languages, which is beneficial for cross-lingual retrieval. Furthermore, we perform ablations to motivate our design choices and show MSM works better than other counterparts. 
+
+
+\section{Related Work}
+\label{sec:related}
+
+
+\noindent{\bf Multi-lingual Pre-trained Models. }
+\label{subsec:mmlm}
+Recently the multilingual pre-trained models~\citep{lample2019cross,conneau2019unsupervised, huang2019unicoder} have empowered great success in different multilingual tasks~\citep{liang-etal-2020-xglue, hu2020xtreme}.
+Multilingual BERT~\citep{bert2019} is a transformer model pre-trained on Wikipedia using the multi-lingual masked language model (MMLM) task. XLM-R~\citep{conneau2019unsupervised} further extends the corpus to a magnitude more web data with MMLM. XLM~\citep{lample2019cross} proposes the translation language model (TLM) task to achieve cross-lingual token alignment. Unicoder~\citep{huang2019unicoder} presents several pre-training tasks upon parallel corpora and ERNIE-M~\citep{ouyang-etal-2021-ernie} learns semantic alignment by leveraging back translation. XLM-K~\citep{jiang2022xlm} leverages the multi-lingual knowledge base to improve cross-lingual performance on knowledge-related tasks. InfoXLM~\citep{chi-etal-2021-infoxlm} and HiCTL~\citep{wei2020learning} encourage bilingual alignment via InfoNCE based contrastive loss. These models usually focus on cross-lingual alignment leveraging bilingual data, while it's not fit for cross-lingual retrieval that calls for semantic relevance between query and passage. There is few explore on how to improve pre-training tailored for cross-lingual retrieval, which is exactly what our model addresses.
+
+
+\noindent{\bf Cross-lingual Retrieval. }
+\label{subsec:mdr}
+Cross-lingual (including multi-lingual) retrieval is becoming increasingly important in the community and impacting our lives in real-world applications. In the past, multi-lingual retrieval relied on community-wide datasets at TREC, CLEF, and NCTIR, such as CLEF 2000-2003 collection~\citep{ferro2015clef}. They usually comprise a small number of queries (at most a few dozen) with relevance judgments and only for evaluation, which are insufficient for dense retrieval. Recently, more large scale cross-lingual retrieval datasets~\citep{zhang-etal-2021-mr, ruder-etal-2021-xtreme} have been proposed to promote cross-lingual retrieval research, such as \tydi~\citep{asai-etal-2021-xor} proposed in open-QA domain, \news~\citep{ruder-etal-2021-xtreme} for news entity retrieval, etc.
+
+
+The technique of the cross-lingual retrieval field has progressed from translation-based methods~\citep{nie2010cross, shi-etal-2021-cross} to cross-lingual word embeddings by neural models~\citep{sun-duh-2020-clirmatrix}, and now to dense retrieval built on the top of multi-lingual pre-trained models~\citep{bert2019, conneau2019unsupervised}. ~\citet{asai-etal-2021-xor,asai2021one} modify the bi-encoder retriever to be equipped with mBERT, which plays an essential part in the open-QA system, and~\citet{zhang2022towards} explore the impact of data and model. However, most of the existing work focuses on fine-tuning a specific task, while ours targets pre-training and conducts evaluations on diverse benchmarks.
+\textcolor{black}{
+There also exist some similarity-specialized multi-lingual models~\citep{litschko2021evaluating}, trained with parallel or labeled data supervision. LASER~\citep{artetxe2019massively} train a seq2seq model on large-scale parallel data and LaBSE~\citep{feng-etal-2022-language} encourage bilingual alignment via contrastive loss. m-USE~\citep{yang2019multilingual} is trained with mined QA pairs, translation pairs and SNLI corpus. Some others also utilize distillation~\citep{reimers-gurevych-2020-making, li2021learning}, adapter~\citep{pfeiffer2020mad,litschko2022parameter}, siamese learning~\citep{zhang2021bootstrapped}. Compared to them, MSM is unsupervised without any parallel data, which is more simple and effective~\citep{artetxe2020call}, and can also be continually trained with these bi-lingual tasks.
+}
+
+
+% Building positive pairs from a single document. Inverse Cloze Task sample a random sentence (pseudo query) and concatenate its context (pseudo evidence text). Cropped Spans sample sentence pairs from the same documents. The text marked in red and blue form a psudo positive pair.
+
+% With the advancements in PLM, it usually adopts pre-trained models like BERT~\citep{bert2019} as the text encoders. 
+
+\noindent{\bf Dense Retrieval. }
+\label{subsec:dr}
+Dense retrieval~\citep{DPR2020, lee-etal-2019-latent, qu-etal-2021-rocketqa, ance2020} (usually monolingual here) typically utilizes bi-encoder model to encode queries and passages into low-dimensional representations. 
+Recently there have been several directions explored in the pre-training tailored for dense retrieval: utilizing the hyperlinks between the Wikipedia pages~\citep{ma2021pre, zhou-etal-2022-hyperlink}, synthesizing query-passage datasets for pre-training~\citep{ouguz2021dprpaq, reddy2021towards}, and auto-encoder-based models that force the better representations~\citep{lu-etal-2021-less, ma2022pre}. 
+Among them, there is a popular direction that leverage the correlation of intra-document text pairs for the pre-training. \citet{lee-etal-2019-latent} and \citet{chang2020pre} propose Inverse Close Task (ICT) to treat a sentence as pseudo-query and the concatenated context as the pseudo-passage for contrastive pre-training. Another way is cropping two sentence spans (we call them CROP in short) from a document as positive pairs~\citep{giorgi-etal-2021-declutr, izacard2021towards}, including ~\citet{wu2022unsupervised, iter-etal-2020-pretraining} that use two sentences and ~\citet{gao2021cocondenser} that adopts two non-overlapping spans.
+The most relevant to ours are ICT and CROP, which generate two views of a document for contrastive learning. However, the correlation of the pseudo pair is coarse-granular and even not guaranteed. In contrast, ours utilizes a sequence of sentences in a document and models the universal sentence relation across languages via an explicit document encoder, resulting in better representation for cross-lingual retrieval.
+
+% In summary, the existing pre-training methods for IR usually construct pseudo query-passage pairs from the corpus link, synthesized data, or the same document. 
+
+% However, it still rely on hand-crafted rule of how to construct training pairs, and its generated pairs' quality can't be guaranteed and may lead much noise, so that self-supervision’s quality can be severely limited in reality
+
+% However, the correlation of generated pseudo pairs is coarse-granular and the models can only learn rough semantics like topic model~\citep{yan2013biterm}. In contrast, our method can learn more fine-grained information by modeling the sequential sentence relation across languages.
+
+
+
+\section{Methodology}
+
+% In this section, we first present the model architecture in a hierarchical style. Then, we introduce the masked sentence prediction pre-training task and training objective for our model.
+
+
+\subsection{Hierarchical Model Architecture}
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.9\linewidth]{pics/model.pdf}
+    \caption{The general framework of masked sentence model (MSM), which has a hierarchical model architecture including the sentence encoder and the document encoder. The masked sentence prediction task predicts the masked sentence vector $p_t$, given the original vector $h_t$ as the positive anchor, via a hierarchical contrastive loss. }
+    \label{fig:modelx}
+\end{figure*}
+
+% The original sentence vector $h_t$ is seen as the positive anchor for the output vector $p_t$ of document encoder corresponding to $[mask]$.
+
+% Our Masked Sentence Encoder (MSM) to learn this universal relation and facilitate the isomorphic sentence embeddings for cross-lingual retrieval.
+
+
+In this section, we first present the hierarchical model architecture. 
+As illustrated in Figure.\ref{fig:modelx}, our Masked Sentence Encoder (MSM) has a hierarchical architecture that contains the Sentence Encode and the Document Encoder. The document encoder is applied to the sentence vectors generated by the sentence encoder from a sequence of sentences in a document.
+
+\noindent{\bf Sentence Encoder. } Given a document containing a sequence of sentences ${\mathcal{D}} = (S_1,S_2,...,S_N)$ in which $S_i$ denote a sentence in document, and each sentence contains a list of words. As shown in \ref{fig:modelx}, the sentence encoder extracts the sentence representations for the sequence in a document, and the document encoder is to model the sentence relation and predict the masked sentences. First, we adopt a transformer-based encoder as our sentence encoder. Then as usual the sentence is passed through the embedding layer and transformer layers, and we take the last hidden state of the CLS token as the sentence representation. Note that all the sentence encoders share the parameters and we can get $N$ sentence vectors $\mathcal{D}_H = (h_1,h_2,...,h_N)$ respectively. In this task, we just encoder the complete sentences without the mask to get thorough sentence representations.
+
+\noindent{\bf Document Encoder. } Then the sentence-level vectors run through the document encoder, which has similar transformer-based architecture. Considering the sentences have sequential order in a document, the sentence position is also taken into account and it doesn't have token type embedding. After equipped with sentence position embeddings, we encode them through document encoder layers to get document-level context aware embeddings $\mathcal{D}_P = (p_1,p_2,...,p_N)$. 
+In order to train our model, we apply the sentence-level mask to the sentence vectors for our masked sentence prediction task. Specifically,  $\mathcal{D}_H = (h_1,h_2,...,h_N)$ are the original sentence vectors, and we mask selected sentence vector $h_t$ to $[mask]$ token and keep other the original ones. The original sentence vector $h_t$ is seen as the positive anchor for the output vector $p_t$ of document encoder corresponding to $[mask]$.
+Considering a document that contains $N$ sentences, we mask each sentence in turn and keep the others the original, to get $N$ pairs of $p_t$ and $h_t$. It is effective to get as many samples as possible at the same time for efficient training. 
+\textcolor{black}{Since the length of document encoder's input is not long (for the number of sentences in a document is not long) and our document encoder is also shallow, it makes our approach efficient without much computation.}
+
+% Then the output vector $p_t$ of document encoder corresponding to $[mask]$ is seen as the positive anchor for $h_t$.
+
+There are some models also adopting a hierarchical transformer-based model~\citep{santra-etal-2021-hierarchical}. For example, HiBERT~\citep{zhang-etal-2019-hibert} uses a multi-level transformers for document summarization, while it applies the mask to the words with a decoder for autoregressive pre-training. Poolingformer~\citep{zhang2021poolingformer} proposes a two-level pooling attention schema for long document but can't be applied for retrieval. They mainly adopt token-level MLM and targets document understanding, while ours focuses on masked sentence prediction and is directed at cross-lingual retrieval.
+
+\subsection {Masked Sentence Prediction Task} 
+\label{sec:prediction}
+% Inspired by the Masked Language Model (MLM) task which reconstructs the masked token from its context of the corrupted sentences
+
+% In order to train MSM, we adopt a sentence-level mask prediction task, which masks the selected sentence vector and predict it from the output of the document encoder.
+
+
+In order to model the sentence relation, we propose a masked sentence prediction task that aligns masked sentence vectors $p_t$ with corresponding original $h_t$ via the hierarchical contrastive loss. Distinct from Masked Language Model which can directly compute cross-entropy loss between masked tokens and pre-built vocabulary, our model lacks a sentence-level vocabulary. Here we propose a novel hierarchical contrastive loss on sentence vectors to address it. Contrastive learning has been shown effective in sentence representation learning~\citep{DPR2020, gao-etal-2021-simcse}, and our model modifies the typical InfoNCE loss~\citep{oord2018representation} to a hierarchical contrastive loss for the masked sentence prediction task. As shown in Figure.\ref{fig:modelx}, for masked sentence vectors $p_t$, the positive anchor is original $h_t$ and we collect two categories of negatives: (a) Cross-Doc Negatives are the sentence vectors from different documents, i.e. $h^{\mathcal{C}}_k$, which can be seen as random negatives as usual. (b) Intra-Doc Negatives are the sentence vectors in a same document generated by sentence encoder, i.e. $h^{\mathcal{I}}_j, j{\neq}t $. Then the masked sentence vectors $p_t$ with them are passed through the projection layer, and the output vectors are involved in the hierarchical contrastive loss as: 
+
+\begin{equation}
+\label{eq:loss}
+\begin{aligned}
+     & \mathcal{L}_{msm}(p_t, \{h^{\mathcal{I}}_t, h^{\mathcal{I}}_1, \ldots, h^{\mathcal{I}}_{|\mathcal{I}|}, h^{\mathcal{C}}_1, \ldots, h^{\mathcal{C}}_{|\mathcal{C}|}\}) 
+    \\ = & -\log \frac{e^{\operatorname{sim}\left(p_{t}, h^{\mathcal{I}}_t\right)}}{{e^{\operatorname{sim}\left(p_{t}, h^{\mathcal{I}}_t\right) - }+\sum_{j=1, j{\neq}t}^{|\mathcal{I}|} e^{\operatorname{sim}\left(p_{t}, h^{\mathcal{I}}_j\right) - \mu{\alpha}}}{+ \sum_{k=1}^{|\mathcal{C}|} e^{\operatorname{sim}\left(p_{t}, h^{\mathcal{C}}_k\right)}}}
+\end{aligned}
+\end{equation}
+
+% where $h^{\mathcal{I}}_j, j{\neq}t $ indicates the intra-doc negatives, and $h^{\mathcal{C}}_k$ indicates the cross-doc negatives.
+
+In the previous study~\citep{gao2021cocondenser}, two sampled views or sentences of the same document are often seen as a positive pair to leverage their correlation. However, it limits the representation capability for it encourages the alignment between two views, just as a coarse-grained topic model~\citep{yan2013biterm}. In contrast, we treat them as Intra-Doc Negatives, which could help the model to distinguish sentences from the same document to learn fine-grained representations. The intra-doc samples usually have closer semantic relation than cross-doc ones and directly treating them as negatives could hurt the uniformity of embedding space. To prevent this negative impact, we set the dynamic bias subtracted from their similarity scores. As seen in Eq.\ref{eq:loss}, the dynamic bias is $-{\mu}{\alpha}$ in which $\mu$ is a hyper-parameter and $\alpha$ is computed as:
+
+
+\begin{small} 
+\begin{equation}
+\label{eq:bias}
+\begin{aligned}
+     {\alpha} = & \left(\frac{\sum_{j=1, j{\neq}t}^{|\mathcal{I}|} \operatorname{sim}\left(p_{t}, h^{\mathcal{I}}_j\right)} {|\mathcal{I}| - 1} 
+     - \frac{\sum_{k=1}^{|\mathcal{C}|} \operatorname{sim}\left(p_{t}, h^{\mathcal{C}}_k\right)}{|\mathcal{C}|} \right).detach()
+\end{aligned}
+\end{equation}
+\end{small}
+
+
+\noindent It represents the gap between the average similarity score of Intra-Doc Negatives and them from Cross-Doc Negatives. Subtracting the dynamic bias can tune the high similarity of intra-doc negatives to the level of cross-doc negatives, which can also be seen as interpolation to generate soft samples. Note that we only use the value but do not pass the gradient, so we adopt the detach function after computation. Our experimental result in Sec.\ref{sec:analysis} validates that the hierarchical contrastive loss is beneficial for representation learning in our model.
+
+
+% We provide more mathematical details in Appendix.\ref{ap:math} and our experimental result in Sec.\ref{sec:analysis} validate the hierarchical contrastive loss is beneficial.
+
+
+% 把同一个document的当做正例，判定同一topic，退化成topic-model，粗粒度的句子关系。
+% 同一个document的句子，会产生相同embedding
+% 但是他们相似度仅次于原始句子，INFONCE会把他们train到一起，所以需要一些分层的设计
+
+
+Considering the expensive cost of pre-training from scratch, we initialize the sentence encoder with pre-trained XLM-R weight and solely the document encoder from scratch. 
+To prevent gradient back propagated from the randomly initialized document encoder from damaging sentence encoder weight, we adopt MLM task to impose a semantic constraint. Therefore our total loss consists of a token-level MLM loss and a sentence-level contrastive loss:
+
+
+\begin{equation}
+\label{eq:all}
+\begin{aligned}
+     & \mathcal{L} = \mathcal{L}_{msm} + \mathcal{L}_{mlm}
+\end{aligned}
+\end{equation}
+
+% where the MLM is applied on the sentence encoder in a multi-task schema. 
+% which provides a fair comparison to the original pre-trained model. 
+
+After pre-training, we discard the document encoder and leave the sentence encoder for fine-tuning. \textcolor{black}{
+In fact, the document encoder in our MSM plays as a bottleneck~\citep{li-etal-2020-optimus}: the sentence encoder press the sentence semantics into sentence vectors, and the document encoder leverage the limited information to predict the masked sentence vector, thus enforcing an information bottleneck on the sentence encoder for better representations. It also coincides with the recent works utilizing similar bottleneck theory for better text encoders~\citep{lu-etal-2021-less, liu2022retromae}. By the way, the sentence encoder has the same architecture as XLMR, which ensures a fair comparison. 
+}
+
+% As we have stated in Sec.\ref{subsec:dr}, there are several methods generating two mutually exclusive views of a document for contrastive pre-training, including ICT~\citep{lee-etal-2019-latent} and CROP~\citep{gao2021cocondenser}. 
+% Compared to them, ours is a more general way to utilize sequential relations and can learn shared sentence relations across languages.
+
+% In addition, there are some explorers utilizing auto-encoders bottleneck to pre-train a better encoder for dense retrieval. Our MSM also coincides with its idea to some extent: the sentence encoder press the sentence semantics into CLS and the document encoder leverage the limited information to reconstruct the masked sentence vector. 
+
+
+
+\input{sections/experiment.tex}
+
+
+\section{Conclusion}
+In this paper, we propose a novel masked sentence model which leverages sequential sentence relation for pre-training to improve cross-lingual retrieval. It contains a two-level encoder in which the document encoder applied to the sentence vectors generated by the sentence encoder from a sequence of sentences. Then we propose a masked sentence prediction task to train the model, which masks and predicts the selected sentence vector via a hierarchical contrastive loss with sampled negatives. Through comprehensive experiments on 4 cross-lingual retrieval benchmark datasets, we demonstrate that MSM significantly outperforms existing advanced pre-training methods. Our further analysis and detailed ablation study clearly show the effectiveness and stronger cross-lingual retrieval capabilities of our approach. Code and model will be made publicly available.
+
+% Starting from an observation that sequential sentence relation are universal across languages, we propose a multilingual PLM leveraging it to improve cross-lingual retrieval, called masked sentence model (MSM). It consists of a sentence encoder to generate the sentence representations, and a document encoder applied to a sequence of sentence vectors from a document. The document encoder is shared for all languages to model the universal sequential sentence relation across languages. To predict the masked sentence in MSM task, we propose a hierarchical contrastive loss with sampled negatives. Comprehensive experiments on four cross-lingual retrieval tasks show MSM significantly outperforms existing advanced pre-training models, demonstrating the effectiveness and stronger cross-lingual retrieval capabilities of our approach.
+
+% \subsubsection*{Acknowledgments}
+% Use unnumbered third level headings for the acknowledgments. All
+% acknowledgments, including those to funding agencies, go at the end of the paper.
+
+% \bibliography{iclr2023_conference, anthology}
+\bibliography{iclr2023_conference}
+\bibliographystyle{iclr2023_conference}
+
+\appendix
+
+\input{sections/appendix.tex}
+
+\end{document}

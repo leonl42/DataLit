@@ -1,0 +1,77 @@
+\section{Convergence Analysis}
+\label{sec:theory}
+In this section, we provide the convergence guarantee for %Algorithm~\ref{algo:basic01} under arbitrary freezing policy and 
+{\myalgo} (Algorithm~\ref{algo:localstep01}) under arbitrary freezing policy $\mathcal{T}_{\*v}$ and local steps policy $\mathcal{T}_{\*u}$. In the main paper, we provides the convergence rate in the general case. However, different $\mathcal{T}_{\*v}$ or $\mathcal{T}_{\*u}$ gives us the opportunity to obtain tighter bounds. We leave these discussion in the appendix.
+We start by making the following assumptions.
+
+\begin{assumption}
+\label{assum:smooth}
+\textbf{Lipschitzian gradient:} $f(\cdot)$ is assumed to be  with $L$-Lipschitzian gradients, which means $\quad \|\nabla f(\*{x}) - \nabla f(\*{y}) \| \leq L \|\*{x} - \*{y} \|, \forall \*{x},\forall \*{y}$.
+\end{assumption}
+
+\begin{assumption}
+\label{assume:variance}
+\textbf{Bounded variance:}
+The stochastic gradient computed on each worker is unbiased and has bounded variance:$\mathbb E_{\zeta\sim\mathcal{D}}\|\nabla f(\*{x};\zeta) - \nabla f(\*{x})\|^2 \leq \sigma^2,\quad\forall \*{x}$.
+\end{assumption}
+
+\begin{assumption}
+\label{assume:g_bound}
+\textbf{Bounded gradient:}
+    The infinity norm of stochastic gradient is bounded by a constant $G_\infty>0$ such that $\left\| \*g_t\right\|_\infty \leq G_\infty, \forall t$.
+\end{assumption}
+
+\begin{assumption}
+\label{assume:local:compression}
+\textbf{Compression error in Algorithm~\ref{algo:localstep01}:} For arbitrary $\*x\in\mathbb{R}^d$, there exists a constant $\Delta$, such that the output of compressor $\mathcal{C}[\cdot]$ has the following error bound: $\mathbb{E}\left\| \mathcal{C}[\*x] - \*x \right\|^2 \leq \Delta^2$.
+\end{assumption}
+
+\begin{assumption}
+\label{assume:localstep_bound}
+Given ordered set $\mathcal{T}_{\*u}$, denote $t_j$ as the $j$-th element in $\mathcal{T}_{\*u}$, we assume there exists a constant $H\geq 0$, it holds that $\max_{1\leq j<|\mathcal{T}_{\*u}|}(t_{j+1} - t_j)\leq H$.
+\end{assumption}
+
+\textbf{Remarks on the assumptions.}
+Assumption~\ref{assum:smooth}, \ref{assume:variance} and \ref{assume:g_bound} are standard in the domain of non-convex optimization.
+% and Assumption~\ref{assume:compression} is also commonly used in compression-based optimization \citep{alistarh2017qsgd}. 
+Comparing with the 1-bit Adam paper \citep{tang20211}, we do not explicitly assume the uniform lower bound on the variance coordinate, i.e., $\*e_j^\top\*v>v_{\min}>0, \forall j$ for some constant $v_{\min}$. Instead we assume an infinity-norm bound on the gradient as in Assumption~\ref{assume:g_bound} which is more realistic. Assumption~\ref{assume:local:compression} is also assumed in \citep{tang20211}, in the appendix we discuss the variant of {\myalgo} that converges with weaker condition on the $\mathcal{C}$.
+
+% We first give the convergence theorem for Algorithm~\ref{algo:basic01} as follows:
+% \begin{theorem}
+% \label{thm:basic01}
+% Under Assumption~\ref{assum:smooth} to \ref{assume:g_bound}, let $m=|\mathcal{T}_{\*v}|$, 
+% if we run Algorithm~\ref{algo:basic01} with a constant learning rate: for all $t\geq 0$
+% \begin{align*}
+%     \gamma_t = \left(\sigma\sqrt{\frac{T}{n}} + \frac{\beta_2^m}{2V_1L\sqrt{G_\infty^2+\epsilon}} + \frac{1}{125} \right)^{-1},
+% \end{align*}
+% then it holds that
+% \begin{align*}
+%     \frac{1}{T}\sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\*x_t)\|^2 \leq O\left( \frac{\beta_2^{-\frac{m}{2}}}{\sqrt{nT}} + \frac{(m+n)\beta_2^{-m}}{(1-\omega)^4T} +\frac{1}{T}\right),
+% \end{align*}
+% where we omit $f(\*0)-\inf_{\*x\in\mathbb{R}^d}f(\*x)$,  $G_\infty$, $d$, $\epsilon$, $\sigma$, $\beta_1$ and $L$ as constants.
+% \end{theorem}
+
+% As will be showing in Section~\ref{sec:experiment}, in practice we usually set $m\ll T$, and considering that $\beta_2$ is close to 1 (e.g. its default value is 0.999), $m$ and $\beta_2^{-m}$ scales as constants compared to $T$. Therefore, the complexity bound suggests that Algorithm~\ref{algo:basic01} achieves the linear speed up, at rate $O\left(1/\sqrt{nT}\right)$, with respect to $n$ and $T$.
+% In the literature, previous works like \citet{zaheer2018adaptive,defossez2020simple} indicate the original Adam would converge to a noise ball under constant learning rate. By comparison, Theorem~\ref{thm:basic01} guarantees Algorithm~\ref{algo:basic01} converges to a stationary point with arbitrary precision.
+
+% To prove the convergence for Algorithm~\ref{algo:localstep01}, we drop Assumption~\ref{assume:compression} and instead adopt the following slightly stronger assumption.
+
+% While this assumption may be strong for all step $t$, in practice (as will be shown in Section~\ref{sec:experiment}) we generally apply and increase the local steps in later part of the training, where the magnitude of momentum or model difference becomes stable. Note that this is also the assumption adopted by
+% \citep{tang20211,tang2019doublesqueeze}.
+The convergence for Algorithm~\ref{algo:localstep01} is then given in the follow theorem.
+\begin{restatable}{thm}{thmzerooneadam}
+\label{thm:local01}
+Under Assumption~\ref{assum:smooth} to \ref{assume:localstep_bound}, let $m=|\mathcal{T}_{\*v}|$, select $\beta_1,\beta_2\in[0,1)$ that fulfills $m\leq \log(1-\beta_1)/\log(\beta_2)$,
+if we run Algorithm~\ref{algo:localstep01} with a constant learning rate: for all $t\geq 0$
+\begin{align*}
+    \gamma_t = \min\left\{ \sqrt{\frac{n}{\sigma^2T}}, \frac{1}{4L\sqrt{G_\infty^2+\epsilon}},  \frac{2\sqrt{G_\infty^2+\epsilon}}{L},  \frac{1}{6} \right\},
+\end{align*}
+then it holds that
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1} & \mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2 \leq O\left( \frac{\sigma}{\sqrt{nT}} + \frac{H^2\Delta^2(m+n)}{T} +\frac{1}{T}\right),
+\end{align*}
+where $\tilde{\*x}_t=1/n\sum_{i=1}^{n}{\*x}_t^{(i)}$ and we omit $f(\*0)-\inf_{\*x\in\mathbb{R}^d}f(\*x)$, $G_\infty$, $d$, $\epsilon$, $\beta_1$, $\beta_2$ and $L$ as constants.
+\end{restatable}
+
+Theorem~\ref{thm:local01} shows that {\myalgo} Algorithm~\ref{algo:localstep01} essentially admits
+the same convergence rate as distributed SGD in the sense that it achieves linear speed up, at rate $1/O(\sqrt{nT})$. The effect of compression ($\Delta$) and local steps ($H$) only appears on a non-dominating term.

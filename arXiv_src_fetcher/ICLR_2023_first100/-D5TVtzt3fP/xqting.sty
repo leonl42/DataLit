@@ -1,0 +1,52 @@
+\ProvidesPackage{xqting}
+
+\newif\ifxqt@option
+\newif\ifxqt@primary
+\DeclareOption{primary}{\xqt@primarytrue\xqt@optiontrue}
+\DeclareOption{secondary}{\xqt@primaryfalse\xqt@optiontrue}
+
+\ProcessOptions\relax
+
+\RequirePackage{environ}
+
+\ifxqt@option\else
+  \PackageError{xqting}{Missing Option}
+    {You must provide either `primary' or `secondary'.\MessageBreak
+     Fix the call and rerun LaTeX}
+  \@@end
+\fi
+
+\ifxqt@primary
+  \newwrite\xqt@notes
+  \immediate\openout\xqt@notes=\jobname.nts
+\else
+  \AtBeginDocument{
+    \ifdefined\xqt@original\else
+      \PackageError{xqting}
+        {Missing original file}
+        {You have to state `\string\original{...}' in the preamble}
+    \fi
+  }
+\fi
+
+%%% Commands for the primary source
+\newcommand{\Store}[2]{%
+  \immediate\write\xqt@notes{\noexpand\Note{#1}{\unexpanded{#2}}}%
+  #2}
+
+\NewEnviron{LongStore}[1]{%
+  \immediate\write\xqt@notes{\noexpand\Note{#1}{\unexpanded\expandafter{\BODY}}}%
+  \BODY}
+
+%%% Commands for the secondary source
+\newcommand{\originalfile}[1]{%
+  \InputIfFileExists{#1.nts}
+    {\let\xqt@original=T}
+    {\PackageWarning{xqting}{Missing file #1.nts}}%
+}
+\@onlypreamble\originalfile
+
+\newcommand{\Note}[2]{\@namedef{Note@#1}{#2}}
+\newcommand{\Print}[1]{\@ifundefined{Note@#1}{MISSING (\texttt{#1})}{\@nameuse{Note@#1}}}
+
+\endinput

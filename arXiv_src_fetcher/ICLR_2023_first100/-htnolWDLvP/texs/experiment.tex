@@ -1,0 +1,435 @@
+% \vspace*{-2mm}
+
+\section{Experiments}
+\label{sec: exp}
+% \vspace*{-1mm}
+
+
+% In this section, we present our experiment results on how model sparsity simplifies {\MU}, \textit{i.e.}, reducing the performance gap  between approximate unlearning and   {\retrain}.
+%across different data-model setups,   unlearning scenarios, and evaluation metrics.
+
+%In this section, we begin by introducing some essential experiment setups, and then empirically show the relationship between sparsity and MU across multiple datasets, various model architectures, diverse machine unlearning methods, and different MU settings. Compared to the `prune first, then unlearn' paradigm, we find that sparsity-aware MU can further boost the benefits of sparsity. Finally, we extend our methods to trojan model cleanse application to demonstrate the effectiveness of our methods further.  
+%\SL{[A short paragraph to summarize the experiment section]} 
+
+
+\subsection{Experiment setups}
+\label{sec: exp_setup}
+%\vspace*{-1mm}
+
+\noindent \textbf{Datasets and models.}
+Unless specified otherwise, our experiments will focus  on image classification under 
+ CIFAR-10 \cite{krizhevsky2009learning}  using ResNet-18 \cite{he2016deep}. Yet,  
+ experiments  on 
+  additional datasets (CIFAR-100 \cite{krizhevsky2009learning}, SVHN \cite{netzer2011reading}, and ImageNet \cite{deng2009imagenet}) and an  alternative model architecture (VGG-16 \cite{simonyan2014very}) can  be found in Appendix\,\ref{appendix: additional results}.
+  Across all the aforementioned datasets and model architectures, our experiments consistently show that model sparsification can effectively reduce the gap between approximate unlearning and exact unlearning. 
+  %-\ref{appendix: additional results}
+ 
+ % Additional datasets, such as CIFAR-100 \cite{krizhevsky2009learning}, SVHN \cite{netzer2011reading}, and ImageNet \cite{deng2009imagenet} will be  presented in the Appendix\,\ref{appendix: additional results}.  
+ 
+ % Moreover, Appendix\,\ref{appendix: additional results} showcases the results of an alternative model architecture, namely VGG-16 \cite{simonyan2014very}, on CIFAR-10 alongside ResNet-18. 
+% We will consider imagery    {datasets}     including CIFAR-10 \cite{krizhevsky2009learning}, CIFAR-100 \cite{krizhevsky2009learning}, SVHN \cite{netzer2011reading}, and ImageNet \cite{deng2009imagenet}. ResNet-18 \cite{he2016deep} or VGG-16 \cite{simonyan2014very} will give the corresponding image classifier.
+% We default use CIFAR-10 as the dataset and ResNet-18 as the model architecture. 
+%the image classification model by default is   ResNet-18 \cite{he2016deep}. Yet, VGG-16 \cite{simonyan2014very} will also be used for evaluating unlearning performance across   architectures. 
+
+
+% Following previous work in machine unlearning and pruning, we consider four datasets, including CIFAR-10 \cite{krizhevsky2009learning}, CIFAR-100 \cite{krizhevsky2009learning}, SVHN \cite{netzer2011reading} and Tiny-ImageNet \cite{le2015tiny}, and two architecture types including ResNet-18 \cite{he2016deep} and VGG-16 \cite{simonyan2014very}. More datasets, model configurations, and setups are summarized in Table \ref{}. 
+
+%\paragraph{{\MU} baselines and implementations.}
+
+
+\noindent \textbf{Unlearning and pruning setups.}
+% \SL{[Focus on implementation details of training methods in both 'prune first, then unlearn', and `sparsity-aware unlearning'. In the first category, you need to mention all implementation details of unlearning methods, and pruning methods. In the second category, you need to specify {\MUSparse} and {\MUAO}, etc.
+% }
+ %In our experiments, 
+ We   focus on two unlearning scenarios mentioned in Sec.\,\ref{sec: primer_MU}, \textit{class-wise forgetting} and \textit{random data forgetting} ({$10\%$ of the whole training dataset} {together with 10 random trials}). 
+ %Unless specified otherwise,  the class-wise forgetting will be the default setting.
+ %that randomly removes a subset of data points from a single class. By default,  we will focus on the class-wise forgetting scenario. 
+In the `\textit{prune first, then unlearn}' paradigm, we   focus on unlearning methods ({\FT}, {\GA}, {\FF},  and {\IU}) shown in Tab.\,\ref{tab: summary_MU_methods_metrics}
+when applying to sparse models.
+%including  fine-tuning (\FT),  gradient ascent (\GA),  Fisher forgetting (\FF), and   influence unlearning (\IU). 
+We  implement these methods following their official repositories. However, it is worth noting that  the  implementation of {\FF} in \citet{golatkar2020eternal}
+modifies the model architecture in class-wise forgetting, \textit{i.e.}, removes the  prediction head  of the class to be scrubbed. 
+%As a result, it does not allow for unlearning random data points. 
+By contrast, other   methods   keep the model architecture  intact during unlearning. 
+Also, we choose {OMP} as the  default pruning method, 
+as justified in Fig.\,\ref{fig: results_pruning_comparison}.
+\iffalse 
+If we relax such a condition for {\FF},  then the  unlearning performance would significantly degrade. Thus, even if it may lack fairness to compare  other methods with {\FF}, we cover the latter in class-wise forgetting for completeness. 
+%Towards a fair comparison, we implement {\FF}  without modifying the model architecture. 
+\fi
+\iffalse
+In the `\textit{sparsity-aware unlearning}' paradigm,  the sparsity-promoting regularization parameter $\gamma$  in   \eqref{eq: MUSparse} is set to   $\gamma = 5\times10^{-5}$ if it is given by a constant. This is found by a line search over $[10^{-5}, 10^{-1}]$ across   tradeoffs between testing accuracy and unlearning accuracy. 
+\SL{We implement the linearly decaying scheduler by $\gamma_t = (1 - \frac{t}{T})\gamma$, where $t$ is the epoch index, and $T$ is the total number of  epochs. The linearly incr1easing scheduler is similarly given by $\gamma_t = \frac{t}{T} \gamma$ in Tab.\,\ref{tab: ablation_l1_scheduler}.}
+\fi
+\iffalse
+\JH{In the `\textit{sparsity-aware unlearning}' paradigm,  the sparsity-promoting regularization parameter $\gamma$  in   \eqref{eq: MUSparse} is set to   $\gamma = 5\times10^{-5}$ if it is given by a constant, $\gamma=9\times10^{-5}$ for linear decaying scheduler, and $\gamma=1\times10^{-4}$ for linear increasing scheduler. They are found by a line search over $[10^{-5}, 10^{-1}]$ across  trade-offs between testing accuracy and unlearning accuracy. 
+We implement the linearly decaying scheduler by $\gamma_t = (1 - \frac{t}{T})\gamma$, where $t$ is the epoch index, and $T$ is the total number of  epochs. The linearly increasing scheduler is similarly given by $\gamma_t = \frac{t}{T} \gamma$ in Tab.\,\ref{tab: ablation_l1_scheduler}.}
+\JC{Need update @Jinghan}
+\fi
+In the `\textit{sparsity-aware unlearning}' paradigm, the sparsity-promoting regularization parameter $\gamma$ in \eqref{eq: MUSparse} is determined through the line search in the interval $[10^{-5}, 10^{-1}]$, with consideration for the trade-off between testing accuracy and unlearning accuracy. For all schedulers, $\gamma$ is set around to $5 \times 10^{-4}$. The linearly increasing and decaying schedulers are implemented as $\gamma_t = \frac{2t}{T} \gamma$ and $\gamma_t = (2 - \frac{2t}{T})\gamma$ respectively, where $t$ is the epoch index and $T$ is the total number of epochs. 
+%as specified in Tab.\,\ref{tab: ablation_l1_scheduler}.
+%}
+% \JH{We employ a linear decay scheduler for $\gamma$, implemented as a function of epoch, denoted as $\gamma_t = (1 - \frac{t}{E})\gamma$. In this equation, $t$ represents the current epoch, $E$ stands for the total number of unlearning epochs, and $\gamma$ is the initial value.} \JC{@Jinghan add some description on scheduled parameters.}%Further, we implement {\MUAO} by choosing the pruning ratio $p\% = 20\%$ per iteration.
+We refer readers to Appendix\,\ref{appendix: training and unlearning settings} for more details. 
+%\JC{[Add further details to appendix]}
+
+%following its recent benchmark in  \cite{ma2021sanity}. 
+
+%As we have shown in Fig.\,\ref{fig: results_pruning_comparison}, OMP outperforms SynFlow \cite{tanaka2020pruning} in  generalization when the sparsity  increases.
+
+%(\textit{e.g.},  $95\%$ sparsity in Fig.\,\ref{fig: results_pruning_comparison} \SL{[xxx]}). Meanwhile, OMP is more effective than IMP for {\MU} due to its  computation efficiency and less dependence on the training dataset. 
+
+
+\iffalse 
+In the `prune first, then unlearn' paradigm, we mainly focus on 3 SOTA pruning methods, \ding{172} SynFlow \cite{tanaka2020pruning}, \ding{173} OMP \cite{frankle2018lottery}, and \ding{174} IMP \cite{frankle2018lottery}, which follows the recent IMP benchmark's  \cite{ma2021sanity} setting. We chose four commonly used machine unlearning methods mentioned in section \ref{sec: primer_MU},  \ding{172} Fine-tuning (\FT), \ding{173} Gradient ascent (\GA), \ding{174} Fisher Forgetting (\FF), and \ding{175}  Influence Unlearning (\IU). We remark that {\FF} manually changes the last layer when forgetting the whole class. In other unlearning methods, we do not change the model architecture. For a fair comparison, we only conduct {\FF} on the CIFAR-10 dataset. Further experiments on {\FF} are listed in Appendix\ref{}. We choose OMP as our default pruning setting in the `prune first, then unlearn' experiment results and will focus on forgetting one class scenario. To make a fair comparison, we tune the hyperparameters carefully for {\IU} method at different sparsity levels. As for the `Sparsity-aware unlearning', we choose {\GA} and {\FT} these two methods to integrate with these proposed unlearning methods. We refer readers to Table \ref{} for more training and unlearning details, such as hyperparameters for unlearning methods and training epochs.
+\fi 
+
+\noindent \textbf{Evaluation metrics.}
+We evaluate the unlearning performance following Tab.\,\ref{tab: summary_MU_methods_metrics}. 
+Recall that {\UA}   and {\MIAF}   depict the \textit{efficacy} of {\MU}, {\RA}  reflects the \textit{fidelity} of {\MU}, and {\TA}   and {\RTE}  characterize the \textit{generalization ability} and the \textit{computation efficiency} of  an unlearning method. 
+%It is worth noting that in the class-wise forgetting scenario, the class to be scrubbed will   be excluded in the testing dataset when evaluating {\TA} (testing accuracy). 
+We implement MIA (membership inference attack) using the prediction confidence-based attack method \cite{song2019privacy,yeom2018privacy}, whose effectiveness has been justified in \citet{song2020systematic} compared to other   methods. We refer readers to Appendix\,\ref{appendix: metric settings} for more implementation details. {To more precisely gauge the proximity of each approximate {\MU} to {\retrain}, we introduce a metric termed `Disparity Average'. This metric quantifies the mean performance gap between each unlearning method and {\retrain} across all considered metrics. A lower value indicates closer performance to {\retrain}.}
+%\SL{[variance, class-wise forgetting variance]}
+
+
+% We remarked that test accuracy (\TA) is evaluated on the remaining classes in the test dataset in the unlearning one-class scenario. 
+
+% As for MIA methods, we fulfill inference attacks based on prediction confidence \cite{song2019privacy,yeom2018privacy}, which effectiveness is demonstrated in the paper \cite{song2020systematic} compared to other MIA methods. T
+% able \ref{} lists more details about our evaluation settings.  
+% \SL{[you can refer to Table\,\ref{tab: summary_MU_methods_metrics} for unlearning baselines and metrics but include additional details. e.g. what is the specific MIA method used and why?]}
+
+
+\subsection{Experiment results}
+\label{sec: experiment_results}
+\input{texs/tabs/overall_performance}
+\input{texs/results_SLiu}
+
+
+
+% \paragraph{Overall performance: Sparsity reduces the gap between exact unlearning and approximate unlearning.}
+% We look at the relationship between machine learning and sparsity in what follows. There is \textit{one key observation} drawn from our overall results: Sparsity can reduce the gap between exact unlearning and approximate unlearning across all datasets and machine unlearning methods (as shown in \textbf{Table\,\ref{tab: overall_perfoamnce})}. Table\,\ref{tab: overall_perfoamnce} shows different evaluation metrics of different unlearning methods at different sparsity levels across different datasets. For comparison, we also present the performance of exact unlearning methods Retrain. As we can see, the gap between imperfect unlearning and perfect unlearning is decreasing with sparsity growing, especially in {\UA} and {\MIAF} these two metrics. For example, the gap between {\FT} and Retrain of $95\%$ sparsity model drops $51.11\%$  compared to the dense model in  the {\UA} on the CIFAR-10 dataset. This phenomenon is also justified on different datasets shown in Table\,\ref{tab: overall_perfoamnce}. Although sparsity can reduce the gap between exact unlearning and approximate unlearning, the improvement is different in the diverse machine unlearning methods. From Table\,\ref{tab: overall_perfoamnce}, {\FT} will benefit from sparsity most, where {\MIAF} reduced $13\%$-$20\%$ across all datasets.  
+% Besides, we also can observe in most cases that {\IU} outperforms other unlearning methods at different sparsity levels, which is the most competitive method in different evaluation metrics. However, this method needs to be tuned carefully to choose suitable hyperparameters.
+% \begin{table*}[h]
+% \centering
+% \caption{\footnotesize{Performance overview of MU VS. Sparsity. ResNet-18 \cite{he2016deep} are used across different datasets. All sparse models are obtained from OMP  \cite{frankle2018lottery}. We carefully tune the hyperparameters for all machine unlearning methods to report the model which can achieve the best unlearning performance at different sparsity ratios. The results $a_{\pm{b}}$ represent mean $a$ and standard deviation $b$ over $10$ random trials. We also reported the performance gap between Retrain and other approximate unlearning.The relative drop or improvement represented by $a$\textcolor{red}{$\LARGE\downarrow$} or $a$\textcolor{green}{$\LARGE\uparrow$}.}}
+% \label{tab: overall_perfoamnce}
+% \vspace*{0.1in} % Requirements, do not delete.
+% \resizebox{0.95\textwidth}{!}{
+% \begin{tabular}{c|ccc|ccc|ccc|ccc|c}
+% \toprule[1pt]
+% \midrule
+%   \multirow{2}{*}{\MU}& \multicolumn{3}{c|}{{\UA}} & \multicolumn{3}{c|}{{\MIAF}}& \multicolumn{3}{c|}{{\RA}} & \multicolumn{3}{c|}{{\TA}}&\multirow{2}{*}{\RTE}  \\ 
+%   & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%     & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%     & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%       & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%   \\
+% % \cline{3-10}
+
+% \midrule
+% \rowcolor{Gray}
+% \multicolumn{14}{c}{\Large Cifar10} \\
+% \midrule
+% \retrain &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+% &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+% &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $99.99_{\pm{0.01}}$
+% &$94.83_{\pm{0.11}}$   &  $94.71_{\pm{0.13}}$ & $91.80_{\pm{0.89}}$
+%  &\\
+%   \FT &$22.53_{\pm{8.16}}$ (77)&$28.00_{\pm{9.46}}$  (\textcolor{green}{\ding{116}}72)&$73.64_{\pm{6.44}}$ (\textcolor{green}{\ding{116}}26)&$75.00_{\pm{14.68}}$ (\textcolor{green}{\ding{116}}25)& $83.02_{\pm{16.33}}$ (\textcolor{green}{\ding{116}}16) &$96.92_{\pm{1.27}} $ (\textcolor{green}{\ding{116}}3)
+%   &$99.87_{\pm{0.04}}$ (\textcolor{green}{\ding{116}}0.13)&\cellcolor{LightCyan} $99.92_{\pm{0.04}}$ (\textcolor{green}{\ding{116}}0.08) & $99.87_{\pm{0.05}}$ (\textcolor{green}{\ding{116}}0.12)&$94.31_{\pm{0.19}}$ (\textcolor{green}{\ding{116}}0.52)
+  
+%     &\cellcolor{LightCyan}$94.70_{\pm{0.08}}$ (\textcolor{green}{\ding{116}}0.01)
+
+%  &$94.32_{\pm{0.12}}$ (\textcolor{green}{\ding{115}}2.52)
+% &   
+  
+  
+  
+%   \\
+%  \GA &$93.08_{\pm{0.29}}$ (6.92) & $93.55_{\pm{0.31}}$ (\textcolor{green}{\ding{116}}6.45)  &$98.09_{\pm{0.11}}$ (\textcolor{green}{\ding{116}}1.91)
+% & $93.08_{\pm{0.31}}$ (\textcolor{green}{\ding{116}}6.92)& $94.03_{\pm{0.27}}$ (\textcolor{green}{\ding{116}}5.97)& $94.67_{\pm{0.25}}$ (\textcolor{green}{\ding{116}}5.33)
+% & $92.60_{\pm{0.25}}$ (7\textcolor{red}{$\LARGE\downarrow$})& $92.90_{\pm{0.25}}$ (7\textcolor{red}{$\LARGE\downarrow$})& $87.74_{\pm{0.27}}$ (11\textcolor{red}{$\LARGE\downarrow$}) 
+% & $86.64_{\pm{0.28}}$ (8\textcolor{red}{$\LARGE\downarrow$})& $84.07_{\pm{0.25}}$ (10\textcolor{red}{$\LARGE\downarrow$})& $82.58_{\pm{0.27}}$ (9\textcolor{red}{$\LARGE\downarrow$}) 
+% &   
+%  \\
+%   $\FF$  & $79.93_{\pm{8.92}}$ (20\textcolor{red}{$\LARGE\downarrow$})& $87.66{\pm{7.03}}$ (13\textcolor{red}{$\LARGE\downarrow$})& $94.83_{\pm{4.29}}$ (5\textcolor{red}{$\LARGE\downarrow$}) 
+%   & $100.00_{\pm{0.00}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $100.00_{\pm{0.00}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $100.00_{\pm{0.00}}$ (0\textcolor{red}{$\LARGE\downarrow$}) 
+%     & $99.45_{\pm{0.24}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $99.55_{\pm{0.19}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $99.48_{\pm{0.23}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%         & $94.18_{\pm{0.08}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $94.47_{\pm{0.15}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $94.04_{\pm{0.10}}$ (2\textcolor{green}{$\LARGE\uparrow$})& 
+%   \\
+%  \IU 
+%   &$87.82_{\pm{2.15}} $ (12\textcolor{red}{$\LARGE\downarrow$})&$98.63_{\pm{0.22}}$  (1\textcolor{red}{$\LARGE\downarrow$})& \cellcolor{LightCyan}$99.47_{\pm{0.15}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%  & $95.96_{\pm0.21}$ (4\textcolor{red}{$\LARGE\downarrow$})
+%  &$99.82_{\pm{0.13}}$ (0\textcolor{red}{$\LARGE\downarrow$}) &\cellcolor{LightCyan}$99.93_{\pm{0.04}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%  &$97.98_{\pm{0.21}}$ (2\textcolor{red}{$\LARGE\downarrow$}) &$94.50_{\pm{0.19}}$ (5\textcolor{red}{$\LARGE\downarrow$})
+%  &$97.24_{\pm{0.13}}$ (2\textcolor{red}{$\LARGE\downarrow$}) 
+%  &$91.42_{\pm{0.21}}$ (3\textcolor{red}{$\LARGE\downarrow$})&$88.04_{\pm{0.22}}$ (6\textcolor{red}{$\LARGE\downarrow$})&$90.76_{\pm{0.18}}$ (1\textcolor{red}{$\LARGE\downarrow$}) &
+%  \\
+% %  \FTSparse &$100.00_{\pm{0.00}}$  &$100.00_{\pm{0.00}}$  & $91.49_{\pm{1.21}}$&$87.17_{\pm1.31}$
+% %   &$100.00_{\pm{0.00}}$  &$100.00_{\pm{0.00}}$  & $91.69_{\pm{1.57}}$&$87.30_{\pm1.39}$
+% %   &$100.00_{\pm{0.00}}$  &$100.00_{\pm{0.00}}$  & $95.74_{\pm{0.54}}$&$88.97_{\pm1.00}$
+% % \\
+% % \FTAO  
+% %   & -&-  & -&-
+% % & $43.82_{\pm{11.68}}$& $98.64_{\pm{0.71}}$ & $99.96_{\pm{0.03}}$&$94.79_{\pm0.07}$
+% %   &$99.80_{\pm{0.19}}$  &$100.00_{\pm{0.00}}$ & $99.86_{\pm{0.05}}$&$94.55_{\pm0.11}$
+% % \\
+% \midrule
+% \rowcolor{Gray}
+% \multicolumn{14}{c}{\Large Cifar100} \\
+% \midrule
+%  \retrain &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+%   &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$
+%    &$99.97_{\pm{0.01}}$  &  $99.96_{\pm{0.01}}$ & $96.68_{\pm{0.15}}$
+%    &$73.74_{\pm{0.19}}$  &  $73.23_{\pm{0.17}}$ & $69.49_{\pm{0.41}}$ 
+% & 
+%  \\
+%  \FT &$14.80_{\pm{6.29}}$  &  $17.20_{\pm{5.50}}$ & $42.22_{\pm{5.06}}$
+%   &$69.82_{\pm{5.93}}$  &  $72.40_{\pm{9.98}}$ & $84.40_{\pm{4.32}}$
+%    &$99.86_{\pm{0.04}}$  &  $99.87_{\pm{0.05}}$ & $97.72_{\pm{0.47}}$
+%    &$72.16_{\pm{0.22}}$  &  $72.28_{\pm{0.13}}$ & $70.44_{\pm{0.11}}$
+%  \\
+%  \GA  &$81.47_{\pm{0.32}}$ &$87.38_{\pm{0.41}}$ & $99.01_{\pm{0.01}}$
+%  & $93.47_{\pm{4.56}}$ &$97.42_{\pm{0.11}}$ &$100.00_{\pm{0.00}}$ 
+%  & $90.33_{\pm{1.71}}$& $91.27_{\pm{1.02}}$ &$80.45_{\pm{0.78}}$ 
+%  & $64.94_{\pm{0.74}}$&$65.36_{\pm{0.21}}$& $60.99_{\pm{0.14}}$ 
+% &
+%  \\
+%  % \FF & \\
+% \IU &$98.00_{\pm{0.34}}$ &$97.88_{\pm{0.21}}$ &$99.78_{\pm{0.01}}$
+% & $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$&$100.00_{\pm{0.00}}$  
+% & $99.43_{\pm{0.02}}$&$99.60_{\pm{1.02}}$ & $97.68_{\pm{0.17}}$
+% &$72.16_{\pm{0.22}}$ &$72.28_{\pm{0.13}}$ & $70.44_{\pm{0.11}}$
+% & 
+% \\
+% % \FTSparse & 
+% % $94.55_{\pm{2.82}}$& $97.02_{\pm{2.60}}$ & $88.06_{\pm{3.14}}$&$63.61_{\pm2.25}$
+% % $94.55_{\pm{2.82}}$& $97.02_{\pm{2.60}}$ & $88.06_{\pm{3.14}}$&$63.61_{\pm2.25}$
+% % & -&-  & -&-
+% % \\
+% % \FTAO   & -&-  & -&-
+% % &$65.82_{\pm{12.66}}$ & $86.18_{\pm{7.08}}$ & $98.79_{\pm{0.21}}$&$73.54_{\pm0.08}$
+% % &$74.27_{\pm{5.34}}$& $93.42_{\pm{2.82}}$&  $97.70_{\pm{0.21}}$ &$72.54_{\pm0.32}$
+% % \\
+% \midrule
+% \rowcolor{Gray}
+% \multicolumn{14}{c}{\Large SVHN} \\
+% \midrule
+%  \retrain &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+%  & $100.00_{\pm{0.00}}$ &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ 
+% & $100.00_{\pm{0.00}}$ &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$  
+%  &  $95.71_{\pm{0.12}}$ & $95.72_{\pm{0.12}}$ & $94.95_{\pm{0.05}}$ 
+%  \\
+%  \FT & {$11.48_{\pm{8.12}}$ } &  $21.98_{\pm{14.87}}$ & $51.93_{\pm{19.62}}$ 
+% & $86.12_{\pm{9.62}}$ & $87.49_{\pm{8.93}}$&$99.42_{\pm{0.51}}$  
+% & $100.00_{\pm{0.00}}$ &$100.00_{\pm{0.00}}$  &  $99.00_{\pm{0.00}}$ 
+% & $95.99_{\pm{0.07}}$ &$95.95_{\pm{0.09}}$  &  $95.89_{\pm{0.02}}$ 
+%  \\
+%   \GA &$83.87_{\pm{0.19}}$  &  $84.89{\pm{0.12}}$ & $86.52_{\pm{0.11}}$ 
+%   & $99.97_{\pm{0.02}}$ &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ 
+%   & $99.60_{\pm{0.15}}$ & $99.51_{\pm{0.13}}$ &$98.37_{\pm{0.11}}$  
+%   &  $95.27_{\pm{0.02}}$ & $95.08_{\pm{0.01}}$ & $93.42_{\pm{0.04}}$ 
+  
+%   \\
+% % \FF & & & & & & & & &   \\
+% \IU &$95.11_{\pm{0.02}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+% &$99.89_{\pm{0.04}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$
+% &$100.00_{\pm{0.00}}$  &  $99.99{\pm{0.01}}$ & $99.85_{\pm{0.02}}$
+% &$95.70_{\pm{0.07}}$  &  $95.19_{\pm{0.04}}$ & $94.90_{\pm{0.02}}$
+% \\
+% % \FTSparse & 
+% % \\
+% % \FTAO  & 
+% % \\
+% \midrule
+% \rowcolor{Gray}
+% \multicolumn{14}{c}{\Large TinyImagenet} \\
+% \midrule
+%  \retrain &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+%  &$100.00_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+%  &$99.98_{\pm{0.01}}$  &  $99.98_{\pm{0.01}}$ & $90.89_{\pm{0.03}}$ 
+%   &$65.01_{\pm{0.13}}$  &  $62.56_{\pm{0.22}}$ & $58.46_{\pm{0.28}}$ 
+%  \\
+% \FT &$25.13_{\pm{1.20}}$  &  $50.80_{\pm{2.59}}$ & $76.33_{\pm{3.52}}$ 
+% & $76.87_{\pm{0.47}}$ &$87.07_{\pm{0.51}}$  &  $97.13_{\pm{0.68}}$ 
+% & $99.98_{\pm{0.01}}$ & $97.94_{\pm{0.05}}$ &$89.18_{\pm{0.40}}$  
+% &  $65.55_{\pm{0.18}}$ & $64.27_{\pm{0.32}}$ & $59.74_{\pm{0.12}}$  \\
+% \GA &$83.87_{\pm{0.19}}$  &  $86.67_{\pm{0.34}}$ & $92.27_{\pm{0.09}}$
+%  &$90.20_{\pm{0.02}}$  &  $92.87_{\pm{0.09}}$ & $97.00_{\pm{0.04}}$ & $98.44_{\pm{0.01}}$
+%   &$85.16_{\pm{0.02}}$  &  $80.78_{\pm{0.03}}$ & $59.84_{\pm{0.03}}$ & $58.68_{\pm{0.02}}$  & $55.74_{\pm{0.03}}$ & \\
+% % \FF & & & & & & & & &  \\
+% \IU   &$89.60_{\pm{0.24}}$  &  $94.00_{\pm{0.15}}$ & $95.81_{\pm{0.07}}$ 
+
+% &$100_{\pm{0.00}}$  &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$
+% &$96.78_{\pm{0.03}}$  &  $84.53_{\pm{0.21}}$ & $82.11_{\pm{0.13}}$
+% &$63.19_{\pm{0.05}}$  &  $61.41_{\pm{0.01}}$ & $58.73_{\pm{0.06}}$
+% \\
+% % \FTSparse & 
+% % \\
+% % \FTAO  & 
+% % \\
+% \midrule
+% \bottomrule[1pt]
+% \end{tabular}
+% }
+% \vspace*{-3mm}
+
+% \end{table*}
+
+
+
+
+% \paragraph{Model sparsity benefits privacy of unlearning for `free'.}
+
+
+% One figure to demonstrate the {\MIAR} decreasing. 
+% \begin{figure}[htb]
+% %\begin{wrapfigure}{r}{80mm}
+% %\vspace*{-6mm}
+% \centerline{
+% %\begin{tabular}{cc}
+% %\hspace*{0mm}\includegraphics[width=.3\textwidth,height=!]{figure/performance_comparison.pdf}  
+% %&
+% %\hspace*{-4mm}
+% \includegraphics[width=.31\textwidth,height=!]{figs/SVC_MIA_training_privacy_confidence_vs_methods.pdf}
+% % \\
+% % \hspace*{2mm}\footnotesize{(a) Test accuracy vs. pruning ratio.} &   \footnotesize{(b) Runtime of pruning.}
+% %\end{tabular}
+% }
+% \vspace*{-3mm}
+% \caption{\footnotesize{
+% Here we used (\MIAR) of different unlearning methods on the OMP to show that privacy will increase with sparsity growth.  [retrain,fisher,FT, GA, IU]
+% }}
+%   \label{fig: results_privacy}
+% %  \vspace*{-3.8mm}
+% %\end{wrapfigure}
+% %\end{figure}
+% \end{figure}
+
+% % \paragraph{Weight pruning gives rise to tradeoff in {\MU} between  efficacy and generalization.}
+% % One figure demonstrates that sparsity will bring degradation in the test accuracy, but improve efficacy.
+
+
+
+% % \iffalse 
+% % \paragraph{Prune first, then unlearn vs. Sparsity-infused MU.}
+% % We have demonstrated that sparsity will reduce the gap between exact unlearning and approximate unlearning in the previous results. Here we conduct experiments to verify the effectiveness of our proposed sparse-aware unlearning methods. \textbf{Table\,\ref{tab: sparse_MU vs MU}} shows the comparison between our proposed sparse-aware unlearning methods and the best `prune first, then unlearn' methods {\IU} on the CIFAR-10 dataset. We can observe that our proposed methods outperform the {\IU} in each metric.  
+% % \fi 
+
+
+% \begin{table*}[htb]
+% \centering
+% \caption{\footnotesize{Performance comparison between `first prune, then unlearn' and `sparsity-aware MU'. The results $a_{\pm{b}}$ represent mean $a$ and standard deviation $b$ over $10$ random trials. We also reported the performance gap between Retrain and other approximate unlearning.The relative drop or improvement represented by $a$\textcolor{red}{$\LARGE\downarrow$} or $a$\textcolor{green}{$\LARGE\uparrow$}. }}
+% \label{tab: sparse_MU vs MU}
+% \vspace*{0.1in} % Requirements, do not delete.
+% \resizebox{0.95\textwidth}{!}{
+% \begin{tabular}{c|ccc|ccc|ccc|ccc|c}
+% \toprule[1pt]
+% \midrule
+%   \multirow{2}{*}{\MU}& \multicolumn{3}{c|}{{\UA}} & \multicolumn{3}{c|}{{\MIAF}}& \multicolumn{3}{c|}{{\RA}} & \multicolumn{3}{c|}{{\TA}}&\multirow{2}{*}{\RTE}  \\ 
+%   & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%     & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%     & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%       & \multicolumn{1}{c|}{\textsc{Dense}} & \multicolumn{1}{c|}{\textsc{0.75}} & \multicolumn{1}{c|}{\textsc{0.95}}
+%   \\
+% % \cline{3-10}
+
+% \midrule
+% \rowcolor{Gray}
+% \multicolumn{14}{c}{\Large Cifar10} \\
+% \midrule
+% \retrain &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+% &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $100.00_{\pm{0.00}}$ 
+% &$100.00_{\pm{0.00}}$   &  $100.00_{\pm{0.00}}$ & $99.99_{\pm{0.01}}$
+% &$94.83_{\pm{0.11}}$   &  $94.71_{\pm{0.13}}$ & $91.80_{\pm{0.89}}$
+%  &\\
+% %   \FT &$28.00_{\pm{8.16}}$ (72\textcolor{red}{$\LARGE\downarrow$})& $83.02_{\pm{14.68}}$ (16\textcolor{red}{$\LARGE\downarrow$})&$99.87_{\pm{0.04}}$ (0\textcolor{red}{$\LARGE\downarrow$}) &$94.31_{\pm{0.19}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+% %   &$22.53_{\pm{9.46}}$  (77\textcolor{red}{$\LARGE\downarrow$}) &$75.00_{\pm{16.33}}$ (25\textcolor{red}{$\LARGE\downarrow$}) & $99.92_{\pm{0.04}}$ (0\textcolor{red}{$\LARGE\downarrow$})&$94.70_{\pm{0.08}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+% % &$73.64_{\pm{6.44}}$ (26\textcolor{red}{$\LARGE\downarrow$})&$96.92_{\pm{1.27}} $ (3\textcolor{red}{$\LARGE\downarrow$})& $99.87_{\pm{0.05}}$ (0\textcolor{red}{$\LARGE\downarrow$}) &$94.32_{\pm{0.12}}$ (2\textcolor{green}{$\LARGE\uparrow$})
+% % &   
+  
+  
+  
+% %   \\
+% %  \GA &$93.55_{\pm{0.29}}$ (6\textcolor{red}{$\LARGE\downarrow$})& $94.03_{\pm{0.27}}$ (6\textcolor{red}{$\LARGE\downarrow$})& $92.60_{\pm{0.25}}$ (8\textcolor{red}{$\LARGE\downarrow$}) & $86.64_{\pm{0.28}}$ (8\textcolor{red}{$\LARGE\downarrow$})
+% %  & $93.08_{\pm{0.31}}$ (6\textcolor{red}{$\LARGE\downarrow$}) &$93.08_{\pm{0.31}}$ (6\textcolor{red}{$\LARGE\downarrow$})& $93.12_{\pm{0.23}}$ (7\textcolor{red}{$\LARGE\downarrow$}) & $87.40_{\pm{0.12}} $ (7\textcolor{red}{$\LARGE\downarrow$})
+ 
+% %  &$98.09_{\pm{0.11}}$ (1\textcolor{red}{$\LARGE\downarrow$})& $97.74_{\pm{0.22}}$ (2\textcolor{red}{$\LARGE\downarrow$})& $87.74_{\pm{0.21}}$ (12\textcolor{red}{$\LARGE\downarrow$}) &$82.58_{\pm0.26}$ (9\textcolor{red}{$\LARGE\downarrow$})
+% % &
+% %  \\
+% %   $\FF^\text{*}$  &$79.93_{\pm{8.92}} $ (20\textcolor{red}{$\LARGE\downarrow$})&$100.00_{\pm{0.00}}$  (0\textcolor{red}{$\LARGE\downarrow$})& $99.45_{\pm{0.24}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $94.18_{\pm0.08}$ (2\textcolor{red}{$\LARGE\downarrow$})
+% % &$87.66_{\pm{7.03}} $ (12\textcolor{red}{$\LARGE\downarrow$})&$100.00_{\pm{0.00}}$  (0\textcolor{red}{$\LARGE\downarrow$})& $99.55_{\pm{0.19}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $94.47_{\pm0.15}$ (2\textcolor{red}{$\LARGE\downarrow$})
+% % &$94.83_{\pm{4.29}} $ (5\textcolor{red}{$\LARGE\downarrow$})&$100.00_{\pm{0.00}}$  (0\textcolor{red}{$\LARGE\downarrow$})& $99.48_{\pm{0.23}}$ (0\textcolor{red}{$\LARGE\downarrow$})& $94.04_{\pm0.10}$ (2\textcolor{green}{$\LARGE\uparrow$})
+  
+% %   \\
+% \IU 
+%   &$87.82_{\pm{2.15}} $ (12\textcolor{red}{$\LARGE\downarrow$})&$98.63_{\pm{0.22}}$  (1\textcolor{red}{$\LARGE\downarrow$})& $99.47_{\pm{0.15}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%  & $95.96_{\pm0.21}$ (4\textcolor{red}{$\LARGE\downarrow$})
+%  &$99.82_{\pm{0.13}}$ (0\textcolor{red}{$\LARGE\downarrow$}) &$99.93_{\pm{0.04}}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%  &$97.98_{\pm{0.21}}$ (5\textcolor{red}{$\LARGE\downarrow$}) &$94.50_{\pm{0.19}}$ (6\textcolor{red}{$\LARGE\downarrow$})
+%  &$97.24_{\pm{0.13}}$ (0\textcolor{red}{$\LARGE\downarrow$}) 
+%  &$91.42_{\pm{0.21}}$ (3\textcolor{red}{$\LARGE\downarrow$})&$88.04_{\pm{0.22}}$ (6\textcolor{red}{$\LARGE\downarrow$})&$90.76_{\pm{0.18}}$ (1\textcolor{red}{$\LARGE\downarrow$}) &
+%  \\
+%  \FTSparse &$100.00_{\pm{0.00}}$ (0\textcolor{red}{$\LARGE\downarrow$})  &$100.00_{\pm{0.00}}$  (0\textcolor{red}{$\LARGE\downarrow$})&\cellcolor{LightCyan} ${100.00_{\pm{0.00}}}$ ($0$\textcolor{red}{$\LARGE\downarrow$})
+%  &$100.00_{\pm0.00}$ (0\textcolor{red}{$\LARGE\downarrow$}) &$100.00_{\pm{0.00}}$ (0\textcolor{red}{$\LARGE\downarrow$})  &\cellcolor{LightCyan}$100.00_{\pm{0.00}}$  (0\textcolor{red}{$\LARGE\downarrow$}) 
+ 
+%   & $91.49_{\pm{1.21}}$ (8\textcolor{red}{$\LARGE\downarrow$}) &$91.69_{\pm1.57}$ (8\textcolor{red}{$\LARGE\downarrow$})
+%   &$95.74_{\pm{0.13}}$ (4\textcolor{red}{$\LARGE\downarrow$}) 
+%   &$87.17_{\pm{1.31}}$ (7\textcolor{red}{$\LARGE\downarrow$}) & $87.30_{\pm{1.39}}$ (7\textcolor{red}{$\LARGE\downarrow$})&$88.97_{\pm1.00}$ (3\textcolor{red}{$\LARGE\downarrow$})
+% \\
+% \FTAO  & N/A &  $43.82_{\pm{11.68}}$ (56\textcolor{red}{$\LARGE\downarrow$}) & $99.80_{\pm{0.19}}$(0\textcolor{red}{$\LARGE\downarrow$})
+% &N/A & $98.64_{\pm{0.71}}$ (1\textcolor{red}{$\LARGE\downarrow$}) & \cellcolor{LightCyan}$100.00_{\pm{0.00}}$(0\textcolor{red}{$\LARGE\downarrow$}) &N/A& $\cellcolor{LightCyan}99.96_{\pm{0.03}}$ (0\textcolor{red}{$\LARGE\downarrow$})&\cellcolor{LightCyan}$99.86_{\pm0.05}$ (0\textcolor{red}{$\LARGE\downarrow$})
+%   &N/A  & \cellcolor{LightCyan}$94.79_{\pm{0.07}}$(0\textcolor{green}{$\LARGE\uparrow$}) &\cellcolor{LightCyan}$94.55_{\pm0.11}$(3\textcolor{green}{$\LARGE\uparrow$})
+% \\
+% \midrule
+% \bottomrule[1pt]
+% \end{tabular}
+% }
+% \vspace*{-3mm}
+
+% \end{table*}
+
+
+% % \paragraph{Sparsification improves MU’s accuracy and efficacy across different models and unlearning scenarios}
+% % Table show the relationship between sparsity and unlearning when using different arch and unlearning settings. 
+
+% \paragraph{A use case study: {\MU} for Trojan model cleanse.}
+
+% \begin{figure}[htb]
+% %\begin{wrapfigure}{r}{80mm}
+% %\vspace*{-6mm}
+% \centerline{
+
+% \begin{tabular}{cccc}
+%     \hspace*{-5mm}  \includegraphics[width=.25\textwidth,height=!]{figs/placeholder_JC/backdoor_FT_attack_acc.pdf} &
+%     \hspace*{-5mm} \includegraphics[width=.25\textwidth,height=!]{figs/placeholder_JC/backdoor_FT_test_acc.pdf} \\
+
+%     \hspace*{-5mm} \includegraphics[width=.25\textwidth,height=!]{figs/placeholder_JC/backdoor_ours_attack_acc.pdf} &
+%     \hspace*{-5mm}  \includegraphics[width=.25\textwidth,height=!]{figs/placeholder_JC/backdoor_ours_test_acc.pdf} 
+% \end{tabular}
+% }
+% \vspace*{-3mm}
+% \caption{\footnotesize{
+% % One figure demonstrates that our methods can decrease attack success rates and maintain good generalization performance.
+% Left ASR, right SA. \JC{Just placeholders that need to be improved}
+% }}
+%   \label{fig: results_MU_pruning_backdoor}
+% %  \vspace*{-3.8mm}
+% %\end{wrapfigure}
+% %\end{figure}
+% \end{figure}
+
+% %Backdoor Since To demonstrate the unlearning performance, we set up several backdoor attack experiments to
+% Since MU's purpose is to remove the effect of specific data, there is a straightforward application for MU. Backdoored neural network \citep{gu2017badnets}, or \textit{BadNet}, shows that when attackers poison part of the training dataset in a given pattern, the neural network, trained at the poisoned dataset, will misbehave on the images with the same pattern. Assuming we already know which part of the dataset was poisoned, we can apply MU methods to neutralize the poisoned images' influence to defend against data poisoning attacks on models. An effective MU method will get a relatively lower attack success rate (ASR) and be more stable in forgetting the poisoned data. To demonstrate the performance of the MU methods, we performed several experiments.
+
+% We follow the \textit{All-to-all attack} in \citep{gu2017badnets} to poison part of the training dataset. The model was trained and pruned over the same poisoned dataset in different sparsity. Then we deemed the poisoned dataset as the forgetting dataset, and applied both the `\textit{prune first, then unlearn}' methods and the `\textit{sparsity-aware unlearning}' methods. Additionally, In the `prune first, then unlearn' settings, we chose the OMP and Finetune as the backbones of pruning and unlearning. Fig \ref{fig: results_MU_pruning_backdoor} shows the results of experiments under backdoor attack settings. The curve indicates that under either unlearn method, the ASR decreased rapidly when the model became sparser, with a negligible trade-off in standard accuracy (SA).
+
+% % TODO: add results and analysis
+% % \SL{Please see Appendix\,xxx.}
+% Please refer to Appendix \ref{appendix: additional results}.
+% \SL{[what is this? do we need it? Also, the index is wrong!]}
+
+
+%\SL{[Please add this following Bi-prune paper last paragraph in experiments.]}
+% \SL{[remove the following paragraph.]}
+% We include more experiment results in Appendix\,\ref{appendix: additional results and details}. In particular, we show more results of one class forgetting on various datasets in Table\,\ref{tab: overall_perfoamnce_datasets}. We also explore more model architectures shown in Table\,\ref{tab: overall_perfoamnce_arch}.  

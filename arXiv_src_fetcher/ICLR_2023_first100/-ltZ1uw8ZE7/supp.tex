@@ -1,0 +1,731 @@
+\section{Theory}
+
+\textbf{Notation.} 
+As defined in Sec.3 in main paper, we partitioned $\{Y_{j} \}_{j=1}^{N}$ into $|\mathcal{B}|$ equal-interval bins (denote the set of bins as $\mathcal{B}$), and $\{Y_{j} \}_{j=1}^{N}$ are sampled from the label space $\mathcal{Y}$. {In addition, We denote the binary set $\{ P_{i} \}_{i=1}^{|\mathcal{B}|}$ as the label distribution (frequency) for each bin, i.e., $P_{i} \triangleq \mathbb{P} (Y_{j} \in \mathcal{B}_{i})$. We also denote the binary set $\{ O_{i} \}_{j=1}^{N}$ to represent whether the data $\{ \x_{j}, y_{j} \}$ are observed (i.e., $O_{j} \sim \mathbb{P} (O_{j}=1) \propto P_{B(Y_{j})}$, and $\mathbb{E}_{O} [O_j] \sim P_{B(Y_{j})}$), where $B(Y_{j})$ represents the bin which $(x_j, y_j)$ belongs to.} 
+For each bin $i \in \mathcal{B}$, we denote the global set of samples as 
+%
+\begin{align*}
+    \mathcal{U}_{i} \triangleq \{j: Y_{j}=i\}.
+\end{align*}
+%
+When the imbalanced dataset is partially observed, we denote the observation set as: 
+%
+\begin{align*}
+    \mathcal{S}_{i} \triangleq \{ j: O_{j}=1 \And B(Y_{j})=i \}.
+\end{align*}
+%
+
+\begin{definition}[\textbf{Expectation over Observability} $\mathbb{E}_{O}$]
+We define the expectation over the observability variable $O$ as $\mathbb{E}_{O} [\cdot] \equiv \mathbb{E}_{O_{j} \sim \mathbb{P} (O_{j} = 1)} [\cdot]$
+\end{definition}
+
+\begin{definition}[\textbf{True Risk}]
+Based on the previous definitions, the true risk for our model is defined as:
+%
+\begin{align*}
+    R(\hat{Y}) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y}),
+\end{align*}
+%
+where $\delta_{j} (Y, \hat{Y})$ refers to some loss function (e.g. MAE, MSE). In this paper we assume these loss is upper bounded by $\Delta$, i.e., $0 \leq \delta_{j} (Y, \hat{Y}) \leq \Delta$.
+\end{definition}
+Then in next step we define the Naive Estimator.
+\begin{definition}[\textbf{Naive Estimator}]
+Given the observation set, the Naive Estimator is defined as:
+%
+\begin{align*}
+    \hat{R}_{\textsc{NAIVE}}(\hat{Y}) = \dfrac{1}{ \sum_{i=1}^{|\mathcal{B}|} |\mathcal{S}_{i}|} \sum_{i=1}^{|\mathcal{B}|} \enspace \sum_{j \in \mathcal{S}_{i}} \delta_{j} (Y, \hat{Y})
+\end{align*}
+%
+It is easy to verify that the expectation of this naive estimator is not equal to the true risk, as $\mathbb{E}_{O} [\hat{R}_{\textsc{NAIVE}}(\hat{Y})] \neq R(\hat{Y})$.
+\end{definition}
+Considering an imbalanced dataset as a subset of observations from a balanced one, we contrast it with the Inverse Propensity Score (IPS) estimator~\citep{schnabel2016recommendations}, underscoring the superiorities of our approach.
+\begin{definition}[\textbf{Inverse Propensity Score Estimator}]\label{def:ips_supp}
+The inverse propensity score (IPS) estimator (an unbiased estimator) is defined as
+%
+\begin{align*}
+    \hat{R}_{\textsc{IPS}}(\hat{Y} | P) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{S}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{P_{i}}.
+\end{align*}
+\end{definition}
+
+% IPS estimator is an unbiased estimator. 
+% \begin{proof} 
+IPS estimator is an unbiased estimator, as we can verify by taking the expectation value over the observation set:
+%
+\begin{align*}
+    \mathbb{E}_{O} [\hat{R}_{\textsc{IPS}}(\hat{Y} | P)] &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{P_{i}} \cdot \mathbb{E}_{O} [O_{j}] \\ &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y}) = R(\hat{Y}).
+\end{align*}
+%
+% \end{proof}
+{Finally, we define our VIR/DIR estimator below.}
+\begin{definition}[\textbf{VIR Estimator}]
+The VIR estimator, denoted by $\hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P})$, is defined as:
+%
+\begin{align}
+    \hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P}) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{S}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{\Tilde{P}_{i}}, \label{eq:VIR_estimator_supp}
+\end{align}
+%
+where $\{ \Tilde{P}_{i} \}_{i=1}^{|\mathcal{B}|}$ represents the smoothed label distribution utilized in our VIR's objective function (see Eqn.5 in the main paper). It's important to note that our VIR estimator is biased.
+\end{definition}
+{For multiple predictions, we select the ``best'' estimator according to the following definition.}
+\begin{definition}[\textbf{Empirical Risk Minimizer}] 
+For a given hypothesis space $\mathcal{H}$ of predictions $\hat{Y}$, the Empirical Risk Minimization (ERM) identifies the prediction $\hat{Y} \in \mathcal{H}$ as
+%
+\begin{align*}
+    \hat{Y}^{\textsc{ERM}} = \textrm{argmin}_{\hat{Y} \in \mathcal{H}} \Big\{ \hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P}) \Big\}    
+\end{align*}
+%
+\end{definition}
+\begin{lemma}[\textbf{Tail Bound for VIR Estimator}] \label{lemma:tailbound_supp}
+{For any given $\hat{Y}$ and $Y$, with probability $1-\eta$, the VIR estimator $\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})$ does not deviate from its expectation $\mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})]$ by more than}
+\begin{align*}
+    \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \leq \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+For independent bounded random variables $X_{1}, \cdots, X_{n}$ that takes values in intervals of sizes $\rho_{1}, \cdots, \rho_{n}$ with probability $1$, and for any $\epsilon > 0$,
+%
+\begin{align*}
+    \mathbb{P} \Bigg( \bigg| \sum_{i}^{n} X_{i} - \mathbb{E} \Big[ \sum_{i}^{n} X_{i} \Big] \bigg| \geq \epsilon \Bigg) \leq 2 \exp \Big(\dfrac{-2 \epsilon^{2}}{\sum_{i}^{n} \rho_{i}^{2}} \Big)
+\end{align*}
+%
+{Consider the error term for each bin $i$ in $\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})$ as $X_i$. Using Hoeffding's inequality, define $\mathbb{P} (X_{i} = \dfrac{\delta_{j} (Y, \hat{Y})}{\Tilde{P}_{i}}) = \Tilde{P}_{i}$ and $\mathbb{P} (X_{i} = 0) = 1 - \Tilde{P}_{i}$. Then, by setting $\epsilon_{0} = |\mathcal{B}| \cdot \epsilon$, we are then able to show that:}
+\begingroup\makeatletter\def\f@size{9.5}\check@mathfonts
+\def\maketag@@@#1{\hbox{\m@th\normalsize\normalfont#1}}%
+\begin{align*}
+    \mathbb{P} \Bigg( \bigg| |\mathcal{B}| \cdot \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - |\mathcal{B}| \cdot \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \geq \epsilon_{0} \Bigg) &\leq 2 \exp \Big(\dfrac{-2 \epsilon_{0}^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{1}{\Tilde{P}_{i}^{2}}} \Big) \\
+    \iff \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &\leq 2 \exp \Big(\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{ \Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}} \Big).
+\end{align*}
+\endgroup
+{We can then solve for $\epsilon$, completing the proof.}
+\end{proof}
+
+With all the aforementioned definitions, we can derive the generalization bound for the VIR estimator.
+
+\begin{theorem} [Generalization Bound of VIR]
+In imbalanced regression with bins $\mathcal{B}$, for any finite hypothesis space of predictions $\mathcal{H} = \{\hat{Y}_{1}, ..., \hat{Y}_{\mathcal{H}}\}$, the transductive prediction error of the empirical risk minimizer $\hat{Y}^{ERM}$ using the VIR estimator with estimated propensities $\Tilde{P}$ ($P_{i} > 0$) and given training observations $O$ from $\mathcal{Y}$ with propensities $P$, is bounded by:
+%
+\begin{align}
+     R (\hat{Y}^{ERM}) \leq \hat{R}_{\textsc{VIR}}(\hat{Y}^{ERM} | \Tilde{P}) + \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| + \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}
+\end{align}
+%
+\end{theorem}
+\begin{proof}
+We first re-state the generalization bound for our VIR estimator: with probability $1 - \eta$, we have
+%
+\begin{align*}
+    R (\hat{Y}^{ERM}) \leq \hat{R}_{\textsc{VIR}}(\hat{Y}^{ERM} | \Tilde{P}) + \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| + \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}
+\end{align*}
+%
+We start to prove it from the LHS:
+\begingroup\makeatletter\def\f@size{9.5}\check@mathfonts
+\def\maketag@@@#1{\hbox{\m@th\normalsize\normalfont#1}}%
+\begin{align*}
+    R (\hat{Y}^{ERM}) &= R (\hat{Y}^{ERM}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] + \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \\
+    &= \underbrace{\textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}))}_{Bias \enspace Term} + \underbrace{\mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] - \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})}_{Variance \enspace Term} 
+    + \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) \\
+    &= \underbrace{\textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}))}_{Bias \enspace Term} + \Big| \underbrace{\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})]}_{Variance \enspace Term} \Big|  
+    + \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})
+\end{align*}
+\endgroup
+%
+% Note that the decomposition above is slightly different from typical bias-variance decomposition (as the variance term is not non-negative), but one could always use additional inequality to convert it to the typical decomposition with non-negative variance. 
+
+Below we derive each term:
+
+\textbf{\emph{Variance Term.}} With probability $1-\eta$, the variance term is derived as
+%
+\begin{align}
+    \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \leq \epsilon \Bigg) &\geq 1 - \eta \nonumber \\
+    \impliedby \mathbb{P} \Bigg( \max_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \leq \epsilon \Bigg) &\geq 1 - \eta \nonumber \\
+    \iff \mathbb{P} \Bigg( \bigvee_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \nonumber \\
+    \iff \mathbb{P} \Bigg( \bigcup_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \nonumber \\
+    \impliedby \sum_{j}^{|\mathcal{H}|} \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \label{ieq:union_bound} \\
+    \impliedby |\mathcal{H}| \cdot 2 \exp (\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{1}{\Tilde{P}_{i}^{2}}}) &< \eta \label{ieq:hoeffding_ineq} \\ 
+    \iff |\mathcal{H}| \cdot 2 \exp (\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}) &< \eta, \nonumber
+\end{align}
+%
+where inequality~\eqref{ieq:union_bound} is by Boole's inequality (Union bound), and inequality~\eqref{ieq:hoeffding_ineq} holds by Lemma~\ref{lemma:tailbound_supp}. Then, by solving for $\epsilon$, we can derive Variance Term that with probability $1 - \eta$,
+%
+\begin{align*}
+    \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] - \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) &\leq \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \\
+    &\leq \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}.
+\end{align*}
+%
+
+\textbf{\emph{Bias Term.}} By definition, we can derive:
+%
+\begin{align*}
+    \textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})) &= R (\hat{Y}^{ERM}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \\
+    &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y}^{ERM}) - \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{P_{i}}{\Tilde{P}_{i}} \delta_{j} (Y, \hat{Y}^{ERM}) \\
+    &\leq \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| \\
+    &= \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg|,
+\end{align*}
+%
+concluding the proof for the Bias Term, hence completing the proof for the whole generalization bound. 
+\end{proof}
+
+
+% \section{Theory}
+% \subsection{Preliminary}
+% As defined in Sec.3 in main paper, we partitioned $\{Y_{j} \}_{j=1}^{N}$ into $|\mathcal{B}|$ equal-interval bins (denote the set of bins as $\mathcal{B}$), and $\{Y_{j} \}_{j=1}^{N}$ are sampled from the label space $\mathcal{Y}$. \red{In addition, We denote the binary set $\{ P_{i} \}_{i=1}^{|\mathcal{B}|}$ as the label distribution (frequency) for each bin, i.e., $P_{i} \triangleq \mathbb{P} (Y_{j} \in \mathcal{B}_{i})$. We also denote the binary set $\{ O_{i} \}_{j=1}^{N}$ to represent whether the datas $\{ \x_{j}, y_{j} \}$ are observed (i.e., $O_{j} = \mathbb{P} (O_{j}=1) \propto P_{B(Y_{j})}$, and $\mathbb{E}_{O} [O_j] \sim P_{B(Y_{j})}$).}
+
+% For each bin $i \in \mathcal{B}$, we denote the global set of samples as 
+% %
+% \begin{align*}
+%     \mathcal{U}_{i} \triangleq \{j: Y_{j}=i\}.
+% \end{align*}
+% %
+% Then we define the true risk as
+% %
+% \begin{align*}
+%     R(\hat{Y}) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y})
+% \end{align*}
+% %
+% where $\delta_{j} (Y, \hat{Y})$ refers to some loss function (e.g. MAE, MSE). In this paper we assume these loss is upper bounded by $\Delta$, i.e., $0 \leq \delta_{j} (Y, \hat{Y}) \leq \Delta$.
+
+% When the imbalanced dataset is partially observed, we denote the observation set as: 
+% %
+% \begin{align*}
+%     \mathcal{S}_{i} \triangleq \{ j: O_{j}=1 \And B(Y_{j})=i \}.
+% \end{align*}
+% %
+% Then the risk becomes to
+% %
+% \begin{align*}
+%     \hat{R}_{\textsc{NAIVE}}(\hat{Y}) = \dfrac{1}{ \sum_{i=1}^{|\mathcal{B}|} |\mathcal{S}_{i}|} \sum_{i=1}^{|\mathcal{B}|} \enspace \sum_{j \in \mathcal{S}_{i}} \delta_{j} (Y, \hat{Y})
+% \end{align*}
+% %
+% We can see that the expectation of this naive estimator is not equal to the true risk, as $\mathbb{E}_{O} [\hat{R}_{\textsc{NAIVE}}(\hat{Y})] \neq R(\hat{Y})$.
+
+% % In~\citep{schnabel2016recommendations}, authors proposed 
+% The inverse propensity score (IPS) estimator~\citep{schnabel2016recommendations} is defined as
+% %
+% \begin{align*}
+%     \hat{R}_{\textsc{IPS}}(\hat{Y} | P) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{S}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{P_{i}}
+% \end{align*}
+% %
+% By definition, IPS estimator is an unbiased estimator since
+% %
+% \begin{align*}
+%     \mathbb{E}_{O} [\hat{R}_{\textsc{IPS}}(\hat{Y} | P)] &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{P_{i}} \cdot \mathbb{E}_{O} [O_{j}] \\ &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y}) = R(\hat{Y})
+% \end{align*}
+% %
+% Given that an imbalanced dataset can be viewed as a partial observation of samples from a balanced dataset, we will employ the IPS estimator for comparison to highlight the advantages of our estimator.
+% \subsection{VIR Estimator}
+% Now we propose our VIR estimator, denoted as $\hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P})$, is defined as:
+% %
+% \begin{align}
+%     \hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P}) = \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{S}_{i}} \dfrac{\delta_{j} (Y, \hat{Y})}{\Tilde{P}_{i}}, \label{eq:VIR_estimator}
+% \end{align}
+% %
+% where $\{ \Tilde{P}_{i} \}_{i=1}^{|\mathcal{B}|}$ are the smoothed label distribution used in our VIR's objective function (i.e., Eqn.5 in main paper). Note that our VIR estimator is a biased estimator.
+
+% Now, given a hypothesis space $\mathcal{H}$ of predictions $\hat{Y}$, Empirical Risk Minimization (ERM) selects the $\hat{Y} \in \mathcal{H}$ such that
+% %
+% \begin{align*}
+%     \hat{Y}^{\textsc{ERM}} = \textrm{argmin}_{\hat{Y} \in \mathcal{H}} \Big\{ \hat{R}_{\textsc{VIR}}(\hat{Y} | \Tilde{P}) \Big\}    
+% \end{align*}
+% %
+% \subsection{Generalization Bound}
+% We propose the generalization bound for our VIR estimator in~\eqref{eq:VIR_estimator}:
+% %
+% \begin{align}
+%      R (\hat{Y}^{ERM}) \leq \hat{R}_{\textsc{VIR}}(\hat{Y}^{ERM} | \Tilde{P}) + \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| + \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}},
+% \end{align}
+% %
+% where $R (\hat{Y}^{ERM})$ represents the test error, $\hat{R}_{\textsc{VIR}}(\hat{Y}^{ERM} | \Tilde{P})$ represents the training error by our VIR, the term $\dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg|$ is the bias of our model, the rest is the variance.
+
+% We can see that if one directly uses the original label distribution in the training objective function, i.e., $\Tilde{P}_{i} = P_{i}$, then the "bias" term will be $0$, and it is equivalent to the IPS estimator. However, in such case, the "variance" term will be extremely large for minority data because $\Tilde{P}_{i}$ is very close to $0$.
+
+% In contrast, under N.I.D., $\Tilde{P}_{i}$ used in the training objective function will be smoothed. Therefore, the minority data's label density 
+% $\Tilde{P}_{i}$ will be smoothed out by its neighbors and becomes larger (compared to the original $P_{i}$), leading to smaller "variance" in the generalization error bound. Note that $\Tilde{P}_{i} \neq P_{i}$, VIR (with N.I.D.) essentially increases bias (that is why in the last section we claimed that our VIR estimator is biased), but significantly reduces its variance in the imbalanced setting, thereby leading to a lower generalization error. 
+% \subsubsection{Proof}
+% We first re-state the generalization bound for our VIR estimator: with probability $1 - \eta$, we have
+% %
+% \begin{align*}
+%     R (\hat{Y}^{ERM}) \leq \hat{R}_{\textsc{VIR}}(\hat{Y}^{ERM} | \Tilde{P}) + \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| + \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}
+% \end{align*}
+% %
+% We start to prove it from the LHS:
+% %
+% \begin{align*}
+%     R (\hat{Y}^{ERM}) &= R (\hat{Y}^{ERM}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] + \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \\
+%     &= \underbrace{\textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}))}_{Bias \enspace Term} + \underbrace{\mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] - \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})}_{Variance \enspace Term} \\ &\quad + \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) \\
+%     &= \underbrace{\textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}))}_{Bias \enspace Term} + \Big| \underbrace{\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})]}_{Variance \enspace Term} \Big| \\ &\quad + \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})
+% \end{align*}
+% %
+% Note that the decomposition above is slightly different from typical bias-variance decomposition (as they are not non-negative), but one could always use additional inequality to convert it to the typical decomposition with non-negative bias and variance. Below we derive each term:
+
+% \textbf{\emph{Variance Term.}} With probability $1-\eta$, we have 
+% %
+% \begin{align}
+%     \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \leq \epsilon \Bigg) &\geq 1 - \eta \nonumber \\
+%     \impliedby \mathbb{P} \Bigg( \max_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \leq \epsilon \Bigg) &\geq 1 - \eta \nonumber \\
+%     \iff \mathbb{P} \Bigg( \bigvee_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \nonumber \\
+%     \iff \mathbb{P} \Bigg( \bigcup_{\hat{Y}_{j}} \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \nonumber \\
+%     \impliedby \sum_{j}^{|\mathcal{H}|} \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &< \eta \label{ieq:union_bound} \\
+%     \impliedby |\mathcal{H}| \cdot 2 \exp (\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{1}{\Tilde{P}_{i}^{2}}}) &< \eta \label{ieq:hoeffding_ineq} \\ 
+%     \iff |\mathcal{H}| \cdot 2 \exp (\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}) &< \eta \nonumber
+% \end{align}
+% %
+% where inequality~\eqref{ieq:union_bound} is by Boole's inequality (Union bound), and inequality~\eqref{ieq:hoeffding_ineq} holds by Hoeffding's inequality. Then we solve for the $\epsilon$, we can prove Variance Term that with probability $1 - \eta$,
+% %
+% \begin{align*}
+%     \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] - \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) &\leq \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \\
+%     &\leq \dfrac{\Delta}{|\mathcal{B}|} \sqrt{\dfrac{\log (2 |\mathcal{H}| / \eta)}{2}} \sqrt{\sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}}.
+% \end{align*}
+% %
+
+% \textbf{\emph{Bias Term.}} By definition, we can derive:
+% %
+% \begin{align*}
+%     \textrm{bias} (\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})) &= R (\hat{Y}^{ERM}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \\
+%     &= \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \delta_{j} (Y, \hat{Y}^{ERM}) - \dfrac{1}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{P_{i}}{\Tilde{P}_{i}} \delta_{j} (Y, \hat{Y}^{ERM}) \\
+%     &\leq \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg| \\
+%     &= \dfrac{\Delta}{|\mathcal{B}|} \sum_{i=1}^{|\mathcal{B}|} \bigg| 1 - \dfrac{P_{i}}{\Tilde{P}_{i}} \bigg|,
+% \end{align*}
+% %
+% concluding the proof for Bias Term, hence completing the proof for the whole generalization bound. 
+
+% \textbf{\emph{Additional proof for inequality~\eqref{ieq:hoeffding_ineq}.}}
+% \red{By the definition of Hoeffding's inequality: for independent bounded random variables $X_{1}, \cdots, X_{n}$ that takes values in intervals of sizes $\rho_{1}, \cdots, \rho_{n}$ with probability $1$, and for any $\epsilon > 0$,}
+% %
+% \begin{align*}
+%     \mathbb{P} \Bigg( \bigg| \sum_{i}^{n} X_{i} - \mathbb{E} \Big[ \sum_{i}^{n} X_{i} \Big] \bigg| \geq \epsilon \Bigg) \leq 2 \exp \Big(\dfrac{-2 \epsilon^{2}}{\sum_{i}^{n} \rho_{i}^{2}} \Big)
+% \end{align*}
+% %
+% \red{Treat error term for each bin $i$ in $\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})$ as $X_i$ in Hoeffding's inequality and define $\mathbb{P} (X_{i} = \dfrac{\delta_{j} (Y, \hat{Y})}{\Tilde{P}_{i}}) = \Tilde{P}_{i}$ and $\mathbb{P} (X_{i} = 0) = 1 - \Tilde{P}_{i}$. Then by defining $\epsilon_{0} = |\mathcal{B}| \cdot \epsilon$, we finish the proof for inequality~\eqref{ieq:hoeffding_ineq}:}
+% %
+% \begin{align*}
+%     \mathbb{P} \Bigg( \bigg| |\mathcal{B}| \cdot \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - |\mathcal{B}| \cdot \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \geq \epsilon_{0} \Bigg) &\leq 2 \exp \Big(\dfrac{-2 \epsilon_{0}^{2}}{\Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{|\mathcal{U}_{i}|} \sum_{j \in \mathcal{U}_{i}} \dfrac{1}{\Tilde{P}_{i}^{2}}} \Big) \\
+%     \iff \mathbb{P} \Bigg( \bigg| \hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P}) - \mathbb{E}_{O} [\hat{R}_{\textsc{VIR}} (\hat{Y}^{ERM} | \Tilde{P})] \bigg| \geq \epsilon \Bigg) &\leq 2 \exp \Big(\dfrac{-2 \epsilon^{2} |\mathcal{B}|^{2}}{ \Delta^{2} \sum_{i=1}^{|\mathcal{B}|} \dfrac{1}{\Tilde{P}_{i}^{2}}} \Big)
+% \end{align*}
+% %
+
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Accuracy on AgeDB-DIR.} For baselines, we directly use the reported performance in their paper and therefore do not have error bars.}
+\vspace{-0.5pt}
+\label{table:agedb-accuracy-total}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{MSE~$\downarrow$}     & \multicolumn{4}{c|}{MAE~$\downarrow$}     & \multicolumn{4}{c}{GM~$\downarrow$}  \\ \midrule
+Shot & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few \\ \midrule\midrule
+\textsc{Vanilla}~\citep{DIR} & 101.60 & 78.40 & 138.52 & 253.74 & 7.77 & 6.62 & 9.55 & 13.67 & 5.05 & 4.23 & 7.01 & 10.75 \\[1.5pt]
+\textsc{VAE}~\citep{VAE} & 99.85 & 78.86 & 130.59 & 223.09 & 7.63 & 6.58 & 9.21 & 13.45 & 4.86 & 4.11 & 6.61 & 10.24 \\[1.5pt]
+\textsc{Deep Ensemble}~\citep{DeepEnsemble} & 100.94 & 79.3 & 129.95 & 249.18 & 7.73 & 6.62 & 9.37 & 13.90 & 4.87 & 4.37 & 6.50 & 11.35 \\[1.5pt]
+\textsc{Infer Noise}~\citep{TFuncertainty} & 119.46 & 95.02 & 149.84 & 266.29 & 8.53 & 7.62 & 9.73 & 13.82 & 5.57 & 4.95 & 6.58 & 10.86 \\[1.5pt]
+\textsc{SmoteR}~\citep{IRrelated1} & 114.34 & 93.35 & 129.89 & 244.57 & 8.16 & 7.39 & 8.65 & 12.28 & 5.21 & 4.65 & 5.69 & 8.49 \\[1.5pt]
+\textsc{SMOGN}~\citep{IRrelated2} & 117.29 & 101.36 & 133.86 & 232.90 & 8.26 & 7.64 & 9.01 & 12.09 & 5.36 & 4.9 & 6.19 & 8.44 \\[1.5pt]
+\textsc{SQInv}~\citep{DIR} & 105.14 & 87.21 & 127.66 & 212.30 & 7.81 & 7.16 & 8.80 & 11.2 & 4.99 & 4.57 & 5.73 & 7.77 \\[1.5pt]
+\textsc{DER}~\citep{DER} & 106.77 & 91.29 & 122.43 & 209.69 & 8.09 & 7.31 & 8.99 & 12.66 & 5.19 & 4.59 & 6.43 & 10.49 \\[1.5pt]
+\textsc{LDS}~\citep{DIR} & 102.22 & 83.62 & 128.73 & 204.64 & 7.67 & 6.98 & 8.86 & 10.89 & 4.85 & 4.39 & 5.8 & 7.45 \\[1.5pt]
+\textsc{FDS}~\citep{DIR} & 101.67 & 86.49 & 129.61 & 167.75 & 7.69 & 7.10 & 8.86 & 9.98 & 4.83 & 4.41 & 5.97 & 6.29 \\[1.5pt]
+\textsc{LDS + FDS}~\citep{DIR} & 99.46 & 84.10 & 112.20 & 209.27 & 7.55 & 7.01 & 8.24 & 10.79 & 4.72 & 4.36 & 5.45 & 6.79 \\[1.5pt]
+\textsc{RANKSIM}~\citep{RankSim} & 83.51 & 71.99 & 99.14 & 149.05 & 7.02 & 6.49 & 7.84 & 9.68 & 4.53 & 4.13 & 5.37 & 6.89 \\[1.5pt]
+\textsc{LDS + FDS + DER}~\citep{DER} & 112.62 & 94.21 & 140.03 & 210.72 & 8.18 & 7.44 & 9.52 & 11.45 & 5.30 & 4.75 & 6.74 & 7.68 \\[1.5pt]
+\textsc{VIR (Ours)} & \textbf{81.76}\scriptsize{$\pm$0.10} & \textbf{70.61}\scriptsize{$\pm$0.05} & \textbf{91.47}\scriptsize{$\pm$1.50} & \textbf{142.36}\scriptsize{$\pm$2.10} & \textbf{6.99} \scriptsize{$\pm$0.02} & \textbf{6.39}\scriptsize{$\pm$0.02} & \textbf{7.47}\scriptsize{$\pm$0.04} & \textbf{9.51}\scriptsize{$\pm$0.06} & \textbf{4.41}\scriptsize{$\pm$0.03} & \textbf{4.07}\scriptsize{$\pm$0.02} & \textbf{5.05}\scriptsize{$\pm$0.03} & \textbf{6.23}\scriptsize{$\pm$0.05} \\[1.5pt] \midrule\midrule
+\textsc{\textbf{Ours} vs. Vanilla} & \textcolor{ForestGreen}{\textbf{+19.84}} & \textcolor{ForestGreen}{\textbf{+7.79}} & \textcolor{ForestGreen}{\textbf{+47.05}} & \textcolor{ForestGreen}{\textbf{+111.38}} & \textcolor{ForestGreen}{\textbf{+0.78}} & \textcolor{ForestGreen}{\textbf{+0.23}} & \textcolor{ForestGreen}{\textbf{+2.08}} & \textcolor{ForestGreen}{\textbf{+4.16}} & \textcolor{ForestGreen}{\textbf{+0.64}} & \textcolor{ForestGreen}{\textbf{+0.16}} & \textcolor{ForestGreen}{\textbf{+1.96}} & \textcolor{ForestGreen}{\textbf{+4.52}}  \\[1.5pt]
+\textsc{\textbf{Ours} vs. Infer Noise} & \textcolor{ForestGreen}{\textbf{+37.70}} & \textcolor{ForestGreen}{\textbf{+24.41}} & \textcolor{ForestGreen}{\textbf{+58.37}} & \textcolor{ForestGreen}{\textbf{+123.93}} & \textcolor{ForestGreen}{\textbf{+1.54}} & \textcolor{ForestGreen}{\textbf{+1.23}} & \textcolor{ForestGreen}{\textbf{+2.26}} & \textcolor{ForestGreen}{\textbf{+4.31}} & \textcolor{ForestGreen}{\textbf{+1.16}} & \textcolor{ForestGreen}{\textbf{+0.88}} & \textcolor{ForestGreen}{\textbf{+1.53}} & \textcolor{ForestGreen}{\textbf{+4.63}}  \\[1.5pt]
+\textsc{\textbf{Ours} vs. DER} & \textcolor{ForestGreen}{\textbf{+25.01}} & \textcolor{ForestGreen}{\textbf{+20.68}} & \textcolor{ForestGreen}{\textbf{+30.96}} & \textcolor{ForestGreen}{\textbf{+67.33}} & \textcolor{ForestGreen}{\textbf{+1.10}} & \textcolor{ForestGreen}{\textbf{+0.92}} & \textcolor{ForestGreen}{\textbf{+1.52}} & \textcolor{ForestGreen}{\textbf{+3.15}} & \textcolor{ForestGreen}{\textbf{+0.78}} & \textcolor{ForestGreen}{\textbf{+0.52}} & \textcolor{ForestGreen}{\textbf{+1.38}} & \textcolor{ForestGreen}{\textbf{+4.26}}  \\[1.5pt]
+\textsc{\textbf{Ours} vs. LDS + FDS} & \textcolor{ForestGreen}{\textbf{+17.70}} & \textcolor{ForestGreen}{\textbf{+13.49}} & \textcolor{ForestGreen}{\textbf{+20.73}} & \textcolor{ForestGreen}{\textbf{+66.91}} & \textcolor{ForestGreen}{\textbf{+0.56}} & \textcolor{ForestGreen}{\textbf{+0.62}} & \textcolor{ForestGreen}{\textbf{+0.77}} & \textcolor{ForestGreen}{\textbf{+1.28}} & \textcolor{ForestGreen}{\textbf{+0.31}} & \textcolor{ForestGreen}{\textbf{+0.29}} & \textcolor{ForestGreen}{\textbf{+0.40}} & \textcolor{ForestGreen}{\textbf{+0.56}}  \\[1.5pt]
+\textsc{\textbf{Ours} vs. RANKSIM} & \textcolor{ForestGreen}{\textbf{+1.75}} & \textcolor{ForestGreen}{\textbf{+1.38}} & \textcolor{ForestGreen}{\textbf{+7.67}} & \textcolor{ForestGreen}{\textbf{+6.69}} & \textcolor{ForestGreen}{\textbf{+0.03}} & \textcolor{ForestGreen}{\textbf{+0.10}} & \textcolor{ForestGreen}{\textbf{+0.37}} & \textcolor{ForestGreen}{\textbf{+0.17}} & \textcolor{ForestGreen}{\textbf{+0.12}} & \textcolor{ForestGreen}{\textbf{+0.06}} & \textcolor{ForestGreen}{\textbf{+0.32}} & \textcolor{ForestGreen}{\textbf{+0.66}} \\
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.7cm}
+\end{table*}
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{Accuracy on IMDB-WIKI-DIR.} For baselines, we directly use the reported performance in their paper and therefore do not have error bars.}
+\vspace{+0.05pt}
+\label{table:imdb-wiki-accuracy-total}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics & \multicolumn{4}{c|}{MSE~$\downarrow$} & \multicolumn{4}{c|}{MAE~$\downarrow$} & \multicolumn{4}{c}{GM~$\downarrow$}  \\ \midrule
+Shot         & All  & Many & Medium & Few   & All  & Many & Medium & Few   & All  & Many & Medium & Few   \\ \midrule\midrule
+\textsc{Vanilla}~\citep{DIR} & 138.06 & 108.70 & 366.09 & 964.92 & 8.06 & 7.23 & 15.12 & 26.33 & 4.57 & 4.17 & 10.59 & 20.46 \\[1.5pt]
+\textsc{VAE}~\citep{VAE} & 137.98 & 108.62 & 361.74 & 964.87 & 8.04 & 7.20 & 15.05 & 26.30 & 4.57 & 4.22 & 10.56 & 20.72 \\[1.5pt]
+\textsc{Deep Ensemble}~\citep{DeepEnsemble} & 138.02 & 108.83 & 365.76 & 962.88 & 8.08 & 7.31 & 15.09 & 26.47 & 4.59 & 4.26 & 10.61 & 21.13 \\[1.5pt]
+\textsc{Infer Noise}~\citep{TFuncertainty} & 143.62 & 112.26 & 373.19 & 961.97 & 8.11 & 7.36 & 15.23 & 26.29 & 4.68 & 4.33 & 10.65 & 20.31 \\[1.5pt]
+\textsc{SmoteR}~\citep{IRrelated1} & 138.75 & 111.55 & 346.09 & 935.89 & 8.14 & 7.42 & 14.15 & 25.28 & 4.64 & 4.30 & 9.05 & 19.46 \\[1.5pt]
+\textsc{SMOGN}~\citep{IRrelated2} & 136.09 & 109.15 & 339.09 & 944.20 & 8.03 & 7.30 & 14.02 & 25.93 & 4.63 & 4.30 & 8.74 & 20.12 \\[1.5pt]
+\textsc{SQInv}~\citep{DIR} & 134.36 & 111.23 & 308.63 & 834.08 & 7.87 & 7.24 & 12.44 & 22.76 & 4.47 & 4.22 & 7.25 & 15.10 \\[1.5pt]
+\textsc{DER}~\citep{DER} & 133.81 & 107.51 & 332.90 & 916.18 & 7.85 & 7.18 & 13.35 & 24.12 & 4.47 & 4.18 & 8.18 & 15.18 \\[1.5pt]
+\textsc{LDS}~\citep{DIR} & 131.65 & 109.04 & 298.98 & 829.35 & 7.83 & 7.31 & 12.43 & 22.51 & 4.42 & 4.19 & 7.00 & 13.94 \\[1.5pt]
+\textsc{FDS}~\citep{DIR} & 132.64 & 109.28 & 311.35 & 851.06 & 7.83 & 7.23 & 12.60 & 22.37 & 4.42 & 4.20 & 6.93 & 13.48 \\[1.5pt]
+\textsc{LDS + FDS}~\citep{DIR} & 129.35 & 106.52 & 311.49 & 811.82 & 7.78 & 7.20 & 12.61 & 22.19 & 4.37 & 4.12 & 7.39 & 12.61 \\[1.5pt]
+\textsc{RANKSIM}~\citep{RankSim} & 125.30 & 102.68 & 299.10 & 777.48 & 7.50 & 6.93 & 12.09 & 21.68 & 4.19 & 3.97 & 6.65 & 13.28 \\[1.5pt]
+% \textsc{LDS + FDS + RANKSIM} & 129.09 & 106.21 & 303.82 & 798.05 & 7.69 & 7.13 & 12.30 & 21.43 & 4.34 & 4.13 & 6.72 & 12.48 \\[1.5pt]
+\textsc{LDS + FDS + DER}~\citep{DER} & 120.86 & 97.75 & 297.64 & 873.10 & 7.24 & 6.64 & 11.87 & 23.44 & 3.93 & 3.69 & 6.64 & 16.00 \\[1.5pt]
+\textsc{VIR (Ours)} & \textbf{118.94}\scriptsize{$\pm$1.10} & \textbf{96.10}\scriptsize{$\pm$0.80} & \textbf{295.79}\scriptsize{$\pm$1.20} & \textbf{771.47}\scriptsize{$\pm$3.10} & \textbf{7.19}\scriptsize{$\pm$0.03} & \textbf{6.56}\scriptsize{$\pm$0.03} & \textbf{11.81}\scriptsize{$\pm$0.04} & \textbf{20.96}\scriptsize{$\pm$0.05} & \textbf{3.85}\scriptsize{$\pm$0.04} & \textbf{3.63}\scriptsize{$\pm$0.05} & \textbf{6.51}\scriptsize{$\pm$0.03} & \textbf{12.23}\scriptsize{$\pm$0.03} \\[1.5pt] \midrule\midrule
+\textsc{\textbf{Ours} vs. Vanilla} & \textcolor{ForestGreen}{\textbf{+19.12}} & \textcolor{ForestGreen}{\textbf{+12.6}} & \textcolor{ForestGreen}{\textbf{+70.3}} & \textcolor{ForestGreen}{\textbf{+193.45}} & \textcolor{ForestGreen}{\textbf{+0.87}} & \textcolor{ForestGreen}{\textbf{+0.67}} & \textcolor{ForestGreen}{\textbf{+3.31}} & \textcolor{ForestGreen}{\textbf{+5.37}} & \textcolor{ForestGreen}{\textbf{+0.72}} & \textcolor{ForestGreen}{\textbf{+0.54}} & \textcolor{ForestGreen}{\textbf{+4.08}} & \textcolor{ForestGreen}{\textbf{+8.23}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. Infer Noise} & \textcolor{ForestGreen}{\textbf{+24.68}} & \textcolor{ForestGreen}{\textbf{+16.16}} & \textcolor{ForestGreen}{\textbf{+77.40}} & \textcolor{ForestGreen}{\textbf{+190.50}} & \textcolor{ForestGreen}{\textbf{+0.92}} & \textcolor{ForestGreen}{\textbf{+0.80}} & \textcolor{ForestGreen}{\textbf{+3.42}} & \textcolor{ForestGreen}{\textbf{+5.33}} & \textcolor{ForestGreen}{\textbf{+0.83}} & \textcolor{ForestGreen}{\textbf{+0.70}} & \textcolor{ForestGreen}{\textbf{+4.14}} & \textcolor{ForestGreen}{\textbf{+8.08}} \\[1.5pt]
+% \textsc{\textbf{Ours} vs. SQINV} & \textcolor{ForestGreen}{\textbf{+15.42}} & \textcolor{ForestGreen}{\textbf{+15.13}} & \textcolor{ForestGreen}{\textbf{+12.84}} & \textcolor{ForestGreen}{\textbf{+62.61}} & \textcolor{ForestGreen}{\textbf{+0.68}} & \textcolor{ForestGreen}{\textbf{+0.68}} & \textcolor{ForestGreen}{\textbf{+0.63}} & \textcolor{ForestGreen}{\textbf{+1.8}} & \textcolor{ForestGreen}{\textbf{+0.62}} & \textcolor{ForestGreen}{\textbf{+0.59}} & \textcolor{ForestGreen}{\textbf{+0.74}} & \textcolor{ForestGreen}{\textbf{+2.87}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. DER} & \textcolor{ForestGreen}{\textbf{+14.87}} & \textcolor{ForestGreen}{\textbf{+11.41}} & \textcolor{ForestGreen}{\textbf{+37.11}} & \textcolor{ForestGreen}{\textbf{+144.71}} & \textcolor{ForestGreen}{\textbf{+0.66}} & \textcolor{ForestGreen}{\textbf{+0.62}} & \textcolor{ForestGreen}{\textbf{+1.54}} & \textcolor{ForestGreen}{\textbf{+3.16}} & \textcolor{ForestGreen}{\textbf{+0.62}} & \textcolor{ForestGreen}{\textbf{+0.55}} & \textcolor{ForestGreen}{\textbf{+1.67}} & \textcolor{ForestGreen}{\textbf{+2.95}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. LDS + FDS} & \textcolor{ForestGreen}{\textbf{+10.41}} & \textcolor{ForestGreen}{\textbf{+10.42}} & \textcolor{ForestGreen}{\textbf{+15.7}} & \textcolor{ForestGreen}{\textbf{+40.35}} & \textcolor{ForestGreen}{\textbf{+0.59}} & \textcolor{ForestGreen}{\textbf{+0.64}} & \textcolor{ForestGreen}{\textbf{+0.8}} & \textcolor{ForestGreen}{\textbf{+1.23}} & \textcolor{ForestGreen}{\textbf{+0.52}} & \textcolor{ForestGreen}{\textbf{+0.49}} & \textcolor{ForestGreen}{\textbf{+0.88}} & \textcolor{ForestGreen}{\textbf{+0.38}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. RANKSIM} & \textcolor{ForestGreen}{\textbf{+6.36}} & \textcolor{ForestGreen}{\textbf{+6.58}} & \textcolor{ForestGreen}{\textbf{+3.31}} & \textcolor{ForestGreen}{\textbf{+6.01}} & \textcolor{ForestGreen}{\textbf{+0.31}} & \textcolor{ForestGreen}{\textbf{+0.37}} & \textcolor{ForestGreen}{\textbf{+0.28}} & \textcolor{ForestGreen}{\textbf{+0.72}} & \textcolor{ForestGreen}{\textbf{+0.34}} & \textcolor{ForestGreen}{\textbf{+0.34}} & \textcolor{ForestGreen}{\textbf{+0.14}} & \textcolor{ForestGreen}{\textbf{+1.05}} \\
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.6cm}
+\end{table*}
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{1pt}
+\caption{\textbf{Accuracy on STS-B-DIR.} For baselines, we directly use the reported performance in their paper and therefore do not have error bars.}
+\vspace{-1pt}
+\label{table:sts-accuracy-total}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics & \multicolumn{4}{c|}{MSE~$\downarrow$} & \multicolumn{4}{c|}{MAE~$\downarrow$} & \multicolumn{4}{c|}{Pearson~$\uparrow$} & \multicolumn{4}{c}{Spearman~$\uparrow$} \\ \midrule
+Shot & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few \\ \midrule\midrule
+\textsc{Vanilla}~\citep{DIR} & 0.974 & 0.851 & 1.520 & 0.984 & 0.794 & 0.740 & 1.043 & 0.771 & 0.742 & 0.720 & 0.627 & 0.752 & 0.744 & 0.688 & 0.505 & 0.750 \\[1.5pt]
+\textsc{VAE}~\citep{VAE} & 0.968 & 0.833 & 1.511 & 1.102 & 0.782 & 0.721 & 1.040 & 0.767 & 0.751 & 0.724 & 0.621 & 0.749 & 0.752 & 0.674 & 0.501 & 0.743 \\[1.5pt]
+\textsc{Deep Ensemble}~\citep{DeepEnsemble} & 0.972 & 0.846 & 1.496 & 1.032 & 0.791 & 0.723 & 1.096 & 0.792 & 0.746 & 0.723 & 0.619 & 0.750 & 0.741 & 0.689 & 0.501 & 0.746 \\[1.5pt]
+\textsc{Infer Noise}~\citep{TFuncertainty} & 0.954 & 0.980 & 1.408 & 0.967 & 0.795 & 0.745 & 0.977 & 0.741 & 0.747 & 0.711 & 0.631 & 0.756 & 0.742 & 0.681 & 0.508 & 0.753 \\[1.5pt]
+\textsc{SmoteR}~\citep{IRrelated1} & 1.046 & 0.924 & 1.542 & 1.154 & 0.834 & 0.782 & 1.052 & 0.861 & 0.726 & 0.693 & 0.653 & 0.706 & 0.726 & 0.656 & 0.556 & 0.691 \\[1.5pt]
+\textsc{SMOGN}~\citep{IRrelated2} & 0.990 & 0.896 & 1.327 & 1.175 & 0.798 & 0.755 & 0.967 & 0.848 & 0.732 & 0.704 & 0.655 & 0.692 & 0.732 & 0.670 & 0.551 & 0.670 \\[1.5pt]
+\textsc{Inv}~\citep{DIR} & 1.005 & 0.894 & 1.482 & 1.046 & 0.805 & 0.761 & 1.016 & 0.780 & 0.728 & 0.703 & 0.625 & 0.732 & 0.731 & 0.672 & 0.541 & 0.714 \\[1.5pt]
+\textsc{DER}~\citep{DER} & 1.001 & 0.912 & 1.368 & 1.055 & 0.812 & 0.772 & 0.989 & 0.809 & 0.732 & 0.711 & 0.646 & 0.742 & 0.731 & 0.672 & 0.519 & 0.739 \\[1.5pt]
+\textsc{LDS}~\citep{DIR} & 0.914 & 0.819 & 1.319 & 0.955 & 0.773 & 0.729 & 0.970 & 0.772 & 0.756 & 0.734 & 0.638 & 0.762 & 0.761 & 0.704 & 0.556 & 0.743 \\[1.5pt]
+\textsc{FDS}~\citep{DIR} & 0.927 & 0.851 & 1.225 & 1.012 & 0.771 & 0.740 & 0.914 & 0.756 & 0.750 & 0.724 & 0.667 & 0.742 & 0.752 & 0.692 & 0.552 & 0.748 \\[1.5pt]
+\textsc{LDS + FDS}~\citep{DIR} & 0.907 & 0.802 & 1.363 & 0.942 & 0.766 & 0.718 & 0.986 & 0.755 & 0.760 & 0.740 & 0.652 & 0.766 & 0.764 & 0.707 & 0.549 & 0.749 \\[1.5pt]
+\textsc{RANKSIM}~\citep{RankSim} & 0.903 & 0.908 & 0.911 & 0.804 & 0.761 & 0.759 & 0.786 & 0.712 & 0.758 & 0.706 & 0.690 & 0.827 & 0.758 & 0.673 & 0.493 & 0.849 \\[1.5pt]
+\textsc{LDS + FDS + DER}~\citep{DER} & 1.007 & 0.880 & 1.535 & 1.086 & 0.812 & 0.757 & 1.046 & 0.842 & 0.729 & 0.714 & 0.635 & 0.731 & 0.730 & 0.680 & 0.526 & 0.699 \\[1.5pt]
+\textsc{VIR (Ours)} & \textbf{0.892}\scriptsize{$\pm$0.002} & \textbf{0.795}\scriptsize{$\pm$0.002} & \textbf{0.899}\scriptsize{$\pm$0.002} & \textbf{0.781}\scriptsize{$\pm$0.003} & \textbf{0.740}\scriptsize{$\pm$0.002} & \textbf{0.706}\scriptsize{$\pm$0.001} & \textbf{0.779}\scriptsize{$\pm$0.002} & \textbf{0.708}\scriptsize{$\pm$0.002} & \textbf{0.776}\scriptsize{$\pm$0.004} & \textbf{0.752}\scriptsize{$\pm$0.003} & \textbf{0.696}\scriptsize{$\pm$0.005} & \textbf{0.845}\scriptsize{$\pm$0.006} & \textbf{0.775}\scriptsize{$\pm$0.003} & \textbf{0.716}\scriptsize{$\pm$0.003} & \textbf{0.586}\scriptsize{$\pm$0.005} & \textbf{0.861}\scriptsize{$\pm$0.007} \\[1.5pt] \midrule\midrule
+\textsc{\textbf{Ours} vs. Vanilla} & \textcolor{ForestGreen}{\textbf{+0.082}} & \textcolor{ForestGreen}{\textbf{+0.056}} & \textcolor{ForestGreen}{\textbf{+0.621}} & \textcolor{ForestGreen}{\textbf{+0.203}} & \textcolor{ForestGreen}{\textbf{+0.054}} & \textcolor{ForestGreen}{\textbf{+0.034}} & \textcolor{ForestGreen}{\textbf{+0.264}} & \textcolor{ForestGreen}{\textbf{+0.063}} & \textcolor{ForestGreen}{\textbf{+0.034}} & \textcolor{ForestGreen}{\textbf{+0.032}} & \textcolor{ForestGreen}{\textbf{+0.069}} & \textcolor{ForestGreen}{\textbf{+0.093}} & \textcolor{ForestGreen}{\textbf{+0.031}} & \textcolor{ForestGreen}{\textbf{+0.028}} & \textcolor{ForestGreen}{\textbf{+0.081}} & \textcolor{ForestGreen}{\textbf{+0.111}}  \\[1.5pt]
+\textsc{\textbf{Ours} vs. Infer Noise} & \textcolor{ForestGreen}{\textbf{+0.062}} & \textcolor{ForestGreen}{\textbf{+0.185}} & \textcolor{ForestGreen}{\textbf{+0.509}} & \textcolor{ForestGreen}{\textbf{+0.186}} & \textcolor{ForestGreen}{\textbf{+0.055}} & \textcolor{ForestGreen}{\textbf{+0.039}} & \textcolor{ForestGreen}{\textbf{+0.198}} & \textcolor{ForestGreen}{\textbf{+0.033}} & \textcolor{ForestGreen}{\textbf{+0.029}} & \textcolor{ForestGreen}{\textbf{+0.041}} & \textcolor{ForestGreen}{\textbf{+0.065}} & \textcolor{ForestGreen}{\textbf{+0.089}} & \textcolor{ForestGreen}{\textbf{+0.033}} & \textcolor{ForestGreen}{\textbf{+0.035}} & \textcolor{ForestGreen}{\textbf{+0.078}} & \textcolor{ForestGreen}{\textbf{+0.108}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. DER} & \textcolor{ForestGreen}{\textbf{+0.109}} & \textcolor{ForestGreen}{\textbf{+0.117}} & \textcolor{ForestGreen}{\textbf{+0.469}} & \textcolor{ForestGreen}{\textbf{+0.274}} & \textcolor{ForestGreen}{\textbf{+0.072}} & \textcolor{ForestGreen}{\textbf{+0.066}} & \textcolor{ForestGreen}{\textbf{+0.210}} & \textcolor{ForestGreen}{\textbf{+0.101}} & \textcolor{ForestGreen}{\textbf{+0.044}} & \textcolor{ForestGreen}{\textbf{+0.041}} & \textcolor{ForestGreen}{\textbf{+0.050}} & \textcolor{ForestGreen}{\textbf{+0.103}} & \textcolor{ForestGreen}{\textbf{+0.044}} & \textcolor{ForestGreen}{\textbf{+0.044}} & \textcolor{ForestGreen}{\textbf{+0.067}} & \textcolor{ForestGreen}{\textbf{+0.122}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. LDS + FDS} & \textcolor{ForestGreen}{\textbf{+0.015}} & \textcolor{ForestGreen}{\textbf{+0.007}} & \textcolor{ForestGreen}{\textbf{+0.464}} & \textcolor{ForestGreen}{\textbf{+0.161}} & \textcolor{ForestGreen}{\textbf{+0.026}} & \textcolor{ForestGreen}{\textbf{+0.012}} & \textcolor{ForestGreen}{\textbf{+0.207}} & \textcolor{ForestGreen}{\textbf{+0.047}} & \textcolor{ForestGreen}{\textbf{+0.016}} & \textcolor{ForestGreen}{\textbf{+0.012}} & \textcolor{ForestGreen}{\textbf{+0.044}} & \textcolor{ForestGreen}{\textbf{+0.079}} & \textcolor{ForestGreen}{\textbf{+0.011}} & \textcolor{ForestGreen}{\textbf{+0.009}} & \textcolor{ForestGreen}{\textbf{+0.037}} & \textcolor{ForestGreen}{\textbf{+0.112}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. RANKSIM} & \textcolor{ForestGreen}{\textbf{+0.011}} & \textcolor{ForestGreen}{\textbf{+0.113}} & \textcolor{ForestGreen}{\textbf{+0.012}} & \textcolor{ForestGreen}{\textbf{+0.023}} & \textcolor{ForestGreen}{\textbf{+0.021}} & \textcolor{ForestGreen}{\textbf{+0.053}} & \textcolor{ForestGreen}{\textbf{+0.007}} & \textcolor{ForestGreen}{\textbf{+0.004}} & \textcolor{ForestGreen}{\textbf{+0.018}} & \textcolor{ForestGreen}{\textbf{+0.046}} & \textcolor{ForestGreen}{\textbf{+0.006}} & \textcolor{ForestGreen}{\textbf{+0.018}} & \textcolor{ForestGreen}{\textbf{+0.017}} & \textcolor{ForestGreen}{\textbf{+0.043}} & \textcolor{ForestGreen}{\textbf{+0.093}} & \textcolor{ForestGreen}{\textbf{+0.012}} \\
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.7cm}
+\end{table*} 
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{7.5pt}
+\caption{Accuracy on NYUD2-DIR.}
+\vspace{-0.5pt}
+\label{table:nyud2-accuracy-total}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{RMSE~$\downarrow$}     & \multicolumn{4}{c|}{$\log_{10}$~$\downarrow$} & \multicolumn{4}{c|}{$\delta_{1}$~$\uparrow$} & \multicolumn{4}{c|}{$\delta_{2}$~$\uparrow$} & \multicolumn{4}{c}{$\delta_{3}$~$\uparrow$}  \\ \midrule
+Shot & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few & All & Many & Medium & Few \\ \midrule\midrule
+\textsc{Vanilla}~\citep{DIR} & 1.477 & 0.591 & 0.952 & 2.123 & 0.086 & 0.066 & 0.082 & 0.107 & 0.677 & 0.777 & 0.693 & 0.570 & 0.899 & 0.956 & 0.906 & 0.840 & 0.969 & 0.990 & 0.975 & 0.946 \\[1.5pt]
+\textsc{VAE}~\citep{VAE} & 1.483 & 0.596 & 0.949 & 2.131 & 0.084 & 0.062 & 0.079 & 0.110 & 0.675 & 0.774 & 0.693 & 0.575 & 0.894 & 0.951 & 0.906 & 0.846 & 0.963 & 0.982 & 0.976 & 0.951 \\[1.5pt]
+\textsc{Deep Ensemble}~\citep{DeepEnsemble} & 1.479 & 0.595 & 0.954 & 2.126 & 0.091 & 0.067 & 0.082 & 0.109 & 0.678 & 0.782 & 0.702 & 0.583 & 0.906 & 0.961 & 0.912 & 0.851 & 0.972 & 0.993 & 0.981 & 0.956 \\[1.5pt]
+\textsc{Infer Noise}~\citep{TFuncertainty} & 1.480 & 0.594 & 0.959 & 2.125 & 0.088 & 0.069 & 0.089 & 0.111 & 0.672 & 0.768 & 0.688 & 0.566 & 0.894 & 0.949 & 0.902 & 0.834 & 0.963 & 0.983 & 0.970 & 0.941 \\[1.5pt]
+\textsc{DER}~\citep{DER} & 1.483 & 0.615 & 0.961 & 2.142 & 0.098 & 0.089 & 0.091 & 0.110 & 0.597 & 0.647 & 0.657 & 0.525 & 0.880 & 0.904 & 0.894 & 0.851 & 0.964 & 0.974 & 0.959 & 0.955 \\[1.5pt]
+\textsc{LDS}~\citep{DIR} & 1.387 & 0.671 & 0.913 & 1.954 & 0.086 & 0.079 & 0.079 & 0.097 & 0.672 & 0.701 & 0.706 & 0.630 & 0.907 & 0.932 & 0.929 & 0.875 & 0.976 & 0.984 & 0.982 & 0.964 \\[1.5pt]
+\textsc{FDS}~\citep{DIR} & 1.442 & 0.615 & 0.940 & 2.059 & 0.084 & 0.069 & 0.080 & 0.101 & 0.681 & 0.760 & 0.695 & 0.596 & 0.903 & 0.952 & 0.918 & 0.849 & 0.975 & 0.989 & 0.976 & 0.960 \\[1.5pt]
+\textsc{LDS + FDS}~\citep{DIR} & 1.338 & 0.670 & 0.851 & 1.880 & 0.080 & 0.074 & 0.070 & 0.090 & 0.705 & 0.730 & 0.764 & 0.655 & 0.916 & 0.939 & 0.941 & 0.884 & 0.979 & 0.984 & 0.983 & 0.971 \\[1.5pt]
+\textsc{LDS + FDS + DER}~\citep{DER} & 1.426 & 0.703 & 0.906 & 1.918 & 0.092 & 0.081 & 0.088 & 0.098 & 0.676 & 0.677 & 0.754 & 0.621 & 0.889 & 0.912 & 0.899 & 0.862 & 0.964 & 0.976 & 0.969 & 0.958 \\[1.5pt]
+\textsc{VIR (Ours)} & \textbf{1.305} & \textbf{0.589} & \textbf{0.831} & \textbf{1.749} & \textbf{0.075} & \textbf{0.060} & \textbf{0.064} & \textbf{0.082} & \textbf{0.722} & \textbf{0.781} & \textbf{0.793} & \textbf{0.688} & \textbf{0.929} & \textbf{0.966} & \textbf{0.961} & \textbf{0.910} & \textbf{0.985} & \textbf{0.993} & \textbf{0.989} & \textbf{0.979} \\[1.5pt] \midrule\midrule
+\textsc{\textbf{Ours} vs. Vanilla} & \textcolor{ForestGreen}{\textbf{+0.172}} & \textcolor{ForestGreen}{\textbf{+0.002}} & \textcolor{ForestGreen}{\textbf{+0.121}} & \textcolor{ForestGreen}{\textbf{+0.374}} & \textcolor{ForestGreen}{\textbf{+0.011}} & \textcolor{ForestGreen}{\textbf{+0.006}} & \textcolor{ForestGreen}{\textbf{+0.018}} & \textcolor{ForestGreen}{\textbf{+0.025}} & \textcolor{ForestGreen}{\textbf{+0.045}} & \textcolor{ForestGreen}{\textbf{+0.004}} & \textcolor{ForestGreen}{\textbf{+0.100}} & \textcolor{ForestGreen}{\textbf{+0.118}} & \textcolor{ForestGreen}{\textbf{+0.003}} & \textcolor{ForestGreen}{\textbf{+0.010}} & \textcolor{ForestGreen}{\textbf{+0.055}} & \textcolor{ForestGreen}{\textbf{+0.070}} & \textcolor{ForestGreen}{\textbf{+0.016}} & \textcolor{ForestGreen}{\textbf{+0.003}} & \textcolor{ForestGreen}{\textbf{+0.014}} & \textcolor{ForestGreen}{\textbf{+0.033}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. Infer Noise} & \textcolor{ForestGreen}{\textbf{+0.175}} & \textcolor{ForestGreen}{\textbf{+0.005}} & \textcolor{ForestGreen}{\textbf{+0.128}} & \textcolor{ForestGreen}{\textbf{+0.376}} & \textcolor{ForestGreen}{\textbf{+0.013}} & \textcolor{ForestGreen}{\textbf{+0.009}} & \textcolor{ForestGreen}{\textbf{+0.025}} & \textcolor{ForestGreen}{\textbf{+0.029}} & \textcolor{ForestGreen}{\textbf{+0.050}} & \textcolor{ForestGreen}{\textbf{+0.013}} & \textcolor{ForestGreen}{\textbf{+0.105}} & \textcolor{ForestGreen}{\textbf{+0.122}} & \textcolor{ForestGreen}{\textbf{+0.035}} & \textcolor{ForestGreen}{\textbf{+0.017}} & \textcolor{ForestGreen}{\textbf{+0.059}} & \textcolor{ForestGreen}{\textbf{+0.076}} & \textcolor{ForestGreen}{\textbf{+0.022}} & \textcolor{ForestGreen}{\textbf{+0.010}} & \textcolor{ForestGreen}{\textbf{+0.019}} & \textcolor{ForestGreen}{\textbf{+0.038}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. DER} & \textcolor{ForestGreen}{\textbf{+0.178}} & \textcolor{ForestGreen}{\textbf{+0.026}} & \textcolor{ForestGreen}{\textbf{+0.130}} & \textcolor{ForestGreen}{\textbf{+0.393}} & \textcolor{ForestGreen}{\textbf{+0.023}} & \textcolor{ForestGreen}{\textbf{+0.029}} & \textcolor{ForestGreen}{\textbf{+0.027}} & \textcolor{ForestGreen}{\textbf{+0.028}} & \textcolor{ForestGreen}{\textbf{+0.125}} & \textcolor{ForestGreen}{\textbf{+0.134}} & \textcolor{ForestGreen}{\textbf{+0.136}} & \textcolor{ForestGreen}{\textbf{+0.163}} & \textcolor{ForestGreen}{\textbf{+0.049}} & \textcolor{ForestGreen}{\textbf{+0.062}} & \textcolor{ForestGreen}{\textbf{+0.067}} & \textcolor{ForestGreen}{\textbf{+0.059}} & \textcolor{ForestGreen}{\textbf{+0.021}} & \textcolor{ForestGreen}{\textbf{+0.019}} & \textcolor{ForestGreen}{\textbf{+0.030}} & \textcolor{ForestGreen}{\textbf{+0.024}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. LDS + FDS} & \textcolor{ForestGreen}{\textbf{+0.033}} & \textcolor{ForestGreen}{\textbf{+0.081}} & \textcolor{ForestGreen}{\textbf{+0.020}} & \textcolor{ForestGreen}{\textbf{+0.131}} & \textcolor{ForestGreen}{\textbf{+0.005}} & \textcolor{ForestGreen}{\textbf{+0.014}} & \textcolor{ForestGreen}{\textbf{+0.006}} & \textcolor{ForestGreen}{\textbf{+0.008}} & \textcolor{ForestGreen}{\textbf{+0.017}} & \textcolor{ForestGreen}{\textbf{+0.051}} & \textcolor{ForestGreen}{\textbf{+0.029}} & \textcolor{ForestGreen}{\textbf{+0.033}} & \textcolor{ForestGreen}{\textbf{+0.013}} & \textcolor{ForestGreen}{\textbf{+0.027}} & \textcolor{ForestGreen}{\textbf{+0.020}} & \textcolor{ForestGreen}{\textbf{+0.026}} & \textcolor{ForestGreen}{\textbf{+0.006}} & \textcolor{ForestGreen}{\textbf{+0.009}} & \textcolor{ForestGreen}{\textbf{+0.006}} & \textcolor{ForestGreen}{\textbf{+0.008}}  \\
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.7cm}
+\end{table*}
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{7.5pt}
+\caption{Uncertainty on NYUD2-DIR.}
+\vspace{-0.5pt}
+\label{table:nyud2-uncertainty-total}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc}
+\toprule[1.5pt]
+Metrics & \multicolumn{4}{c|}{NLL~$\downarrow$} & \multicolumn{4}{c}{AUSE~$\downarrow$} \\ \midrule
+Shot & All & Many & Medium & Few & All & Many & Medium & Few \\ \midrule\midrule
+\textsc{Deep Ensemble}~\citep{DeepEnsemble} & 5.054 & 3.640 & 3.856 & 5.335 & 0.782 & 0.658 & 0.604 & 0.583 \\[1.5pt]
+\textsc{Infer Noise}~\citep{TFuncertainty} & 4.542 & 3.120 & 3.634 & 5.028 & 0.764 & 0.643 & 0.566 & 0.408  \\[1.5pt]
+\textsc{DER}~\citep{DER} & 4.169 & 2.913 & 3.011 & 4.777 & 0.713 & 0.623 & 0.535 & 0.382 \\[1.5pt]
+\textsc{LDS + FDS + DER}~\citep{DER} & 4.175 & 2.987 & 2.976 & 4.686 & 0.715 & 0.629 & 0.511 & 0.366 \\[1.5pt]
+\textsc{VIR (Ours)} & \textbf{3.866} & \textbf{2.815} & \textbf{2.727} & \textbf{4.113} & \textbf{0.690} & \textbf{0.603} & \textbf{0.493} & \textbf{0.335} \\[1.5pt] \midrule\midrule
+\textsc{\textbf{Ours} vs. DER} & \textcolor{ForestGreen}{\textbf{+0.303}} & \textcolor{ForestGreen}{\textbf{+0.098}} & \textcolor{ForestGreen}{\textbf{+0.284}} & \textcolor{ForestGreen}{\textbf{+0.664}} & \textcolor{ForestGreen}{\textbf{+0.023}} & \textcolor{ForestGreen}{\textbf{+0.020}} & \textcolor{ForestGreen}{\textbf{+0.042}} & \textcolor{ForestGreen}{\textbf{+0.047}} \\[1.5pt]
+\textsc{\textbf{Ours} vs. LDS + FDS + DER} & \textcolor{ForestGreen}{\textbf{+0.309}} & \textcolor{ForestGreen}{\textbf{+0.172}} & \textcolor{ForestGreen}{\textbf{+0.249}} & \textcolor{ForestGreen}{\textbf{+0.573}} & \textcolor{ForestGreen}{\textbf{+0.025}} & \textcolor{ForestGreen}{\textbf{+0.026}} & \textcolor{ForestGreen}{\textbf{+0.018}} & \textcolor{ForestGreen}{\textbf{+0.031}} \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.3cm}
+\end{table*}
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{7.5pt}
+ \caption{Ablation study on $\lambda$ on AgeDB-DIR.}
+\vspace{-1pt}
+\label{table:lambda}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{MSE~$\downarrow$}     & \multicolumn{4}{c|}{MAE~$\downarrow$}     & \multicolumn{4}{c}{NLL~$\downarrow$}  \\ \midrule
+Shot         & All  & Many & Medium & Few   & All  & Many & Medium & Few   & All  & Many & Medium & Few   \\ \midrule\midrule
+\textsc{$\lambda=10.0$}  & 104.31 & 91.01 & 116.43 & 196.35 & 7.88 & 7.38 & 8.42  & 11.13 & 3.827 & 3.733 & 4.140 & 4.407  \\[1.5pt]
+\textsc{$\lambda=1.0$}  & 104.10 & 87.28 & 128.26 & 196.12 & 7.83 & 7.21 & 8.81  & 10.89 & 3.848 & 3.738 & 4.041 & 4.356  \\[1.5pt]
+\textsc{$\lambda=0.1$}  & 86.28 & 76.87 & 101.57 & 132.90 & 7.19 & 6.75 & 7.97 & 9.19 & 3.785 & 3.694 & 3.963 & 4.151  \\[1.5pt]
+\textsc{$\lambda=0.01$} & 86.86 & 76.58 & 99.95 & 147.82 & 7.12 & 6.69 & 7.72 & 9.59 & 3.887 & 3.797 & 4.007 & 4.401  \\[1.5pt]
+\textsc{$\lambda=0.001$}  & 87.25 & 74.13 & 104.78 & 162.64 & 7.13 & 6.64 & 7.92  & 9.63 & 3.980 & 3.868 & 4.161 & 4.546  \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}
+}
+\end{center}
+\vspace{+0.1cm}
+\end{table*}
+%
+\begin{table*}[h]
+\setlength{\tabcolsep}{7.5pt}
+\caption{\textbf{Comparison for different numbers of Bins.} "Med." is short for "Medium".}
+\vspace{-1pt}
+\label{table:bin-size}
+\small
+\begin{center}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{l|c|cccc|cccc|cccc}
+\toprule[1.5pt]
+Metrics & Bins & \multicolumn{4}{c|}{MSE~$\downarrow$} & \multicolumn{4}{c|}{MAE~$\downarrow$} & \multicolumn{4}{c}{GM~$\downarrow$} \\ \midrule
+Shot & \# & All & Many & Med. & Few & All & Many & Med. & Few & All & Many & Med. & Few \\ \midrule\midrule
+\textsc{Ranksim} & 100 & 83.51 & 71.99 & 99.14 & 149.05 & 7.02 & 6.49 & 7.84 & 9.68 & 4.53 & 4.13 & 5.37 & 6.89 \\[1.5pt]
+\textsc{VIR \scriptsize{(Ours)}} & 100 & \textbf{81.76} & \textbf{70.61} & \textbf{91.47} & \textbf{142.36} & \textbf{6.99} & \textbf{6.39} & \textbf{7.47} & \textbf{9.51} & \textbf{4.41} & \textbf{4.07} & \textbf{5.05} & \textbf{6.23} \\[1.5pt] \midrule\midrule
+\textsc{Ranksim} & 33 & 109.45 & 91.78 & 128.10 & 187.13 & 7.46 & 6.94 & 8.42 & 10.66 & 5.13 & 4.70 & 5.23 & 8.21 \\[1.5pt]
+\textsc{VIR \scriptsize{(Ours)}} & 33 & \textbf{84.77} & \textbf{77.29} & \textbf{95.66} & \textbf{125.33} & \textbf{7.01} & \textbf{6.70} & \textbf{7.45} & \textbf{8.74} & \textbf{4.36} & \textbf{4.20} & \textbf{4.73} & \textbf{4.94} \\[1.5pt] \midrule\midrule
+\textsc{Ranksim} & 20 & 98.71 & 84.38 & 107.89 & 171.04 & 7.32 & 6.78 & 8.35 & 10.57 & 5.33 & 4.51 & 5.69 & 7.92 \\[1.5pt]
+\textsc{VIR \scriptsize{(Ours)}} & 20 & \textbf{84.05} & \textbf{72.12} & \textbf{100.49} & \textbf{151.25} & \textbf{7.06} & \textbf{6.50} & \textbf{7.90} & \textbf{10.06} & \textbf{4.49} & \textbf{4.05} & \textbf{5.34} & \textbf{7.28} \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.3cm}
+\end{table*} 
+%
+
+\section{Details for Experiments}
+{\textbf{Datasets.} In this work, we evaluate our methods in terms of prediction accuracy and uncertainty estimation on four imbalanced datasets\footnote{Among the five datasets proposed in~\citep{DIR}, only four of them are publicly available.}, AgeDB~\citep{AGEDB}, IMDB-WIKI~\citep{IMDBWIKI}, STS-B~\citep{STS-B}, and NYUD2-DIR~\citep{NYUD2}. Due to page limit, the results for NYUD2-DIR~\citep{NYUD2} are in the supplementary. We follow the preprocessing procedures in DIR~\citep{DIR}. Details for each datasets are to the Supplement, and details for label density distributions and levels of imbalance are discussed in DIR~\citep{DIR}.}
+
+\begin{compactitem}
+\item \emph{AgeDB-DIR}: We use AgeDB-DIR constructed in DIR~\citep{DIR}, which contains 12.2K images for training and 2.1K images for validation and testing. The maximum age in this dataset is 101 and the minimum age is 0, and the number of images per bin varies between 1 and 353.
+\item \emph{IW-DIR}: We use IMDB-WIKI-DIR (IW-DIR) constructed in DIR~\citep{DIR}, which contains 191.5K training images and 11.0K validation and testing images. The maximum age is 186 and minimum age is 0; the maximum bin density is 7149, and minimum bin density is 1.
+\item {\emph{STS-B-DIR}: We use STS-B-DIR constructed in DIR~\citep{DIR}, which contains 5.2K pairs of training sentences and 1.0K pairs for validation and testing. This dataset is a collection of sentence pairs generated from news headlines, video captions, etc. Each pair is annotated by multiple annotators with a similarity score between 0 and 5.}
+\item { {\emph{NYUD2-DIR}}: We use NYUD2-DIR constructed in DIR~\citep{DIR}, which contains 50K images for training and 654 images for testing, and to make the test set balanced 9357 test pixels for each bin are randomly selected. The depth maps have an upper bound of 10 meters, and we set the bin length as 0.1 meter.}
+\end{compactitem}
+
+{\textbf{Baselines.} %Following~\cite{DIR}, w
+We use ResNet-50~\citep{ResNet} (for AgeDB-DIR, IMDB-WIKI-DIR and NYUD2-DIR) and BiLSTM~\citep{bilstm} (for STS-B-DIR) as our backbone networks, and moredetails for baseline are in the supplement. we describe the baselines below.}
+
+\begin{compactitem}
+\item \emph{Vanilla}: We use the term \textbf{VANILLA} to denote a plain model without adding any approaches.
+\item {\emph{Synthetic-Sample-Based Methods}: Various existing imbalanced regression methods are also included as baselines; these include Deep Ensemble~\citep{DeepEnsemble}, Infer Noise~\citep{TFuncertainty}, SMOTER~\citep{IRrelated1}, and SMOGN~\citep{IRrelated2}.}
+\item {\emph{Cost-Sensitive Reweighting}}: As shown in DIR~\citep{DIR}, the square-root weighting variant (SQINV) baseline {(i.e. $\big(\sum_{b' \in \mathcal{B}} k (y_b, y_{b'}) p(y_{b'})\big)^{-1/2}$)} always outperforms Vanilla. {Therefore, for simplicity and fair comparison, \emph{all} our experiments (for both baselines and VIR) use SQINV weighting.} To use SQINV in VIR, one simply needs to use the symmetric kernel $k(\cdot, \cdot)$ described {in the Method section of the main paper.} To use SQINV in DER, we replace the final layer in DIR~\citep{DIR} with the DER layer~\citep{DER} to produce the predictive distributions.
+\end{compactitem}
+
+\textbf{Evaluation Process.} Following~\citep{longtailed, DIR}, for a data sample $x_i$ with its label $y_i$ which falls into the target bins $b_i$, we divide the label space into three disjoint subsets: many-shot region $\{b_i \in \mathcal{B} \mid y_i \in b_i \And |y_i| > 100 \}$, medium-shot region $\{b_i \in \mathcal{B} \mid y_i \in b_i \And 20 \leq |y_i| \leq 100 \}$, and few-shot region $\{b_i \in \mathcal{B} \mid y_i \in b_i \And |y_i| < 20 \}$, where $| \cdot |$ denotes the cardinality of the set. We report results on the overall test set and these subsets with the accuracy metrics discussed above.
+
+{\textbf{Implementation Details.}
+We use ResNet-50~\citep{ResNet} for all experiments in AgeDB-DIR and IMDB-WIKI-DIR. For all the experiments in STS-B-DIR, we use 300-dimensional GloVe word embeddings (840B Common Crawl version)~\cite{pennington2014glove} (following~\cite{wang2018glue}) and a two-layer, 1500-dimensional (per direction) BiLSTM~\citep{bilstm} with max pooling to encode the paired sentences into independent vectors $u$ and $v$, and then pass $[u;v;|u-v|;uv]$ to a regressor. We use the Adam optimizer~\citep{Adam} to train all models for 100 epochs, with same learning rate and decay by 0.1 and the 60-th and 90-th epoch, respectively. In order to determine the optimal batch size for training, we try different batch sizes and corroborate the conclusion from~\citep{DIR}, i.e., the optimal batch size is 256 when other hyperparameters are fixed.  Therefore, we stick to the batch size of $256$ for all the experiments in the paper. We also use the same configuration as in DIR~\citep{DIR} for other hyperparameters.}
+
+We use PyTorch to implement our method. For fair comparison, we implemented a PyTorch version for the official TensorFlow implementation of DER\citep{DER}.
+To make sure we can obtain the reasonable uncertainty estimations, we restrict the range for $\alpha$ to $[1.5, \infty)$ instead of $[1.0, \infty)$ in DER. Besides, in the activation function \emph{SoftPlus}, we set the hyperparameter \emph{beta} to 0.1. {As discussed in the main paper}, we implement a layer which produces the parameters $n, \Psi, \Phi$. We assign $2$ as the minimum number for $n$, and use the same hyperparameter settings for activation function for DER layer.
+
+To search for a combination hyperparameters of prior distribution $\{ \gamma_0, \nu_0, \alpha_0, \beta_0 \}$ for NIG, we combine grid search method and random search method~\citep{random-search} to select the best hyperparameters. We first intuitively assign a value and a proper range with some step sizes which correspond to the hyperparameters, then, we apply grid search to search for the best combination for the hyperparameters on prior distributions. After locating a smaller range for each hyperparameters, we use random search to search for better combinations, if it exists. In the end, we find our best hyperparameter combinations for NIG prior distributions.
+
+\section{Complete Results}
+We include the complete results for all the experiments in AgeDB-DIR, IMDB-WIKI-DIR, STS-B-DIR and NYUD2-DIR in Table~\ref{table:agedb-accuracy-total}, Table~\ref{table:imdb-wiki-accuracy-total}, Table~\ref{table:sts-accuracy-total} and Table~\ref{table:nyud2-accuracy-total}. These results demonstrate the superiority of our methods. {Note that we did not select to report the baseline for \textbf{DIR + DEEP ENS.} since in DER paper~\citep{DER}, it has been showed that DER is better than Deep Ensemble method, therefore we select to report the baseline \textbf{DIR+DER} rather than \textbf{DIR + DEEP ENS.}.}
+
+\section{Discussions}
+\subsection{Why We Need Bins}
+Throughout our method, we need to compute the statistics (i.e., the mean and variance) and the "statistics of statistics" of data points (Line 164-165); computing these statistics (e.g., the mean) requires a group of data points. Therefore, we need to partition the continuous label size into $\mathcal{B}$ bins. For example, in the equations from Line 176-177, e.g., $\mu_b^{\mu} = \frac{1}{N_b} \sum\nolimits^{N_b}_{i=1} z_i^{\mu}$, we need to compute the statistics of bin $b$, which contains $N_b$ data points in the bin.
+
+It is also worth noting in the extreme case where (i) each data point has a different label $y$ and (ii) we use a very small bin size, each bin will then contain exactly only one data point. 
+
+\subsection{Equal-Interval Bins versus Equal-Size Bins}
+Note that since our smoothing kernel function is based on labels (i.e., $k(y, y')$), it is more reasonable to use \textbf{equal-interval} bins rather than \textbf{equal-size} bins.
+
+\begin{compactitem}
+\item For example, if we use the equal-interval bins $[0,1),[1,2),...$, VIR will naturally compute $k(y, y')$ for $y=1,2,3,4,5,...$ and $y'=1,2,3,4,5,...$. 
+\item In contrast, if we use equal-size bins, VIR may end up with \textbf{large intervals} and may lead to inaccurate kernel values for $k(y, y')$. To see this, consider a case where equal-size bins are $[0,1),[1,2),[2,3.1),[3.1,8.9),...$; the kernel value $k(y, y')$ between bins $[2,3.1)$ and $[3.1,8.9)$ is $k(2,3.1)$, which is very inaccurate since $3.1$ is very far away from the mean of the bin $[3.1,8.9)$ (i.e., $6$). Using small and equal-interval bins can naturally address such issues.
+\end{compactitem}
+
+
+\subsection{The Number of Bins}
+{Our preliminary results indicate that the performance of our VIR remains consistent regardless of the number of bins, as shown in the Sec.~\ref{sec:ablation-bins} of the Supplement. Thus in our paper, we chose to use the same number of bins as the imbalanced regression literature~\citep{RankSim, DIR} for fair comparison with prior work. For example, in the AgeDB dataset where the regression labels are people's "age" in the range of 0~99, we use 100 bins, with each year as one bin.} 
+
+\subsection{Reweighting Methods and Stronger Augmentations}
+{Our method focus on reweighting methods, and using augmentation (e.g., the SimCLR pipeline~\citep{chen2020simple}) is an orthogonal direction to our work. However, we expect that data augmentation could further improve our VIR's performance. This is because one could perform data augmentation only on minority data to improve accuracy in the minority group, but this is sub-optimal; the reason is that one could potentially further perform data augmentation on majority data to improve accuracy in the majority group without sacrificing too much accuracy in the minority group. However, performing data augmentation on both minority and majority groups does not transform an imbalanced dataset to an balanced dataset. This is why our VIR is still necessary; VIR could be used on top of any data augmentation techniques to address the imbalance issue and further improve accuracy.}
+
+\subsection{Discussion on I.I.D. and N.I.D. Assumptions}\label{sec:iid_nid}
+%
+{\textbf{Generalization Error, Bias, and Variance.} 
+We could analyze the generalization error of our VIR by bounding the generalization with the sum of three terms: (a) the bias of our estimator, (2) the variance of our estimator, (3) model complexity. Essentially VIR uses the N.I.D. assumption increases our estimator's bias, but significantly reduces its variance in the imbalanced setting. Since the model complexity is kept the same (using the same backbone neural network) as the baselines, N.I.D. will lead to a lower generalization error.} 
+
+\textbf{Variance of Estimators in Imbalanced Settings.} 
+{In the imbalanced setting, one typically use inverse weighting (i.e., the IPS estimator in~\defref{def:ips_supp}) to produced an unbiased estimator (i.e., making the first term of the aforementioned bound zero). However, for data with extremely low density, its inverse would be extremely large, therefore leading to a very large variance for the estimator. Our VIR replaces I.I.D. with N.I.D. to ``smooth out'' such singularity, and therefore significantly lowers the variance of the estimator (i.e., making the second term of the aforementioned bound smaller), and ultimately lowers the generalization error.}
+
+\subsection{Why We Need Statistics of Statistics for Smoothing}
+{Compared with DIR~\citep{DIR}, which only considers the \textbf{statistics} for \emph{deterministic representations}, our VIR considers the \textbf{statistics of statistics} for \emph{probabilistic representations}, this is because the requirement to perform feature smoothing to get the representation $z_i$ necessitates the computation of mean and variance of $z_i$'s neighboring data (i.e., data with neighboring labels). Here $z_i$ contains the \textbf{statistics} of neighboring data. In contrast, our VIR also needs to generate uncertainty estimation, which requires a stochastic representation for $z_i$, e.g., the mean and variance of $z_i$ (note that $z_i$ itself is already a form of statistics). This motivates the hierarchical structure of the \textbf{statistics of statistics}. Here the variance measures the uncertainty of the representation.} 
+
+\subsection{The Choice of Kernel Function}
+{The DIR paper shows that a simple Gaussian kernel with inverse square-root weighting (i.e., SQINV) achieves the best performance. Therefore, we use exactly the same parameter configuration as the DIR paper~\citep{DIR}. Specifically, we set $\sigma=2$; for label $y_b$ in bin $b$, we define neighboring labels as labels $y_{b'}$ such that $|y_{b'}-y_b|\leq 2$, i.e., $B$ contains $5$ bins. For example, if $y_b=23$, its neighboring labels are $21$, $22$, $23$, $24$, and $25$.} 
+
+{Besides, our preliminary results also show that the performance is not very sensitive to the choice of kernels, as long as the kernel $k(a,b)$ reflects the distance between $a$ and $b$, i.e., larger distance between $a$ and $b$ leads to smaller $k(a,b)$.}
+
+\subsection{Why VIR Solves the Imbalanced Regression Problem}
+{Our training objective function (Eqn.5 in the main paper) is the \textbf{negative log likelihood} for the Normal Inverse Gaussian (NIG) distribution, and each posterior parameter ($\nu_i^*, \gamma_i^*,  \alpha_i^*$) of the NIG distribution is reweighted by importance weights, thereby assigning higher weights to minority data during training and allowing minority data points to benefit more from their neighboring information.}
+
+{Take $\nu_i^*$ as an example. Assume a minority data point $(x_i,y_i)$ that belongs to bin $b$, i.e., its label $y_i=y_b$. Note that there is \textbf{a loss term} $(y_i-\gamma_i^*)^2\nu_i^*$ in \textbf{Eqn.5}, where $\gamma_i^*$ is the model prediction, $y_i$ is the label, and $\nu^{*}_{i}$ is the \emph{importance weight} for this data point.}
+
+{Here $\nu_i^* = \nu_0 + (\sum_{b' \in \mathcal{B}} k (y_b, y_{b'}) p(y_{b'}))^{-1/2} \cdot n_i$ where $n_i$ represents the pseudo-count for the NIG distribution. Since $(x_i,y_i)$ is a minority data point, data from its neighboring bins has smaller frequency $p(y_{b'})$ and therefore smaller $\sum_{b' \in \mathcal{B}} k (y_{b}, y_{b'}) p(y_{b'})$, leading to \textbf{a larger \emph{importance weight}} $\nu_i^*$ \textbf{for this minority data point in Eqn.5}. }
+
+{This allows VIR to naturally put more focus on the minority data, thereby alleviating the imbalance problem.} 
+
+\subsection{Difference from DIR, VAE and DER}
+{From a technical perspective, VIR is substantially different from any combinations of DIR~\citep{DIR}, VAE~\citep{VAE}, and DER~\citep{DER}. Specifically,}
+\begin{compactitem}
+\item {VIR is a deep generative model to define how imbalanced data are generated, which is learned by a principled variational inference algorithm. In contrast, DIR is a simply discriminative model (without any principled generative model formulation) that directly predict the labels from input. It is more prone to overfitting.}
+\item {DIR uses deterministic representations, with one vector as the final representation for each data point. In contrast, our VIR uses probabilistic representations, with one vector as the mean of the representation and another vector as the variance of the representation. Such dual representation is more robust to noise and therefore leads to better prediction performance.}
+\item {DIR is a deterministic model, while our VIR is a Bayesian model. Essentially VIR is equivalent to sampling infinitely many predictions for each input data point and averaging these predictions. Therefore intuitively it makes sense that VIR could lead to better prediction performance.}
+\item {Different from VAE and DIR, VIR introduces a reweighting mechanism naturally through the pseudo-count formulation in the NIG distribution (discussed in the paragraphs \textbf{Intuition of Pseudo-Counts for VIR} and \textbf{From Pseudo-Counts to Balanced Predictive Distribution} in the paper). Note that such a reweighting mechanism is more natural and powerful than DIR since it is rooted in the probabilistic formulation.}
+\item {Unlike for the standard VAE, the optimal prior (that maximizes ELBO) is known to be the aggregated posterior, our optimal prior is a \emph{neighbor-weighted} version of aggregated posterior: for standard VAE, different data points contribute \textbf{independently} to the aggregated posterior; in contrast, for our VIR, the importance of each data point with respect to the aggregated posterior is \textbf{affected} by data points with neighboring labels.}
+\item {It is also worth noting that DIR cannot produce uncertainty estimation since it is a deterministic model. In contrast, Our VIR formulates a probabilistic deep generative model for imbalanced data, and therefore can naturally produce both more accurate predictions compared to DIR and better uncertainty estimation compared to DER.}
+\end{compactitem}
+
+\subsection{Bayesian Neural Networks (BNNs)}
+We do not consider other BNNs in this work because:
+\begin{compactitem}
+\item Weights in Bayesian Neural Networks (BNNs) are extremely high-dimensional; therefore BNNs have several limitations, including the intractability of directly inferring the posterior distribution of the weights given data, the requirement and computational expense of sampling during inference, and the question of how to choose a weight prior~\citep{DER}. In contrast, evidential regression does not have these challenges.
+\item In our preliminary experiments, we found that typical BNN methods suffer from computational inefficiency and would require at least two to three times more computational time and memory usage. In contrast, evidential regression does not involve such computation and memory overhead; its overhead only involves the last (few) layers, and is therefore minimal.
+\item {Additionally, as demonstrated in~\citep{DeepEnsemble}, Deep Ensemble typically performs as well as or even better than BNNs. Our method outperforms Deep Ensemble, therefore suggesting its superiority over typical BNN methods.}
+\end{compactitem}
+
+\section{Additional Experiment Results}
+
+\subsection{Ablation Study on VIR} 
+In this section, we include ablation studies to verify that our VIR can outperform its counterparts in DIR (i.e., smoothing on the latent space) and DER (i.e., NIG distribution layers).
+
+%
+\begin{wraptable}{R}{0.5\textwidth}
+\vskip -0.6cm
+\setlength{\tabcolsep}{2.0pt}
+\caption{Ablation study for Accuracy.}
+\vspace{-1pt}
+\label{table:agedb-acc-ablation}
+\small
+\begin{center}
+\resizebox{0.49\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{MSE~$\downarrow$}     & \multicolumn{4}{c}{MAE~$\downarrow$} \\ \midrule
+Shot & All & Many & Med. & Few & All & Many & Med. & Few \\ \midrule\midrule
+\textsc{FDS}~\citep{DIR} & 109.78 & 93.99 & 124.96 & 216.97 & 8.12 & 7.52 & \textbf{8.68} & 12.25\\[1.5pt]
+\textbf{\textsc{Encoder-Only VIR (ours)}} & \textbf{95.99} & \textbf{81.89} & \textbf{121.78} & \textbf{157.92} & \textbf{7.57} & \textbf{6.97} & 8.72 & \textbf{10.03} \\[1.5pt] \midrule\midrule
+\textsc{DER}~\citep{DER} & 106.81 & 91.32 & 122.45 & 209.76 & 8.11 & 7.36 & 9.03 & 12.69\\[1.5pt]
+\textbf{\textsc{Predictor-Only VIR (ours)}} & \textbf{88.96} & \textbf{74.79} & \textbf{95.85} & \textbf{203.76} & \textbf{7.28} & \textbf{6.68} & \textbf{7.76} & \textbf{11.63}\\[1.5pt] \midrule\midrule
+\textsc{LDS+FDS} & 99.46 & 84.10 & 112.20 & 209.27 & 7.55 & 7.01 & 8.24 & 10.79 \\[1.5pt]
+\textsc{LDS + \textbf{Predictor-Only VIR (ours)}} & 87.48 & 73.72 & 107.64 & 161.69 & 7.17 & 6.63 & 8.06 & 9.80 \\[1.5pt]
+\textsc{LDS + \textbf{Encoder-Only VIR (ours)}} & 96.46 & 86.72 & 102.56 & 171.52 & 7.51 & 7.08 & 7.93 & 10.45 \\[1.5pt]
+\textbf{\textsc{VIR (ours)}} & \textbf{81.76} & \textbf{70.61} & \textbf{91.47} & \textbf{142.36} & \textbf{6.99} & \textbf{6.39} & \textbf{7.47} & \textbf{9.51} \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.5cm}
+\end{wraptable} % agedb-ablation study accuracy
+%
+
+\textbf{Ablation Study on {$q(\z_i|\{\x_i\}_{i=1}^N)$}.} 
+To verify the effectiveness of VIR's encoder $q(\z_i|\{\x_i\}_{i=1}^N)$, we replace VIR's predictor $p(y_i|\z_i)$ with a linear layer (as in DIR). \tabref{table:agedb-acc-ablation} shows that compared to its counterpart, FDS~\citep{DIR}, our encoder-only VIR leads to a considerable improvements even without generating the NIG distribution. Both verify the effectiveness of our VIR's $q(\z_i|\{\x_i\}_{i=1}^N)$. 
+
+%
+\begin{wraptable}{R}{0.5\textwidth}
+\vskip -0.6cm
+\setlength{\tabcolsep}{1.5pt}
+\caption{Ablation study for Uncertainty.}
+\vspace{-1pt}
+\label{table:agedb-var-ablation}
+\small
+\begin{center}
+\resizebox{0.49\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{NLL~$\downarrow$}     & \multicolumn{4}{c}{AUSE~$\downarrow$} \\ \midrule
+Shot         & All  & Many & Med. & Few   & All  & Many & Med. & Few \\ \midrule\midrule
+\textsc{DER}~\cite{DER}  & 3.936 & 3.768 & 3.865 & 4.421 & 0.590 & 0.449 & 0.468 & 0.500 \\[1.5pt]
+\textbf{\textsc{Predictor-Only VIR (ours)}} & \textbf{3.887} & \textbf{3.755} & \textbf{3.854} & \textbf{4.394} & \textbf{0.443} & \textbf{0.387} & \textbf{0.390} & \textbf{0.407} \\[1.5pt] \midrule\midrule
+\textsc{LDS + \textbf{Predictor-Only VIR (ours)}} & 3.722 & 3.604 & 3.821 & 4.209 & 0.441 & 0.457 & 0.334 & 0.426 \\[1.5pt]
+\textbf{\textsc{VIR (ours)}} & \textbf{3.703} & \textbf{3.598} & \textbf{3.805} & \textbf{4.196} & \textbf{0.434} & \textbf{0.456} & \textbf{0.324} & \textbf{0.414} \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.5cm}
+\end{wraptable} % agedb-ablation study variance
+%
+
+\textbf{Ablation Study on {$p(y_i|\z_i)$}.} 
+To verify the effectiveness of VIR's predictor $p(y_i|\z_i)$, we replace VIR's encoder $q(\z_i|\{\x_i\}_{i=1}^N)$ with a simple deterministic encoder as in DER~\citep{DER}. \tabref{table:agedb-acc-ablation} and \tabref{table:agedb-var-ablation} show that compared to DER, the counterpart of VIR's predictor, our VIR's predictor still outperforms than DER, demonstrating its effectiveness. Both verifies our claim that directly reweighting DER breaks NIG and leads to poor performance. 
+
+\subsection{Ablation Study on \texorpdfstring{$\lambda$}{lambda}.}
+{In this section, we include ablation studies on the $\lambda$ in our objective function. For $\lambda \in \{10.0, 1.0, 0.1, 0.01, 0.001 \}$, we run our VIR model on the AgeDB dataset. Table~\ref{table:lambda} shows the results. We can observe that our model achieves the best performance when $\lambda=0.1$.}
+
+%
+\begin{wraptable}{R}{0.5\textwidth}
+\vskip -1.2cm
+\setlength{\tabcolsep}{1.5pt}
+\caption{Calibration Uncertainty on AgeDB-DIR.}
+\vspace{-1pt}
+\label{table:agedb-calibration}
+\small
+\begin{center}
+\resizebox{0.49\textwidth}{!}{
+\begin{tabular}{l|cccc|cccc}
+\toprule[1.5pt]
+Metrics      & \multicolumn{4}{c|}{NLL~$\downarrow$}     & \multicolumn{4}{c}{AUSE~$\downarrow$} \\ \midrule
+Shot         & All  & Many & Medium & Few   & All  & Many & Medium & Few \\ \midrule\midrule
+\textsc{Deep Ens.}~\citep{DeepEnsemble}  & 5.311 & 4.031 & 6.726 & 8.523 & 0.541 & 0.626 & 0.466 & 0.483 \\[1.5pt]
+\textsc{[Calibrated] Deep Ens.}~\citep{DeepEnsemble}  & 5.015 & 3.978 & 6.402 & 8.393 & 0.506 & 0.591 & 0.386 & 0.402 \\[1.5pt] \midrule\midrule
+\textsc{Infer Noise}~\citep{TFuncertainty} & 4.616 & 4.413 & 4.866 & 5.842 & 0.465 & 0.458 & 0.457 & 0.496 \\[1.5pt]
+\textsc{[Calibrated] Infer Noise}~\citep{TFuncertainty} & 4.470 & 4.183 & 4.756 & 5.622 & 0.404 & 0.426 & 0.410 & 0.415 \\[1.5pt] \midrule\midrule
+\textsc{DER}~\citep{DER}  & 3.918 & 3.741 & 3.919 & 4.432 & 0.523 & 0.464 & 0.449 & 0.486 \\[1.5pt]
+\textsc{[Calibrated] DER}~\citep{DER}  & 3.827 & 3.674 & 3.835 & 4.297 & 0.479 & 0.401 & 0.399 & 0.396 \\[1.5pt] \midrule\midrule
+\textsc{LDS} + \textsc{FDS} + \textsc{DER}~\citep{DER}  & 3.787 & 3.689 & 3.912 & 4.234 & 0.451 & 0.460 & 0.399 & 0.565 \\[1.5pt]
+\textsc{[Calibrated] LDS} + \textsc{FDS} + \textsc{DER}~\citep{DER}  & 3.708 & 3.636 & 3.807 & 4.032 & 0.417 & 0.364 & 0.269 & 0.452 \\[1.5pt] \midrule\midrule
+\textsc{VIR (Ours)} & {3.703} & {3.598} & {3.805} & {4.196} & {0.434} & {0.456} & {0.324} & {0.414} \\[1.5pt] 
+\textbf{\textsc{[Calibrated] VIR (Ours)}}  & \textbf{3.577} & \textbf{3.493} & \textbf{3.595} & \textbf{3.866} & \textbf{0.359} & \textbf{0.232} & \textbf{0.276} & \textbf{0.266} \\[1.5pt]
+\bottomrule[1.5pt]
+\end{tabular}}
+\end{center}
+\vspace{-0.5cm}
+\end{wraptable} % calibration study
+%
+
+\subsection{Ablation Study on Number of Bins} \label{sec:ablation-bins}
+
+In this section, we include ablation studies on the number of bins in our settings. For the cases with $100/1=100$, $100/3\approx 33$, and $100/5=20$ bins, we run our VIR model on the AgeDB dataset. Table~\ref{table:bin-size} shows the results. We can observe that our VIR remains consistent regardless of the number of bins.
+
+\subsection{Calibrated Uncertainty}
+
+{In a bid to enhance the evaluation of our model's uncertainty, we used our validation set to apply calibration techniques (specifically, variants of temperature scaling~\cite{TS}) on different methods. We focused on each of the output distribution parameters $\nu, \alpha, \beta$ as discussed in our main paper, introducing individual scalar weights for each parameter to calibrate uncertainty estimation. Upon deriving each weight $\w_{\nu}, \w_{\alpha}, \w_{\beta}$ from the validation set, we incorporated them into the test dataset to ascertain the final performance. The data outlined in Table~\ref{table:agedb-calibration} indicates that following re-calibration, the uncertainty was further optimized. Notwithstanding such uncertainty calibration, our model persists in demonstrating superior performance compared to other benchmark methods.}
+
+\subsection{Error bars on Accuracy}
+{In order to further underscore the superiority of our methodology, we also included error bars for our proposed method (i.e., VIR) which are generated from five independent runs. Note that we did not report error bars for those second/third best baselines (e.g., RankSim, LDS+FDS) since we directly use the reported performance from their papers, and in NYUD2-DIR, all the error bars on VIR are approximately 0.001. Due to the \emph{width} constraints of the paper, these are not included in Table~\ref{table:nyud2-accuracy-total}. Results in Table~\ref{table:agedb-accuracy-total}, Table~\ref{table:imdb-wiki-accuracy-total}, and Table~\ref{table:sts-accuracy-total} demonstrate the effectiveness of our approach.}
+

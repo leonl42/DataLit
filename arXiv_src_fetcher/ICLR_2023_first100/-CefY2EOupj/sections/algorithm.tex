@@ -1,0 +1,70 @@
+\begin{algorithm}[t!]
+\small
+	\caption{Proposed {\myalgo} Algorithm}\label{algo:localstep01}
+	\begin{algorithmic}[1]
+		\Require local model on the $i$-th node $\*x^{(i)}_{0}$, learning rate $\{\gamma_t\}_{t=1}^{T}$, $\*m_0=\*0$, $\*v_0=\*0$, auxiliary buffer $\*u_0=\*0$, total number of iterations $T$, decaying factor $\beta_1$, $\beta_2$ from Adam, numerical constant $\epsilon$, variance update step index set $\mathcal{T}_{\*v}$, synchronization step index set $\mathcal{T}_{\*u}$, the most recent step with synchronization $t'=0$.
+		\For{$t=0, \cdots, T-1$}
+		    \State Compute local stochastic gradient $\*g^{(i)}_t$.
+		    \State Update momentum: $\*m^{(i)}_{t+\frac{1}{2}} = \beta_1\*m^{(i)}_{t} + (1-\beta_1){\*g}^{(i)}_t$.
+		    \State Update model: $\*x^{(i)}_{t+\frac{1}{2}} = \*x^{(i)}_{t} - \gamma_t{\*m}^{(i)}_t/\sqrt{\*v_t+\epsilon}$.
+		    \State Update buffer: $\*u^{(i)}_{t+\frac{1}{2}} = \*u^{(i)}_{t} + \gamma_t{\*m}^{(i)}_t$.
+		    \If{$t\in\mathcal{T}_{\*u}$}
+    		    \State Perform 1-bit AllReduce: $\overline{\*u}_{t+\frac{1}{2}}$ = \textbf{1bit-AllReduce} $\left(\*u_{t+\frac{1}{2}}^{(i)}\right)$.
+    		    \State Approximate momentum with compressed buffer: $\*m^{(i)}_{t+1} = \overline{\*u}_{t+\frac{1}{2}}/\sum_{h=t'}^{t}\gamma_h$.
+    		    \State Update model with compressed buffer: $\*x^{(i)}_{t+1} = \*x^{(i)}_{t'} - \overline{\*u}_{t+\frac{1}{2}}/\sqrt{\*v_t+\epsilon}$.
+    		    \State Reset the auxiliary buffer: $\*u^{(i)}_{t+1} = \*0$.
+    		    \State Update the synchronization step: $t'=t$.
+    		\Else
+    		    \State  $\*x^{(i)}_{t+1}=\*x^{(i)}_{t+\frac{1}{2}}$; $\*m^{(i)}_{t+1}=\*m^{(i)}_{t+\frac{1}{2}}$; $\*u^{(i)}_{t+1}=\*u^{(i)}_{t+\frac{1}{2}}$.
+    	    \EndIf
+    	    \If{$t\in\mathcal{T}_{\*v}$}
+		        \State Perform full-precision AllReduce: $\overline{\*g}_t$ = \textbf{AllReduce} $\left(\*g_t^{(i)}\right)$.
+		        \State Update the variance: $\*v_{t+1} = \beta_2\*v_{t} + (1-\beta_2)(\overline{\*g}_t)^2$.
+		    \Else
+		        \State Use the stale variance for the next iteration: $\*v_{t+1} = \*v_{t}$.
+		    \EndIf
+		\EndFor
+		\State \textbf{return} $\*x_T$.
+	\end{algorithmic}
+\end{algorithm}
+
+\section{\myalgo}
+\label{sec:algorithm}
+% \minjia{Not sure if this is the best section title we can come up with. It describes what we did but (1) fixing something feels a bit incremental, and (2) it does not connect very well with the title of our paper, where we pitch 0/1 Adam as a technique for maximizing the communication efficiency. Maybe: Extreme Compression with Linear Approximation for Addressing Non-Linearity in Adam? Not my favorite as it is too long, but hopefully this helps you to come up with a better section title.}
+In this section, we give the full description of {\myalgo}. To maximize the communication efficiency, ideally we want an algorithm that enables adaptive convergence like Adam, while allowing aggressive compression (e.g. 1 bit) and requires no additional synchronization on the optimizer states when using local steps. {\myalgo} solves this problem from two aspects.
+
+\textbf{Adaptive Variance Freezing.}
+To begin with,
+{\myalgo} creates a linear environment that freezes the variance adaptively. The intuition is leveraged from the observation in Figure~\ref{fig:profile_bert_large:var_diff_time}: the change of variance over steps in Adam is generally smooth. While 1-bit Adam captures a reasonable variance estimate via one-time freezing, it is reasonable to also presume that before its freezing point, the variance within several adjacent steps will stay close due to its smoothness.
+This motivates us to extend the one-time freezing policy in 1-bit Adam into an adaptive one, by letting workers agree upon the freezing points from a given step index set $\mathcal{T}_{\*v}\subseteq\{0, \cdots, T-1\}$.
+The frozen variance creates multiple intervals over training, during which the workers have agreement on the denominator (Equation~(\ref{equa:Adam_update})) and the only uncertainty is then left in the nominator that is linearly dependent on the model update, just like SGD.
+
+% We provide the formal description of this idea in Algorithm~\ref{algo:basic01}, from which the 1-bit Adam can then be viewed as a special case of setting $\mathcal{T}_{\*v}=\{0, \cdots, T_0-1\}$.
+
+% \textbf{Skipping communication rounds requires states synchronization.}
+% As will be shown in Section~\ref{sec:experiment}, while a well-constructed $\mathcal{T}_{\*v}$ is able to reduce the per-parameter volume towards 1 bit, its end-to-end throughput improvement is limited. This happens since, as illustrated in Section~\ref{sec:motivation}, the fixed cost of initiating communication rounds and compression is non-negligible.
+% This further motivates us to let Algorithm~\ref{algo:basic01} work with skipped communication rounds so as to maximize its communication efficiency.
+% As shown in previous works, performing local steps (i.e. skipping rounds) in Adam requires synchronization on the optimizer states \citep{yu2019linear,chen2021convergence}. Specifically, since local gradients computed on each worker are different, without periodic synchronization the optimizer states on different workers will diverge from each other. As shown in Figure~\ref{fig:profile_bert_large:mom_diff_local} and \ref{fig:profile_bert_large:var_diff_local}, the difference between local and global optimizer states, momentum and variance, remain constants and do not decrease to zero. The additional synchronization on momentum and variance could potentially compromise the performance gain from applying local steps.
+
+\textbf{Including 1-bit Compression and Local Steps.}
+% Ideally, we want a strategy that lets all the workers reach consensus on optimizer states without incurring new communication volume. Denote $\*x_t^{(i)}$, $\*m_t^{(i)}$, $\*v_t^{(i)}$ as the model, momentum, variance on worker $i$ at step $t$, respectively. Suppose all the workers are synchronized at step $t'$, and skip all the communication rounds to step $t$, we obtain for any $i\in\{1, \cdots, n\}$,
+% \begin{align*}
+%     \*x_t^{(i)} = \*x_{t'}^{(i)} - \sum_{k=t'}^{t-1}\frac{\gamma_k\*m_k^{(i)}}{\sqrt{\*v_k^{(i)}+\epsilon}}.
+% \end{align*}
+% Since directly applying 1-bit compression to model parameters can easily cause divergence \citep{basu2020qsparse}, we instead apply compression to $\*x_t^{(i)} - \*x_{t'}^{(i)}$ (which we refer to as model difference) given that all the workers have agreed on $\*x_{t'}^{(i)}$. Compressing the model difference, on one hand, makes the compression error bounded since when the algorithm converges, the model difference will generally approach zero; on the other hand, it provides the opportunity for us to synchronize optimizer states for free as illustrated next.
+% The main design of 1-bit sync is leveraged from the following observation: if all the workers use the same frozen variance during a sequence of local steps, then 
+With frozen variance, we make another observation based on Equation~(\ref{equa:Adam_update}) that the model difference on workers will be linearly dependent to the momentum. So that, the momentum can be approximated locally rather than synchronized additionally based on the communicated model difference, given the premise that the change of momentum is not abrupt within close steps. Formally, denote $\*x_t^{(i)}$, $\*m_t^{(i)}$, $\*v_t^{(i)}$ as the model, momentum, variance on worker $i$ at step $t$, respectively. Suppose all the workers are synchronized at step $t'$, then with frozen variance $\*v$ over all the workers,
+\begin{align*}
+\*u_t^{(i)} &= \sum\nolimits_{k=t'}^{t}\gamma_k\*m_k^{(i)} && \text{Actual sent tensors in the communication.} \\
+\*x_{t+1}^{(i)} &= \*x_{t'}^{(i)} - \frac{1/n\sum\nolimits_{i=1}^{n}\*u_t^{(i)}}{\sqrt{\*v+\epsilon}} && \text{Sync model parameters with the sent tensors.} \\
+\*m_{t+1}^{(i)} &\approx \frac{1/n\sum\nolimits_{i=1}^{n}\*u_t^{(i)}}{\sum\nolimits_{k=t'}^{t}\gamma_k} && \text{Approximate momentum via linear estimates via sent tensor.}
+\end{align*}
+where we omit the compression part for brevity.
+Combined with compression, we provide the full description of {\myalgo}\footnote{The name comes from the fact that the algorithm can potentially reduce the per-parameter volume to some number between 0 and 1 bit on average.} in Algorithm~\ref{algo:localstep01}.
+Note that here we defer the details of 1-bit compression to Appendix~\ref{appendix:sec:algorithm} and treat it as a black-box procedure named \textbf{1bit-AllReduce} while the original full-precision AllReduce is referred to as \textbf{AllReduce}. 
+
+We also remark that although both techniques appear to be natural, to the best of our knowledge,  we are the first to apply them to addressing the non-linearity challenges in 1-bit compression and local steps for maximizing the communication efficiency of Adam optimizer.  
+
+
+% \textbf{Techniques in {\myalgo} are correlated.}
+% Giving a closer look at Algorithm~\ref{algo:localstep01}, all the techniques are not orthogonally combined but are highly correlated. In fact, the approximation in 1-bit sync cannot be performed accurately if the variance during the local steps are different. On the other hand, compressing model difference rather than model itself also makes the momentum approximation possible due to their linear dependency.

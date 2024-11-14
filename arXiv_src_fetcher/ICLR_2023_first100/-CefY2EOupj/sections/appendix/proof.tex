@@ -1,0 +1,798 @@
+\section{Theoretical Analysis}
+\label{appendix:sec:proof}
+\subsection{Analysis to an intermediate version of {\myalgo}}
+\begin{algorithm}[ht!]
+\small
+	\caption{Generic framework of applying 1-bit communication to Adam with frozen variance state. 1-bit Adam can be viewed as a special case of setting $\mathcal{T}_{\*v}=\{0,\cdots,T_0-1\}$ where $T_0$ denotes its total number of steps in the full-precision stage.}\label{algo:basic01}
+	\begin{algorithmic}[1]
+		\Require initialized model on worker $i$: $\*x_{0}^{(i)}$, learning rate $\{\gamma_t\}_{t=1}^{T}$, $\*m_0=\*0$, $\*v_0=\*0$, total number of iterations $T$, decaying factor $\beta_1$, $\beta_2$ from Adam, numerical constant $\epsilon$, variance update step index set $\mathcal{T}_{\*v}$.
+		\For{$t=0, \cdots, T-1$}
+		    \State Locally compute stochastic gradient $\*g^{(i)}_t$ over $\*x_{t}^{(i)}$.
+		    \If{$t\in\mathcal{T}_{\*v}$}
+		        \State $\overline{\*g}_t$ = \textbf{AllReduce} $\left(\*g_t^{(i)}\right)$.
+		        \State Set $\*v_{t+1} = \beta_2\*v_{t} + (1-\beta_2)(\overline{\*g}_t)^2$.
+		    \Else
+		        \State $\overline{\*g}_t$ = \textbf{Compressed-AllReduce} $\left(\*g_t^{(i)}\right)$.
+		        \State Set $\*v_{t+1} = \*v_{t}$.
+		    \EndIf
+		    \State Update momentum: $\*m_{t+1} = \beta_1\*m_{t} + (1-\beta_1)\overline{\*g}_{t}$.
+		    \State Update model: $\*x_{t+1}^{(i)} = \*x_{t}^{(i)} - \gamma_t\*m_{t}/\sqrt{\*v_{t}+\epsilon}$.
+		\EndFor
+		\State \textbf{return} $\*x_T^{(i)}, \forall i$.
+	\end{algorithmic}
+\end{algorithm}
+We start from a special case of {\myalgo} that compresses gradients without local steps. This is given in Algorithm~\ref{algo:basic01}.
+Note that the following proof will use Algorithm~\ref{algo:EF} to replace \textbf{Compressed-AllReduce} in Algorithm~\ref{algo:basic01}, as introduced in Section~\ref{appendix:sec:algorithm}.
+
+Algorithm~\ref{algo:basic01} allows us to work with weaker assumption as given in the following
+\begin{assumption}
+\label{assume:compression}
+\textbf{Compression error in Algorithm~\ref{algo:basic01}:}
+    For arbitrary $\*x\in\mathbb{R}^d$, there exists a constant $0\leq \omega < 1$, such that the output of compressor $\mathcal{C}[\cdot]$ has the following error bound:
+    \begin{align*}
+        \mathbb{E}\left\| \mathcal{C}[\*x] - \*x \right\|^2 \leq \omega \left\| \*x\right\|^2.
+    \end{align*}
+\end{assumption}
+
+\begin{restatable}{thm}{thmzerooneadambasic}
+\label{thm:basic01}
+Under Assumption~\ref{assum:smooth}, \ref{assume:variance}, \ref{assume:g_bound}, and \ref{assume:compression}, let $m=|\mathcal{T}_{\*v}|$, and select $\beta_1, \beta_2\in[0,1)$ such that $m\leq\log(1-\beta_1)/\log(\beta_2)$.
+If we run Algorithm~\ref{algo:basic01} with a constant learning rate: for all $t\geq 0$
+\begin{align*}
+    \gamma_t = \min\left\{ \sqrt{\frac{n}{\sigma^2T}}, \frac{1}{2L\sqrt{G_\infty^2+\epsilon}}, \frac{1}{125}  \right\},
+\end{align*}
+then it holds that
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\*x_t)\|^2 \leq O\left( \frac{\sigma}{\sqrt{nT}} + \frac{m+n}{(1-\omega)^4T} +\frac{1}{T}\right),
+\end{align*}
+where we omit $f(\*0)-\inf_{\*x\in\mathbb{R}^d}f(\*x)$,  $G_\infty$, $d$, $\epsilon$, $\beta_1$, $\beta_2$ and $L$ as constants.
+\end{restatable}
+
+\begin{proof}
+The main update of Algorithm~\ref{algo:basic01} (with constant learning rate) can be summarized as: for every $t=0, \cdots, T-1$,
+\begin{align*}
+    \*m_{t+1} & = \beta_1\*m_{t} + (1-\beta_1)\overline{\*g}_t \\
+    \*v_{t+1} & = \left\{
+    \begin{array}{ll}
+        \beta_2\*v_{t} + (1-\beta_2)\left( \frac{1}{n}\sum_{i=1}^{n}\*g^{(i)}_t \right)^2 & t\in\mathcal{T}_{\*v}, \\
+        \\
+        \*v_{t} & t\not\in\mathcal{T}_{\*v}. \\
+    \end{array}\right. \\
+    \*x_{t+1} & = \*x_{t} - \gamma \frac{\*m_t}{\sqrt{\*v_t +  \epsilon} },
+\end{align*}
+where the $\overline{\*g}_t$ is the output of the \textbf{1-bit AllReduce} algorithm\footnote{In the original Algorithm~\ref{algo:basic01}, the $\overline{\*g}_t$ is the output of the \textbf{AllReduce} when $t\in\mathcal{T}_{\*v}$. This, however, does not affect our analysis, since our proof holds for a noisier case. The original Algorithm~\ref{algo:basic01} is mainly for practical concern -- we avoid redundant \textbf{AllReduce} rounds when \textbf{1-bit AllReduce} is performed.}.
+Note that based on Algorithm~\ref{algo:EF}, the gradient approximation term follows:
+\begin{align*}
+    \overline{\*g}_{t} = & \frac{1}{n}\sum_{i=1}^{n}\hat{\*g}^{(i)}_{t} + \overline{\*\delta}_{t} - \overline{\*\delta}_{t+1} \\
+        = & \frac{1}{n}\sum_{i=1}^{n}\left( \*g^{(i)}_{t} + \*\delta^{(i)}_{t} - \*\delta^{(i)}_{t+1} \right) + \overline{\*\delta}_{t} - \overline{\*\delta}_{t+1} \\
+    = & \frac{1}{n}\sum_{i=1}^{n}\*g^{(i)}_{t} + \left( \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t}\right) - \left( \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t+1} - \overline{\*\delta}_{t+1}\right) \\
+        = & \*g_t + \*\delta_{t} - \*\delta_{t+1},
+\end{align*}
+where we denote
+\begin{align*}
+    \*g_t = & \frac{1}{n}\sum_{i=1}^{n}\*g^{(i)}_t \\
+    \*\delta_{t} = & \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t}.
+\end{align*}
+To prove the convergence, we now
+define the following auxiliary sequence: for any $t\geq 0$,
+\begin{align*}
+    \*y_t = \*x_t - \frac{\gamma\*m_t}{(1-\beta_1)\sqrt{\*v_{t}+\epsilon}} - \frac{\gamma\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}}.
+\end{align*}
+The rest of the proof is to use this auxiliary sequence to bound two types of steps separately. We call a step $t$ as \emph{reuse step} if $t\not\in\mathcal{T}_{\*v}$ and \emph{update step} otherwise. We see for all the update steps, $\*v_{t}\neq\*v_{t+1}$ while for all the reuse steps $\*v_{t}=\*v_{t+1}$. 
+The bounds on two different types of steps are provides by Lemma~\ref{lemma:reuse_step} and Lemma~\ref{lemma:update_step}. Specifically, denoting $V_1 = \left\| \frac{1}{\sqrt{\*v_1+\epsilon}}\right\|_1$,
+from Lemma~\ref{lemma:reuse_step} we obtain for all the reuse steps,
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \\
+    \leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})] + \frac{227\gamma^3L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{L\gamma^2\sigma^2V_1(T-m)}{2n\beta_2^m}.
+\end{align*}
+while from Lemma~\ref{lemma:update_step} we obtain for all the update steps,
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})] + \left( \frac{34\gamma}{L}+\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\right)\cdot\left(\frac{\sigma^2}{n} + G_\infty^2d\right)m \\
++ & \frac{32\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dmL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}.
+\end{align*}
+Note that the two inequalities above hold when the learning rate fulfills
+\begin{align*}
+    \gamma \leq \min\left\{ \frac{\beta_2^m}{2V_1L\sqrt{G_\infty^2+\epsilon}},\frac{1}{125}\right\}.
+\end{align*}
+Combine them together,
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1}\frac{\mathbb{E}\|\nabla f(\*x_t)\|^2}{4\sqrt{G_\infty^2+\epsilon}} \leq & \frac{f(\*0) - f^*}{\gamma T} + \frac{227\gamma^2L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4T} + \frac{L\gamma\sigma^2V_1(T-m)}{2n\beta_2^mT} \\
+& + \left( \frac{34}{L}+\frac{1}{4\sqrt{G_\infty^2+\epsilon}}\right)\cdot\left(\frac{\sigma^2}{n} + G_\infty^2d\right)\frac{m}{T} + \frac{32(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dmL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4T}
+\end{align*}
+Dropping the constants, we finally obtain
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(\*x_t)\|^2 \leq & O\left( \frac{f(\*0) - f^*}{\gamma T} + \frac{\gamma^2 }{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{\gamma\sigma^2}{n\beta_2^m} + \frac{\omega m}{\beta_2^m(1-\beta_1)^2(1-\omega)^4T} + \frac{\sigma^2m}{nT} \right) \\
+\leq & O\left( \frac{f(\*0) - f^*}{\gamma T} + \frac{\gamma^2 }{(1-\beta_1)^4(1-\omega)^4} + \frac{\gamma\sigma^2}{n(1-\beta_1)} + \frac{\omega m}{(1-\beta_1)^3(1-\omega)^4T} + \frac{\sigma^2m}{nT} \right),
+\end{align*}
+where in the last step we use the condition in the theorem that $\beta_2^m \geq 1-\beta_1$.
+To meet the requirement of learning rate we set
+\begin{align*}
+    \gamma_t = \min\left\{ \sqrt{\frac{n}{\sigma^2T}}, \frac{1}{2L\sqrt{G_\infty^2+\epsilon}}, \frac{1}{125}  \right\},
+\end{align*}
+then it holds that
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\*x_t)\|^2 \leq O\left( \frac{\sigma}{\sqrt{nT}} + \frac{m+n}{(1-\omega)^4T} +\frac{1}{T}\right).
+\end{align*}
+That completes the proof.
+\end{proof}
+
+
+%%%%%%%%%%Analysis to Local 0/1 Adam
+
+
+\subsection{Proof to Theorem~\ref{thm:local01}}
+
+Note that the following proof will use Algorithm~\ref{algo:EF} to replace \textbf{1bit-AllReduce} in Algorithm~\ref{algo:localstep01}, as introduced in Section~\ref{appendix:sec:algorithm}.
+
+\thmzerooneadam*
+
+\begin{proof}
+We now prove Theorem~\ref{thm:local01}. 
+Similar to the proof to Theorem~\ref{thm:basic01}, in this proof we discuss the case of $t\in\mathcal{T}_{\*v}$ and $t\not\in\mathcal{T}_{\*v}$ separately.
+Following the proof of Theorem~\ref{thm:basic01}, we define the following auxiliary sequence
+\begin{align*}
+    \tilde{\*y}_t = \tilde{\*x}_t - \frac{\gamma\tilde{\*m}_t}{(1-\beta_1)\sqrt{\*v_{t}+\epsilon}} - \frac{\gamma\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}},
+\end{align*}
+where
+\begin{align*}
+    \tilde{\*x}_t = &  \frac{1}{n}\sum_{i=1}^{n}\*x^{(i)}_t \\
+    \tilde{\*m}_t = &  \frac{1}{n}\sum_{i=1}^{n}\*m^{(i)}_t.
+\end{align*}
+And we additionally define that
+\begin{align*}
+    \tilde{\*u}_t = &  \frac{1}{n}\sum_{i=1}^{n}\*u^{(i)}_t \\
+    \tilde{\*g}_t = &  \frac{1}{n}\sum_{i=1}^{n}\*g^{(i)}_t.
+\end{align*}
+Note that the definition of $\tilde{\*g}_t$ is different from the ${\*g}_t$ in Theorem~\ref{thm:basic01} since the former is computed on local models which potentially can be different before the sync step.
+
+To expect a compression error bound to scale in the order of $O(\gamma^2)$, we slightly modify the update of line 5, 8, 9 of Algorithm~\ref{algo:localstep01} into
+\begin{align*}
+\*u^{(i)}_{t+\frac{1}{2}} = & \*u^{(i)}_{t} + {\*m}^{(i)}_t \\
+\*m^{(i)}_{t+1} = & \overline{\*u}_{t+\frac{1}{2}}/\sum_{k=t'}^{t} \\
+    \*x^{(i)}_{t+1} = & \*x^{(i)}_{t'} - \gamma\overline{\*u}_{t+\frac{1}{2}}/\sqrt{\*v_t+\epsilon}.
+\end{align*}
+Note that since Theorem~\ref{thm:local01} states the convergence results for constant learning rate, such modification does not change the semantics of the original Algorithm~\ref{algo:localstep01}.
+Based on Algorithm~\ref{algo:EF}, we know that
+\begin{align*}
+    \overline{\*u}_{t+\frac{1}{2}} = & \frac{1}{n}\sum_{i=1}^{n}\hat{\*u}^{(i)}_{t+\frac{1}{2}} + \overline{\*\delta}_{t} - \overline{\*\delta}_{t+1} \\
+        = & \frac{1}{n}\sum_{i=1}^{n}\left( \*u^{(i)}_{t+\frac{1}{2}} + \*\delta^{(i)}_{t} - \*\delta^{(i)}_{t+1} \right) + \overline{\*\delta}_{t} - \overline{\*\delta}_{t+1} \\
+    = & \frac{1}{n}\sum_{i=1}^{n}\*u^{(i)}_{t+\frac{1}{2}} + \left( \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t}\right) - \left( \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t+1} - \overline{\*\delta}_{t+1}\right) \\
+        = & \tilde{\*u}_{t+\frac{1}{2}} + \*\delta_{t} - \*\delta_{t+1}.
+\end{align*}
+Based on Lemma~\ref{lemma:local:var_step}, we know that for all the $t\in\mathcal{T}_{\*v}$, we have the following bound, 
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2}{4\sqrt{G_\infty^2+\epsilon}} \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*y}_{t}) - \mathbb Ef(\tilde{\*y}_{t+1}) + \frac{2\gamma\sigma^2m}{nL} +  \frac{106\gamma H^2V_1(M+\Delta^2)mL}{\beta_2^m(1-\beta_1)^2} \\
+& + \frac{\gamma\sigma^2m}{4n\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma G_\infty^2dm}{4\sqrt{G_\infty^2+\epsilon}}.
+\end{align*}
+On the other hand, for all the $t\not\in\mathcal{T}_{\*v}$, we have the following bound,
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*{y}}_{t}) - \mathbb Ef(\tilde{\*{y}}_{t+1}) + \frac{36\gamma^3H^2V_1(3G_\infty^2d+25\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)(T-m)}{\beta_2^m(1-\beta_1)^4\sqrt{G_\infty^2+\epsilon}} \\
+& + \frac{L\gamma^2V_1\sigma^2(T-m)}{n\beta_2^m}  + \frac{48\gamma^3V_1(H+1)^2(3G_\infty^2d+24\Delta^2)\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^m(1-\beta_1)^4}.
+\end{align*}
+Note that they hold if learning rate is set to be
+\begin{align*}
+    \gamma \leq \min\left\{\frac{\beta_2^m}{4V_1L\sqrt{G_\infty^2+\epsilon}}, \frac{2\sqrt{G_\infty^2+\epsilon}}{L}, \frac{1}{6}\right\}.
+\end{align*}
+Combine them together, we obtain
+\begin{align*}
+    & \frac{1}{T}\sum_{t=0}^{T-1} \frac{\mathbb{E}\|\nabla f(\*x_t)\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+\leq & \frac{f(\*0)-f^*}{\gamma T} + \frac{2\sigma^2m}{nLT} +  \frac{106 H^2V_1(M+\Delta^2)mL}{\beta_2^m(1-\beta_1)^2T}  + \frac{\sigma^2m}{4n\sqrt{G_\infty^2+\epsilon}T} + \frac{ G_\infty^2dm}{4\sqrt{G_\infty^2+\epsilon}T} + \frac{L\gamma V_1\sigma^2}{n\beta_2^m} \\
+    & + \frac{36\gamma^2H^2V_1(3G_\infty^2d+25\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)}{\beta_2^m(1-\beta_1)^4\sqrt{G_\infty^2+\epsilon}} \\
+& + \frac{48\gamma^2V_1(H+1)^2(3G_\infty^2d+24\Delta^2)\sqrt{G_\infty^2+\epsilon}}{\beta_2^m(1-\beta_1)^4}.
+\end{align*}
+Omitting constants:
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2 \leq & O\left( \frac{f(\*0)-f^*}{\gamma T} + \frac{\gamma^2H^2\Delta^2}{\beta_2^m} + \frac{\gamma\sigma^2}{n\beta_2^m} + \frac{\sigma^2m}{nT} + \frac{H^2\Delta^2m}{\beta_2^mT} + \frac{m}{T}\right) \\
+\leq & O\left( \frac{f(\*0)-f^*}{\gamma T} + \frac{\gamma^2H^2\Delta^2}{1-\beta_1} + \frac{\gamma\sigma^2}{n(1-\beta_1)} + \frac{\sigma^2m}{nT} + \frac{H^2\Delta^2m}{(1-\beta_1)T} + \frac{m}{T}\right),
+\end{align*}
+where in the last step we use the condition in the theorem that $\beta_2^m \geq 1-\beta_1$.
+To meet the requirement of learning rate we set
+\begin{align*}
+    \gamma_t = \min\left\{ \sqrt{\frac{n}{\sigma^2T}}, \frac{1}{4L\sqrt{G_\infty^2+\epsilon}},  \frac{2\sqrt{G_\infty^2+\epsilon}}{L},  \frac{1}{6} \right\},
+\end{align*}
+then it holds that
+\begin{align*}
+    \frac{1}{T}\sum_{t=0}^{T-1} & \mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2 \leq O\left( \frac{\sigma}{\sqrt{nT}} + \frac{H^2\Delta^2(m+n)}{T} +\frac{1}{T}\right).
+\end{align*}
+And that completes the proof.
+\end{proof}
+
+\subsection{Technical Lemma}
+\begin{lemma}
+\label{lemma:delta_bound}
+Consider running Algorithm~\ref{algo:EF} over a communication buffer $\*z$ (same notation in Algorithm~\ref{algo:EF}) under Assumption~\ref{assume:compression},
+    let $\*\delta_t$ denote:
+    \begin{align*}
+    \*\delta_t =  \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t}
+    \end{align*}
+    then based on Assumption~\ref{assume:compression} and \ref{assume:g_bound}, it holds that $t \geq 0$, if $\mathbb{E}\|\*z_t^{(i)}\|^2 \leq C$ for some constant $C>0$,
+    \begin{align*}
+        \mathbb{E}\left\| \*\delta_{t} \right\|^2 \leq \frac{32\omega(1+\omega)^3C}{(1-\omega)^4}.
+    \end{align*}
+\end{lemma}
+\begin{proof}
+Note that the error is initialized by $\*0$, so that when $t=0$ the bound trivially holds. We next prove the case for $t \geq 1$.
+
+For any $i\in\{1, \cdots, n\}$ and $t \geq 1$,
+by the definition of the sequence $\*\delta^{(i)}_{t}$,
+\begin{align*}
+\mathbb{E}\left\| \*\delta^{(i)}_{t} \right\|^2 = & \mathbb{E}\left\| \*z^{(i)}_{t-1} + \*\delta^{(i)}_{t-1} - \hat{\*z}^{(i)}_{t-1} \right\|^2 \\
+    = & \mathbb{E}\left\| \*z^{(i)}_{t-1} + \*\delta^{(i)}_{t-1} - \mathcal{C}\left[ \*z^{(i)}_{t-1} + \*\delta^{(i)}_{t-1} \right] \right\|^2 \\
+\overset{Assumption~\ref{assume:compression}}{\leq} & \omega \mathbb{E}\left\| \*z^{(i)}_{t-1} + \*\delta^{(i)}_{t-1} \right\|^2 \\
+    \overset{\forall \eta>0}{=} & \omega(1+\eta)\mathbb{E}\left\| \*\delta^{(i)}_{t-1} \right\|^2 + \omega(1+1/\eta)\mathbb{E}\left\| \*z^{(i)}_{t-1} \right\|^2 \\
+\overset{Assumption~\ref{assume:g_bound}}{\leq} & \sum_{j=0}^{\infty}\left[ \omega(1+\eta)\right]^j\omega(1+1/\eta)C \\
+    \leq & \frac{\omega(1+1/\eta)}{1-\omega(1+\eta)}C.
+\end{align*}
+Selecting $\eta=\frac{1-\omega}{2\omega}$, we obtain
+\begin{align*}
+    \mathbb{E}\left\| \*\delta^{(i)}_{t} \right\|^2 \leq \frac{2\omega(1+\omega)}{(1-\omega)^2}C.
+\end{align*}
+Similarly, we can show that for any $t\geq 1$,
+\begin{align*}
+    \mathbb{E}\left\| \overline{\*\delta}_{t} \right\|^2 = & \mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\hat{\*z}_{t-1}^{(i)} + \overline{\*\delta}_{t-1} - \overline{\*z}_{t-1} \right\|^2 \\
+= & \mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\hat{\*z}_{t-1}^{(i)} + \overline{\*\delta}_{t-1} - \mathcal{C}\left[\frac{1}{n}\sum_{i=1}^{n}\hat{\*z}_{t-1}^{(i)} + \overline{\*\delta}_{t-1}\right] \right\|^2 \\
+    \leq & \omega\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\hat{\*z}_{t-1}^{(i)} + \overline{\*\delta}_{t-1}\right\|^2 \\
+\leq & \omega(1+\eta)\mathbb{E}\left\|  \overline{\*\delta}_{t-1}\right\|^2 + \omega(1+1/\eta)\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\hat{\*z}_{t-1}^{(i)}\right\|^2 \\
+    \leq & \omega(1+\eta)\mathbb{E}\left\|  \overline{\*\delta}_{t-1}\right\|^2 + \omega(1+1/\eta)\cdot\frac{1}{n}\sum_{i=1}^{n}\mathbb{E}\left\| \hat{\*z}_{t-1}^{(i)}\right\|^2,
+\end{align*}
+where in the last step we apply the Jensen Inequality. Since we do not assume a bound on the $\left\| \hat{\*z}_{t-1}^{(i)}\right\|^2$, we need to bound it in terms of
+\begin{align*}
+\mathbb{E}\left\| \hat{\*z}_{t-1}^{(i)}\right\|^2 = & \mathbb{E}\left\| \*z_{t-1}^{(i)} + \*\delta_{t-1}^{(i)} - \*\delta_t^{(i)} \right\|^2 \\
+    \leq & 2\mathbb{E}\left\| \*z_{t-1}^{(i)} + \*\delta_{t-1}^{(i)} \right\|^2 + 2\mathbb{E}\left\|  \*\delta_t^{(i)} \right\|^2 \\
+\leq & \frac{4(1+\omega)}{(1-\omega)^2}C + \frac{4\omega(1+\omega)}{(1-\omega)^2}C \\
+    \leq & \frac{4(1+\omega)^2}{(1-\omega)^2}C,
+\end{align*}
+where we apply the results from the bound on $\mathbb{E}\left\|  \*\delta_t^{(i)} \right\|^2$. Given this bound, and following the analysis for $\mathbb{E}\left\|  \*\delta_t^{(i)} \right\|^2$, we can now bound the $\mathbb{E}\left\|  \overline{\*\delta}_t \right\|^2$ as follows
+\begin{align*}
+    \mathbb{E}\left\|  \overline{\*\delta}_t \right\|^2 \leq & \frac{2\omega(1+\omega)}{(1-\omega)^2} \cdot\frac{4(1+\omega)^2}{(1-\omega)^2}C \\
+    = & \frac{8\omega(1+\omega)^3}{(1-\omega)^4}C.
+\end{align*}
+Finally, we obtain $t\geq 1$,
+\begin{align*}
+\mathbb{E}\left\| \*\delta_{t} \right\|^2 = & \mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t} \right\|^2 \\
+    \leq & 2\mathbb{E}\left\| \overline{\*\delta}_{t} \right\|^2 + 2\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} \right\|^2 \\
+\leq & 2\mathbb{E}\left\| \overline{\*\delta}_{t} \right\|^2 + 2\frac{1}{n}\sum_{i=1}^{n}\mathbb{E}\left\| \*\delta^{(i)}_{t} \right\|^2 \\
+    \leq & \frac{32\omega(1+\omega)^3C}{(1-\omega)^4}.
+\end{align*}
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:var_bound}
+For the variance term, we have the following upper and lower bound: for any $t \geq 1$,
+\begin{align*}
+    \beta_2^{m/2}\sqrt{\*v_{1}+\epsilon} \leq  \sqrt{\*v_t+\epsilon} \leq \sqrt{G_\infty^2+\epsilon},
+\end{align*}
+where the inequality holds element-wise.
+\end{lemma}
+\begin{proof}
+On one hand, for any $t_j \leq t < t_{j+1}$, where $t_j$ denotes an update step, we obtain element-wise:
+\begin{align*}
+    \*v_{t} \geq \beta_2\*v_{t_j} \geq \cdots \geq \beta_2^j\*v_{1} \geq \beta_2^m\*v_{1},
+\end{align*}
+so that
+\begin{align*}
+    \sqrt{\*v_t+\epsilon} \geq \sqrt{\beta_2^m\*v_{1}+\epsilon} \geq \sqrt{\beta_2^m(\*v_{1}+\epsilon)} = \beta_2^{m/2}\sqrt{\*v_{1}+\epsilon}.
+\end{align*}
+On the other hand, for any $t\geq 1$ and $j\in\{1, \cdots, d\}$,
+\begin{align*}
+    [\*v_t]_j = \sum_{k=1}^{t}(1-\beta_2)\beta_2^{t-k}\left( \frac{1}{n}\sum_{i=1}^{n}[\*g^{(i)}_k]_j \right)^2 \leq G_\infty^2(1-\beta_2)\sum_{k=1}^{\infty}\beta_2^{k} \leq G_\infty^2,
+\end{align*}
+so that
+\begin{align*}
+    \sqrt{\*v_t+\epsilon} \leq \sqrt{G_\infty^2+\epsilon}.
+\end{align*}
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:momentum_bound}
+In Algorithm~\ref{algo:basic01},
+for any $t \geq 0$,
+\begin{align*}
+    \mathbb{E} \left\|\*m_t\right\|^2 \leq \frac{195(1+\omega)^3G_\infty^2d}{(1-\omega)^4}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+For any $t \geq 0$,
+\begin{align*}
+    \mathbb{E} \left\|\*m_t\right\|^2 = & \mathbb{E} \left\| (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\overline{\*g}_k\right\|^2 \\
+\leq & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\mathbb{E}\left\| \overline{\*g}_k\right\|^2 \\
+    \leq & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\mathbb{E}\left\| \*g_k + {\*\delta}_{k} - {\*\delta}_{k+1}\right\|^2 \\
+\leq & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\left( 3\mathbb{E}\left\| \*g_k \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k} \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k+1}\right\|^2 \right) \\
+    \leq & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\left( 3\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\*g_k^{(i)} \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k} \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k+1}\right\|^2 \right) \\
+\leq & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\left( \frac{3}{n}\sum_{i=1}^{n}\mathbb{E}\left\| \*g_k^{(i)} \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k} \right\|^2 + 3\mathbb{E}\left\| {\*\delta}_{k+1}\right\|^2 \right) \\
+    \overset{(i)}{\leq} & (1-\beta_1)\sum_{k=0}^{t}\beta_1^{t-k}\left( 3G_\infty^2d + \frac{192\omega(1+\omega)^3 G_\infty^2d}{(1-\omega)^4} \right) \\
+\leq & \left( \frac{3(1+\omega)^3 G_\infty^2d}{(1-\omega)^4} + \frac{192(1+\omega)^3 G_\infty^2d}{(1-\omega)^4} \right)\cdot (1-\beta_1)\sum_{k=0}^{\infty}\beta_1^{k} \\
+    \leq & \frac{195(1+\omega)^3G_\infty^2d}{(1-\omega)^4},
+\end{align*}
+where in the step (i) we use Lemma~\ref{lemma:delta_bound}.
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:var_term_trick}
+For any $\*a$, $\*b\in\mathbb{R}^d$, the following bound holds:
+\begin{align*}
+    \left\| \frac{\*a}{\sqrt{\*b}} \right\|^2 \leq \left\| \*a\right\|^2\left\| \frac{1}{\*b}\right\|_1.
+\end{align*}
+\end{lemma}
+\begin{proof}
+Denote the subscript $j$ as the index of the coordinate.
+\begin{align*}
+    \left\| \frac{\*a}{\sqrt{\*b}} \right\|^2 =  \sum_{j=1}^{d} \left( \frac{\*a_j}{[\sqrt{\*b}]_j} \right)^2 \leq \left( \sum_{j=1}^{d}\*a_j^2 \right)\left( \sum_{j=1}^{d}\frac{1}{\*b_j} \right) = \left( \sum_{j=1}^{d}\*a_j^2 \right)\left( \sum_{j=1}^{d}\left|\frac{1}{\*b_j}\right| \right) = \left\| \*a\right\|^2\left\| \frac{1}{\*b}\right\|_1.
+\end{align*}
+Note that the second step holds not because Cauchy-Schwarz Inequality but due to the fact that $\*a_j^2$, $\*b_j>0$ (since $\sqrt{\*b}$ would implicitly assume so).
+\end{proof}
+
+\begin{lemma}
+\label{lemma:reuse_step}
+In Algorithm~\ref{algo:basic01},
+for all the $t\geq 1$ that fulfills $\*v_t=\*v_{t+1}$, i.e., $\forall t$ such that $t\not\in\mathcal{T}_{\*v}$, 
+if we let
+\begin{align*}
+    \gamma \leq \frac{\beta_2^m}{2V_1L\sqrt{G_\infty^2+\epsilon}},
+\end{align*}
+the following bound holds,
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \\
+\leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})]+ \frac{227\gamma^3L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{L\gamma^2\sigma^2V_1(T-m)}{2n\beta_2^m}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+Recall the auxiliary sequence
+\begin{align*}
+    \*y_t = \*x_t - \frac{\gamma\*m_t}{(1-\beta_1)\sqrt{\*v_t+\epsilon}} - \frac{\gamma\*\delta_{t}}{\sqrt{\*v_t+\epsilon}},
+\end{align*}
+For all the steps $t\geq 0$ that fulfills $\*v_{t+1}=\*v_{t}$, we obtain
+\begin{align*}
+    \*{y}_{t+1} - \*{y}_{t} = & \*{x}_{t+1} - \*{x}_{t} - \frac{\gamma}{1- \beta_1} \left(\frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\*{m}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) - \gamma\left( \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}}\right) \\
+= & -\gamma\frac{\*m_t}{\sqrt{\*v_t + \epsilon}} - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_{t}+\epsilon}} \left(\beta_1\*{m}_{t} + (1-\beta_1)\overline{\*g}_{t} - \*{m}_{t} - (1-\beta_1) (\*\delta_{t} - \*\delta_{t+1})\right) \\
+    = & -\frac{\gamma \*g_{t}}{\sqrt{\*v_{t}+\epsilon}}.
+\end{align*}
+From Assumption~\ref{assum:smooth}, we have
+\begin{align*}
+    & \mathbb E f(\*{y}_{t+1}) - \mathbb Ef(\*{y}_{t}) \\
+    \leq &\mathbb E\left\langle \nabla f(\*{y}_t), \*{y}_{t+1} - \*{y}_t \right\rangle + \frac{L}{2}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2\\
+=& -\gamma \mathbb E\left\langle \nabla f(\*{y}_t), \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\rangle + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2\\
+    =& -\gamma \mathbb E\left\langle \nabla f(\*{y}_t), \frac{\nabla f(\*x_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+=& -\gamma \mathbb E\left\langle \nabla f(\*{x}_t), \frac{\nabla f(\*x_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle + \gamma \mathbb E\left\langle \nabla f(\*{x}_t) - \nabla f(\*{y}_t), \frac{\nabla f(\*x_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+    =& -\gamma \mathbb E\left\langle \nabla f(\*{x}_t), \frac{\nabla f(\*x_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle + \gamma \mathbb E\left\langle \frac{\nabla f(\*{x}_t) - \nabla f(\*{y}_t)}{\sqrt{\*v_t+\epsilon}}, \nabla f(\*x_t)\right\rangle + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+\leq & -\frac{\gamma\mathbb E\left\|\nabla f(\*{x}_t)\right\|^2}{\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma}{2\eta}\mathbb E\left\| \frac{\nabla f(\*{x}_t) - \nabla f(\*{y}_t)}{\sqrt{\*v_t+\epsilon}} \right\|^2 + \frac{\gamma\eta}{2}\mathbb E\left\| \nabla f(\*x_t) \right\|^2 + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2,
+\end{align*}
+where in the last step we use Lemma~\ref{lemma:var_bound} and the fact that for any $\*a,\*b$ and constant $\eta>0$,
+\begin{align*}
+    \langle \*a,\*b \rangle \leq \frac{\eta}{2}\|\*a\|^2 + \frac{1}{2\eta}\|\*b\|^2.
+\end{align*}
+Set $\eta=(\sqrt{G_\infty^2+\epsilon})^{-1}$, with Assumption~\ref{assum:smooth} and Lemma~\ref{lemma:var_term_trick},
+\begin{align*}
+& \mathbb E f(\*{y}_{t+1}) - \mathbb Ef(\*{y}_{t})\\
+    \leq & -\frac{\gamma\mathbb E\left\| \nabla f(\*{x}_t)\right\|^2}{2\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma L^2V_1\sqrt{G_\infty^2+\epsilon}}{2\beta_2^m}\mathbb E\left\| \*{x}_t - \*{y}_t \right\|^2 + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+= & -\frac{\gamma\mathbb E\left\| \nabla f(\*{x}_t)\right\|^2}{2\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma L^2V_1\sqrt{G_\infty^2+\epsilon}}{2\beta_2^m}\mathbb E\left\| \frac{\gamma\*m_t}{(1-\beta_1)\sqrt{\*v_{t}+\epsilon}} + \frac{\gamma\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+    \leq & -\frac{\gamma\mathbb E\left\| \nabla f(\*{x}_t)\right\|^2}{2\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma^3L^2V_1\sqrt{G_\infty^2+\epsilon}}{\beta_2^m(1-\beta_1)^2}\mathbb E\left\| \frac{\*m_t}{\sqrt{\*v_{t}+\epsilon}}\right\|^2 + \frac{\gamma^3L^2V_1\sqrt{G_\infty^2+\epsilon}}{\beta_2^m}\mathbb E\left\| \frac{\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 \\
+    & + \frac{L\gamma^2}{2}\mathbb E\left\| \frac{\*{g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+\leq & -\frac{\gamma\mathbb E\left\| \nabla f(\*{x}_t)\right\|^2}{2\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma^3L^2V_1^2\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}(1-\beta_1)^2} \mathbb E\left\| \*m_t\right\|^2 + \frac{\gamma^3L^2V_1^2\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}}\mathbb E\left\| \*\delta_{t} \right\|^2 + \frac{L\gamma^2V_1}{2\beta_2^m}\mathbb E\left\| \*{g}_{t}\right\|^2,
+\end{align*}
+where in the last step we apply  Lemma~\ref{lemma:var_bound} and \ref{lemma:var_term_trick}. Using the bound on the error from Lemma~\ref{lemma:delta_bound}, Lemma~\ref{lemma:momentum_bound} and the assumption on the stochastic gradient, we obtain
+\begin{align*}
+& \left( \frac{\gamma}{2\sqrt{G_\infty^2+\epsilon}} - \frac{L\gamma^2V_1}{2\beta_2^m}\right) \mathbb E\left\| \nabla f(\*{x}_t)\right\|^2 \\
+    \leq & \mathbb E [f(\*{y}_{t}) - f(\*{y}_{t+1})] + \frac{\gamma^3L^2V_1^2\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}(1-\beta_1)^2} \mathbb E\left\| \*m_t\right\|^2 + \frac{\gamma^3L^2V_1^2\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}}\mathbb E\left\| \*\delta_{t} \right\|^2 + \frac{L\gamma^2\sigma^2V_1}{2n\beta_2^m} \\
+\leq & \mathbb E [f(\*{y}_{t}) - f(\*{y}_{t+1})] + \frac{195\gamma^3L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{32\gamma^3L^2V_1^2\omega(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}(1-\omega)^4} \\
+& + \frac{L\gamma^2\sigma^2V_1}{2n\beta_2^m} \\
+    \leq & \mathbb E [f(\*{y}_{t}) - f(\*{y}_{t+1})] + \frac{227\gamma^3L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{L\gamma^2\sigma^2V_1}{2n\beta_2^m}.
+\end{align*}
+Based on the learning rate bound
+\begin{align*}
+    \gamma \leq \frac{\beta_2^m}{2V_1L\sqrt{G_\infty^2+\epsilon}},
+\end{align*}
+and summing over all the reuse steps, we obtain
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \\
+\leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})]+ \frac{227\gamma^3L^2V_1^2(1+\omega)^3G_\infty^2d\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^{2m}(1-\beta_1)^2(1-\omega)^4} + \frac{L\gamma^2\sigma^2V_1(T-m)}{2n\beta_2^m}.
+\end{align*}
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:update_step}
+In Algorithm~\ref{algo:basic01},
+for all the $t\geq 0$ that fulfills $\*v_t\neq\*v_{t+1}$, i.e. $t\in\mathcal{T}_{\*v}$, 
+if the learning rate fulfills
+\begin{align*}
+    \gamma < \frac{1}{125}
+\end{align*},
+the following bound holds
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})] + \left( \frac{34\gamma}{L}+\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\right)\cdot\left(\frac{\sigma^2}{n} + G_\infty^2d\right)m \\
++ & \frac{32\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dmL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+For all the steps $t$ that fulfills $\*v_{t} \neq \*v_{t+1}$,
+\begin{align*}
+    \*{y}_{t+1} - \*{y}_t = & \*{x}_{t+1} - \*{x}_t - \frac{\gamma}{1- \beta_1} \left(\frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\*{m}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) + \gamma\left( \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} - \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right) \\
+= & -\gamma\frac{\*m_t}{\sqrt{\*v_t + \epsilon}}  - \frac{\gamma}{1- \beta_1} \left(\frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\*{m}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) + \gamma\left( \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} - \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right) \\
+    = & -\frac{\gamma\beta_1}{1-\beta_1}\frac{\*m_t}{\sqrt{\*v_t + \epsilon}}  - \frac{\gamma}{1- \beta_1} \frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} + \gamma\left( \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} - \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right).
+\end{align*}
+Based on the smoothness assumption, for constant $\eta>0$ that will be assigned later,
+\begin{align*}
+    & \mathbb E f(\*{y}_{t+1}) - \mathbb Ef(\*{y}_{t}) \\
+    \leq & \mathbb E\left\langle \nabla f(\*{y}_t), \*{y}_{t+1} - \*{y}_t \right\rangle + \frac{L}{2}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+        \overset{\gamma\eta<1}{\leq} & \frac{\eta\gamma}{2L}\mathbb E\left\|\nabla f(\*y_t)\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+    \leq & \frac{\eta\gamma}{L}\mathbb E\left\|\nabla f(\*x_t)\right\|^2 + \eta\gamma L\mathbb E\left\| \*y_t - \*x_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+        \leq & \frac{\eta\gamma}{L}\mathbb E\left\|\nabla f(\*x_t) - \*g_t\right\|^2 + \frac{\eta\gamma}{L}\mathbb E\left\|\*g_t\right\|^2 + \eta\gamma L\mathbb E\left\| \*y_t - \*x_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+    \leq & \frac{\eta\gamma}{n^2L}\sum_{i=1}^{n}\mathbb E\left\|\nabla f(\*x_t) - \*g_t^{(i)}\right\|^2 + \frac{\eta\gamma}{nL}\sum_{i=1}^{n}\mathbb E\left\|\*g_t^{(i)}\right\|^2 + \eta\gamma L\mathbb E\left\| \*y_t - \*x_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+        \leq & \frac{\eta\gamma}{L}\left(\frac{\sigma^2}{n} + G_\infty^2d \right) + \eta\gamma L\mathbb E\left\| \*y_t - \*x_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2.
+\end{align*}
+Now we can bound the last two terms as follows, note that
+\begin{align*}
+    \mathbb E\left\| \*y_t - \*x_t\right\|^2 = & \mathbb E\left\| \frac{\gamma\*m_t}{(1-\beta_1)\sqrt{\*v_{t}+\epsilon}} + \frac{\gamma\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}}\right\|^2 \\
+\leq & \frac{2\gamma^2}{(1-\beta_1)^2}\mathbb E\left\|\frac{\*m_t}{\sqrt{\*v_t+\epsilon}} \right\|^2 + 2\gamma^2\mathbb E\left\|\frac{\*\delta_{t}}{\sqrt{\*v_t+\epsilon}} \right\|^2 \\
+    \leq & \frac{2\gamma^2V_1}{(1-\beta_1)^2\beta_2^m}\mathbb E\left\|\*m_t \right\|^2 + \frac{2\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \*\delta_{t} \right\|^2 \\
+\leq & \frac{390\gamma^2(1+\omega)^3V_1G_\infty^2d}{\beta_2^m(1-\beta_1)^2(1-\omega)^4} + \frac{64\gamma^2\omega(1+\omega)^3V_1G_\infty^2d}{\beta_2^m(1-\omega)^4} \\
+\leq & \frac{454\gamma^2(1+\omega)^3V_1G_\infty^2d}{\beta_2^m(1-\beta_1)^2(1-\omega)^4},
+\end{align*}
+where in the last step we apply Lemma~\ref{lemma:delta_bound}.
+On the other hand,
+\begin{align*}
+& \mathbb{E} \left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+    = & \mathbb{E} \left\|\frac{\gamma\beta_1}{1-\beta_1}\frac{\*m_t}{\sqrt{\*v_t + \epsilon}}  + \frac{\gamma}{1- \beta_1} \frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \gamma\left( \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} - \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right) \right\|^2 \\
+\leq & \mathbb{E} \left\|\frac{\gamma\beta_1}{1-\beta_1}\frac{\*m_t}{\sqrt{\*v_t + \epsilon}}  + \frac{\gamma}{1- \beta_1} \frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \gamma\left( \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} - \frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right) \right\|^2 \\
+    \leq & \frac{4\gamma^2\beta_1^2}{(1-\beta_1)^2}\mathbb{E} \left\|\frac{\*m_t}{\sqrt{\*v_t + \epsilon}} \right\|^2 + \frac{4\gamma^2}{(1-\beta_1)^2}\mathbb{E} \left\|\frac{\*{m}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 + 4\gamma^2\mathbb{E}\left\| \frac{\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 + 4\gamma^2\mathbb{E}\left\|\frac{\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}}\right\|^2 \\
+\leq & \frac{4\gamma^2\beta_1^2V_1}{(1-\beta_1)^2\beta_2^m}\mathbb{E} \left\|\*m_t\right\|^2 + \frac{4\gamma^2V_1}{(1-\beta_1)^2\beta_2^m}\mathbb{E} \left\|\*{m}_{t+1}\right\|^2 + \frac{4\gamma^2V_1}{\beta_2^m}\mathbb{E}\left\| \*{\delta}_{t}\right\|^2 + \frac{4\gamma^2V_1}{\beta_2^m}\mathbb{E}\left\|\*{\delta}_{t+1}\right\|^2 \\
+    \leq & \frac{780\gamma^2(1+\beta_1^2)V_1(1+\omega)^3 G_\infty^2d}{\beta_2^m(1-\beta_1)^2(1-\omega)^4} + \frac{256\gamma^2V_1\omega(1+\omega)^3 G_\infty^2d}{\beta_2^m(1-\omega)^4} \\
+\leq & \frac{1036\gamma^2(1+\beta_1^2)V_1(1+\omega)^3 G_\infty^2d}{\beta_2^m(1-\beta_1)^2(1-\omega)^4},
+\end{align*}
+where we again apply Lemma~\ref{lemma:delta_bound} and Lemma~\ref{lemma:momentum_bound}.
+Put everything together,
+\begin{align*}
+    & \mathbb E f(\*{y}_{t+1}) - \mathbb Ef(\*{y}_{t})\\
+    \leq & \frac{\eta\gamma}{L}\left(\frac{\sigma^2}{n} + G_\infty^2d \right) + \eta\gamma L\mathbb E\left\| \*y_t - \*x_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\*{y}_{t+1} - \*{y}_t \right\|^2 \\
+\leq & \frac{\eta\gamma}{L}\left(\frac{\sigma^2}{n} + G_\infty^2d \right) + \frac{454\eta\gamma^3(1+\omega)^3V_1G_\infty^2dL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4} + \frac{1036\gamma(1+\beta_1^2)V_1(1+\omega)^3 G_\infty^2dL}{\eta\beta_2^m(1-\beta_1)^2(1-\omega)^4} \\
+    \leq & \frac{\eta\gamma}{L}\left(\frac{\sigma^2}{n} + G_\infty^2d \right) + \left( 454\eta\gamma^2 + \frac{1036}{\eta}\right)\frac{\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}
+\end{align*}
+Set $\eta=34$, and considering $\gamma < \frac{1}{125}$, we get 
+\begin{align*}
+    \mathbb E f(\*{y}_{t+1}) - \mathbb Ef(\*{y}_{t})\leq\frac{34\gamma}{L}\left(\frac{\sigma^2}{n} + G_\infty^2d \right) + \frac{32\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}.
+\end{align*}
+Summing over all the update steps, we obtain
+\begin{align*}
+    0 \leq \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})] + \frac{34\gamma}{L}\left(\frac{\sigma^2m}{n} + G_\infty^2dm\right) + \frac{32\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dmL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}.
+\end{align*}
+Adding $\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}\|\nabla f(\*x_t)\|^2$ on both sides, and note that
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}\|\nabla f(\*x_t)\|^2 = & \sum_{t\in\mathcal{T}_{\*v}}\mathbb E\left\|\nabla f(\*x_t) - \*g_t\right\|^2 + \sum_{t\in\mathcal{T}_{\*v}}\mathbb E\left\|\*g_t\right\|^2 \\
+\leq & \frac{\sigma^2m}{n} + G_\infty^2dm,
+\end{align*}
+we finally obtain
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\mathbb{E}\|\nabla f(\*x_t)\|^2 \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}[f(\*{y}_{t}) - f(\*{y}_{t+1})] + \left( \frac{34\gamma}{L}+\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\right)\cdot\left(\frac{\sigma^2}{n} + G_\infty^2d\right)m \\
++ & \frac{32\gamma(1+\beta_1)^2(1+\omega)^3V_1G_\infty^2dmL}{\beta_2^m(1-\beta_1)^2(1-\omega)^4}.
+\end{align*}
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:local:delta_bound}
+Under Assumption~\ref{assume:local:compression}, for any $t\geq 0$, it holds that
+\begin{align*}
+    \mathbb{E}\left\| \*\delta_{t} \right\|^2 \leq 4\Delta^2.
+\end{align*}
+\end{lemma}
+\begin{proof}
+Based on the definition of the compression error, we obtain
+\begin{align*}
+\mathbb{E}\left\| \*\delta_{t} \right\|^2 = & \mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} - \overline{\*\delta}_{t} \right\|^2 \\
+    \leq & 2\mathbb{E}\left\| \overline{\*\delta}_{t} \right\|^2 + 2\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\*\delta^{(i)}_{t} \right\|^2 \\
+\leq & 2\mathbb{E}\left\| \overline{\*\delta}_{t} \right\|^2 + 2\frac{1}{n}\sum_{i=1}^{n}\mathbb{E}\left\| \*\delta^{(i)}_{t} \right\|^2 \\
+    \leq & 4\Delta^2.
+\end{align*}
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:local:momentum_bound}
+In Algorithm~\ref{algo:localstep01}, for any $t\geq 0$, the momentum term is uniformly bounded by the following:
+\begin{align*}
+    \mathbb{E}\left\| \*m_{t}^{(i)}\right\|^2 \leq & \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}, \\
+    \mathbb{E}\left\| \*m_{t+\frac{1}{2}}^{(i)}\right\|^2 \leq & \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}, \\
+    \mathbb{E}\left\| \tilde{\*m}_{t} \right\|^2 \leq & \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}, \\
+    \mathbb{E}\left\| \tilde{\*m}_{t+\frac{1}{2}} \right\|^2 \leq & \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+We prove this lemma via induction.
+Note that when $t=0$, the inequality trivially holds due to initialization at $\*0$ and Jensen Inequality. Now suppose the inequality holds up to step $t \geq 0$, then
+for $t+1$,
+
+\iffalse
+For any $k< j \leq t$,
+\begin{align*}
+    \*m_j^{(i)} = \beta_1^{j-k}\*m_k^{(i)} + (1-\beta_1)\sum_{h=k}^{j-1}\beta_1^{j-h-1}\*g_h^{(i)}.
+\end{align*}
+\fi
+
+
+
+if $t\in\mathcal{T}_{\*u}$, then
+\begin{align*}
+& \mathbb{E}\left\| \*m_{t+1}^{(i)}\right\|^2 \\
+= & \mathbb{E}\left\| \frac{\overline{\*u}_{t+\frac{1}{2}}}{t-k} \right\|^2 \\
+= & \mathbb{E}\left\| \frac{\tilde{\*u}_{t+\frac{1}{2}} + \*\delta_{t} - \*\delta_{t+1}}{t-k} \right\|^2 \\
+= & \mathbb{E}\left\| \frac{\sum_{j=k+1}^{t}\tilde{\*m}_j + \*\delta_{t} - \*\delta_{t+1}}{t-k} \right\|^2 \\
+    = & \mathbb{E}\left\| \frac{\sum_{j=k+1}^{t}\left(\beta_1^{j-k}\tilde{\*m}_k + (1-\beta_1)\sum_{h=k}^{j-1}\beta_1^{j-h-1}{\*g}_h \right) + \*\delta_t - \*\delta_{t+1}}{t-k} \right\|^2 \\
+= & \mathbb{E}\left\|\frac{1}{t-k}\sum_{j=k+1}^{t}\beta_1^{j-k}\tilde{\*m}_k  + \frac{1-\beta_1}{t-k}\sum_{j=k+1}^{t}\sum_{h=k}^{j-1}\beta_1^{j-h-1}{\*g}_h + \left(\*\delta_t - \*\delta_{t+1} \right) \right\|^2 \\
+    \overset{\forall \eta > 0}{\leq} & (1+\eta)\mathbb{E}\left\|\frac{1}{t-k}\sum_{j=k+1}^{t}\beta_1^{j-k}\tilde{\*m}_k \right\|^2 + (1+1/\eta)\mathbb{E}\left\| \frac{1-\beta_1}{t-k}\sum_{j=k+1}^{t}\sum_{h=k}^{j-1}\beta_1^{j-h-1}{\*g}_h + \left(\*\delta_t - \*\delta_{t+1} \right) \right\|^2 \\
+\leq & \frac{1+\eta}{t-k}\sum_{j=k+1}^{t}\mathbb{E}\left\|\beta_1^{j-k}\tilde{\*m}_k \right\|^2 + \frac{3(1+1/\eta)(1-\beta_1)}{t-k}\sum_{j=k+1}^{t}\sum_{h=k}^{j-1}\beta_1^{j-h-1}{\*g}_h\mathbb{E}\left\| {\*g}_h \right\|^2 \\
+& + 3(1+1/\eta)\mathbb{E}\left\| \*\delta_t\right\|^2 + 3(1+1/\eta)\mathbb{E}\left\| \*\delta_{t+1}\right\|^2 \\
+    \overset{\eta=1/\beta_1-1}{\leq} & (1+\eta)\beta_1^2 \cdot \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2} + 3(1+1/\eta)G_\infty^2d + 24(1+1/\eta)\Delta^2 \\
+= & \beta_1 \cdot \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2} + \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2} \\
+= & \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}.
+\end{align*}
+On the other hand, if $t\not\in\mathcal{T}_{\*u}$, then
+\begin{align*}
+    \mathbb{E}\left\| \*m_{t+1}^{(i)}\right\|^2 = & \mathbb{E}\left\| \*m_{t+\frac{1}{2}}^{(i)}\right\|^2 = \mathbb{E}\left\| \beta_1\*m_{t}^{(i)} + (1-\beta_1)\*g_{t}^{(i)}\right\|^2 \\
+\leq & \beta_1\mathbb{E}\left\| \beta_1\*m_{t}^{(i)}\right\|^2 + (1-\beta_1)\mathbb{E}\left\| \*g_{t}^{(i)}\right\|^2 \leq \frac{3G_\infty^2d+24\Delta^2}{(1-\beta_1)^2}.
+\end{align*}
+For all the $t+\frac{1}{2}$ case, the inequality holds trivially due to Jensen Inequality. Finally, all the $\tilde{\cdot}$ bound can also be obtained via Jensen Inequality. And that completes the proof.
+\end{proof}
+
+
+\begin{lemma}
+\label{lemma:local:reuse_step}
+In Algorithm~\ref{algo:localstep01}, for all the $t$ such that $t\not\in\mathcal{T}_{\*v}$, it holds that if we set learning rate
+\begin{align*}
+    \gamma \leq \min\left\{\frac{\beta_2^m}{4V_1L\sqrt{G_\infty^2+\epsilon}}, \frac{2\sqrt{G_\infty^2+\epsilon}}{L}\right\},
+\end{align*}
+then,
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*{y}}_{t}) - \mathbb Ef(\tilde{\*{y}}_{t+1}) + \frac{36\gamma^3H^2V_1(3G_\infty^2d+25\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)(T-m)}{\beta_2^m(1-\beta_1)^4\sqrt{G_\infty^2+\epsilon}} \\
+& + \frac{L\gamma^2V_1\sigma^2(T-m)}{n\beta_2^m} + \frac{48\gamma^3V_1(H+1)^2(3G_\infty^2d+24\Delta^2)\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^m(1-\beta_1)^4}.
+\end{align*}
+\end{lemma}
+\begin{proof}
+Since when $t\not\in\mathcal{T}_{\*v}$, it can either belongs to $\mathcal{T}_{\*u}$ or not. We first prove the case for $t\in\mathcal{T}_{\*u}$.
+From the definition of the auxiliary sequence, we obtain,
+\begin{align*}
+    \tilde{\*{y}}_{t+1} - \tilde{\*{y}}_t = & \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_t - \frac{\gamma}{1- \beta_1} \left(\frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) - \left( \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}}\right) \\
+= & \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_t - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t} \right) - \frac{1}{\sqrt{\*v_t+\epsilon}}(\gamma\*{\delta}_{t+1} - \gamma\*{\delta}_{t}) \\
+    = & \tilde{\*{x}}_{t+\frac{1}{2}} - \tilde{\*{x}}_t - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\tilde{\*{m}}_{t+\frac{1}{2}} - \tilde{\*{m}}_{t} \right) \\
+        & + \underbrace{\tilde{\*{x}}_{t+1} - \tilde{\*{x}}_{t+\frac{1}{2}} - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}} \right) - \frac{1}{\sqrt{\*v_t+\epsilon}}(\gamma\*{\delta}_{t+1} - \gamma\*{\delta}_{t})}_{=\*q_t} \\
+    = & -\frac{\gamma\tilde{\*m}_t}{\sqrt{\*v_t+\epsilon}} - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\beta_1\tilde{\*{m}}_{t} + (1-\beta_1)\tilde{\*g}_t - \tilde{\*{m}}_{t} \right) + \*q_t \\
+= & -\frac{\gamma\tilde{\*g}_t}{\sqrt{\*v+\epsilon}} + \*q_t.
+\end{align*}
+
+From Assumption~\ref{assum:smooth}, we have
+\begin{align*}
+    \mathbb E f(\tilde{\*{y}}_{t+1}) - \mathbb Ef(\tilde{\*{y}}_{t}) \leq & \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t), \tilde{\*{y}}_{t+1} - \tilde{\*{y}}_t \right\rangle + \frac{L}{2}\mathbb E\left\|\tilde{\*{y}}_{t+1} - \tilde{\*{y}}_t \right\|^2\\
+=& \underbrace{-\gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t), \frac{\tilde{\*g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\rangle}_{A_1} + \underbrace{L\gamma^2\mathbb E\left\| \frac{\tilde{\*g}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2}_{A_2} \underbrace{- \gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t), \*q_t \right\rangle}_{A_3} + \underbrace{L\gamma^2\mathbb E\left\| \*q_t\right\|^2}_{A_4}.
+\end{align*}
+We now bound $A_1$ to $A_4$ separately. Note that from Lemma~\ref{lemma:local:momentum_bound}, the momentum term can be uniformly bounded by a constant. For brevity of the derivation, we use $M$ to denote such constant bound, and fit in its value at the end of the proof.
+
+For $A_1$,
+\begin{align*}
+    & A_1 \\
+    = & -\gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t), \frac{\tilde{\*{g}}_{t}}{\sqrt{\*v_t+\epsilon}}\right\rangle \\
+= & -\gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t), \frac{\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)}{\sqrt{\*v_t+\epsilon}}\right\rangle \\
+    = & -\gamma \mathbb E\left\langle \nabla f(\tilde{\*{x}}_t), \frac{\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle -\gamma \mathbb E\left\langle \nabla f(\tilde{\*{x}}_t), \frac{\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)-\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle \\
+    & - \gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t)-\nabla f(\tilde{\*{x}}_t), \frac{\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle - \gamma \mathbb E\left\langle \nabla f(\tilde{\*{y}}_t)-\nabla f(\tilde{\*{x}}_t), \frac{\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)-\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}}\right\rangle \\
+\leq & -\frac{\gamma\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2}{\sqrt{G_\infty^2+\epsilon}}
++ \frac{\gamma\eta_1}{2}\mathbb{E}\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2 + \frac{\gamma}{2\eta_1}\mathbb{E}\left\| \frac{\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)-\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}} \right\|^2
++ \frac{\gamma\eta_1}{2}\mathbb{E}\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2 \\
+    & + \frac{\gamma}{2\eta_1}\mathbb{E}\left\| \frac{\nabla f(\tilde{\*{y}}_t)-\nabla f(\tilde{\*{x}}_t)}{\sqrt{\*v_t+\epsilon}} \right\|^2 + 
+    \frac{\gamma\eta_1}{2}\mathbb{E}\left\|\nabla f(\tilde{\*{y}}_t)-\nabla f(\tilde{\*{x}}_t)\right\|^2 + \frac{\gamma}{2\eta_1}\mathbb{E}\left\|\frac{\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)-\nabla f(\tilde{\*x}_t)}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+\leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
++ \frac{\gamma V_1L^2}{\beta_2^m\eta_1n}\sum_{i=1}^{n}\mathbb{E}\left\| \*x_t^{(i)} - \tilde{\*x}_t \right\|^2 + \left(\frac{\gamma V_1L^2}{2\beta_2^m\eta_1} + \frac{\gamma\eta_1L^2}{2}\right)\mathbb{E}\left\| \tilde{\*{y}}_t - \tilde{\*{x}}_t \right\|^2,
+\end{align*}
+where in the last step we use Assumption~\ref{assum:smooth}, Lemma~\ref{lemma:var_bound} and Lemma~\ref{lemma:var_term_trick}.
+For the second term, denote the last sync step before $t$ is $k$, then we have:
+\begin{equation}
+\label{equa:lemma:local:mom_step:consensus}
+\begin{aligned}
+    \mathbb{E}\left\| \*x_t^{(i)} - \tilde{\*x}_t \right\|^2 = & \mathbb{E}\left\| \*x_t^{(i)} - \*x_k^{(i)} - ( \tilde{\*x}_t - \tilde{\*x}_k) \right\|^2 \\
+\leq & 2\mathbb{E}\left\| \*x_t^{(i)} - \*x_k^{(i)}  \right\|^2 + 2\mathbb{E}\left\| \tilde{\*x}_t - \tilde{\*x}_k \right\|^2 \\
+    \leq & 2\gamma^2\mathbb{E}\left\| \sum_{j=k}^{t-1} \frac{\*m_j^{(i)}}{\sqrt{\*v_t+\epsilon}} \right\|^2 + 2\gamma^2\mathbb{E}\left\| \frac{1}{n}\sum_{i=1}^{n}\sum_{j=k}^{t-1} \frac{\*m_j^{(i)}}{\sqrt{\*v_t+\epsilon}} \right\|^2 \\
+\leq & 2\gamma^2(t-k)\sum_{j=k}^{t-1}\mathbb{E}\left\| \frac{\*m_j^{(i)}}{\sqrt{\*v_t+\epsilon}} \right\|^2 + 2\gamma^2(t-k)\frac{1}{n}\sum_{i=1}^{n}\sum_{j=k}^{t-1}\mathbb{E}\left\| \frac{\*m_j^{(i)}}{\sqrt{\*v_t+\epsilon}} \right\|^2 \\
+    \leq & \frac{4\gamma^2H^2V_1M}{\beta_2^m},
+\end{aligned}
+\end{equation}
+where the first step holds because Lemma~\ref{lemma:var_term_trick}, Lemma~\ref{lemma:var_bound}, and the fact that at the sync step $k$, $\tilde{\*x}_k = \*x_k^{(i)}$. For the third term, we have
+\begin{equation}
+\label{equa:lemma:local:mom_step:y-x}
+\begin{aligned}
+    \mathbb{E}\left\| \tilde{\*{y}}_t - \tilde{\*{x}}_t \right\|^2 = & \mathbb{E}\left\| \frac{\gamma\tilde{\*m}_t}{(1-\beta_1)\sqrt{\*v_{t}+\epsilon}} + \frac{\gamma\*\delta_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 \\
+\leq & \frac{2\gamma^2V_1}{\beta_2^m(1-\beta_1)^2}\mathbb{E}\left\| \tilde{\*m}_t \right\|^2 + \frac{2V_1}{\beta_2^m}\mathbb{E}\left\| \gamma\*\delta_{t} \right\|^2 \\
+    \overset{Lemma~\ref{lemma:local:delta_bound}}{\leq} & \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{2\gamma^2V_1}{\beta_2^m}\cdot 4\Delta^2 \\
+\leq & \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{8\gamma^2V_1\Delta^2}{\beta_2^m},
+\end{aligned}
+\end{equation}
+where we again apply the Lemma~\ref{lemma:var_bound} and Lemma~\ref{lemma:var_term_trick}.
+Then we can get
+\begin{align*}
+    A_1 \leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{\gamma V_1L^2}{\beta_2^m\eta_1n}\sum_{i=1}^{n}\mathbb{E}\left\| \*x_t^{(i)} - \tilde{\*x}_t \right\|^2 \\
+    & + \left(\frac{\gamma V_1L^2}{2\beta_2^m\eta_1} + \frac{\gamma\eta_1L^2}{2}\right)\mathbb{E}\left\| \tilde{\*{y}}_t - \tilde{\*{x}}_t \right\|^2 \\
+\leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{4\gamma^3H^2V_1^2L^2M}{\beta_2^m\eta_1} \\
+    & + \left(\frac{\gamma V_1L^2}{2\beta_2^m\eta_1} + \frac{\gamma\eta_1L^2}{2}\right)\cdot \left( \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{8\gamma^2V_1\Delta^2}{\beta_2^m}\right) \\
+\leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{4\gamma^3H^2V_1^2L^2M}{\beta_2^m\eta_1} + \frac{\gamma^3V_1^2ML^2}{\eta_1\beta_2^{2m}(1-\beta_1)^2} \\
+    & + \frac{\gamma^3\eta_1V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3V_1^2\Delta^2L^2}{\eta_1\beta_2^{2m}} + \frac{4\gamma^3\eta_1V_1\Delta^2L^2}{\beta_2^m}.
+\end{align*}
+where in the second step we reuse Equation~(\ref{equa:lemma:local:mom_step:consensus}).
+Next we can bound $A_2$ as follows
+\begin{align*}
+    A_2 = & L\gamma^2\mathbb E\left\| \frac{\tilde{\*{g}}_{t}}{\sqrt{\*v_t+\epsilon}}\right\|^2 \\
+\leq  & \frac{L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \frac{1}{n}\sum_{i=1}^{n}\*{g}_{t}^{(i)}\right\|^2 \\
+    \leq & \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)\right\|^2 \\
+\leq & \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right) - \nabla f(\tilde{\*x}_t)\right\|^2 + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \nabla f(\tilde{\*x}_t)\right\|^2 \\
+    \leq & \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{2L\gamma^2V_1L^2}{n\beta_2^m}\sum_{i=1}^{n}\mathbb E\left\| \*x_t^{(i)} - \tilde{\*x}_t\right\|^2 + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \nabla f(\tilde{\*x}_t)\right\|^2 \\
+\leq & \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{8\gamma^3V_1^2H^2ML^3}{\beta_2^m} + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \nabla f(\tilde{\*x}_t)\right\|^2,
+\end{align*}
+where in the sixth step we reuse Equation~(\ref{equa:lemma:local:mom_step:consensus}).
+For $A_3$,
+\begin{align*}
+    A_3 = & -\gamma\mathbb{E}\left\langle \nabla f(\tilde{\*y}_t), \*q_t \right\rangle \\
+= & -\gamma\mathbb{E}\left\langle \nabla f(\tilde{\*x}_t), \*q_t \right\rangle - \gamma\mathbb{E}\left\langle \nabla f(\tilde{\*y}_t) - \nabla f(\tilde{\*x}_t), \*q_t \right\rangle \\
+    \overset{\forall\eta_2>0}{\leq} & \frac{\gamma\eta_2}{2}\mathbb{E}\left\| \nabla f(\tilde{\*x}_t)\right\|^2 + \frac{\gamma\eta_2}{2}\mathbb{E}\left\| \nabla f(\tilde{\*y}_t) - \nabla f(\tilde{\*x}_t)\right\|^2 + \frac{\gamma}{\eta_2}\mathbb{E}\left\| \*q_t\right\|^2 \\
+\leq & \frac{\gamma\eta_2}{2}\mathbb{E}\left\| \nabla f(\tilde{\*x}_t)\right\|^2 + \frac{\gamma\eta_2L^2}{2}\cdot \left( \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{8\gamma^2V_1\Delta^2}{\beta_2^m}\right) + \frac{\gamma}{\eta_2}\mathbb{E}\left\| \*q_t\right\|^2 \\
+    \leq & \frac{\gamma\eta_2}{2}\mathbb{E}\left\| \nabla f(\tilde{\*x}_t)\right\|^2 + \frac{\gamma^3\eta_2V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3\eta_2V_1\Delta^2L^2}{\beta_2^m} + \frac{\gamma}{\eta_2}\mathbb{E}\left\| \*q_t\right\|^2,
+\end{align*}
+where in the last step we reuse Equation~(\ref{equa:lemma:local:mom_step:y-x}).
+Combine the bound of $A_1$ to $A_4$, we obtain
+\begin{align*}
+    & \mathbb E f(\tilde{\*{y}}_{t+1}) - \mathbb Ef(\tilde{\*{y}}_{t}) \\
+\leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 - \frac{\gamma\eta_2}{2} \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{4\gamma^3H^2V_1^2L^2M}{\beta_2^m\eta_1} + \frac{\gamma^3V_1^2ML^2}{\eta_1\beta_2^{2m}(1-\beta_1)^2} \\
+    & + \frac{\gamma^3\eta_1V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3V_1^2\Delta^2L^2}{\eta_1\beta_2^{2m}}\\
+    & + \frac{4\gamma^3\eta_1V_1\Delta^2L^2}{\beta_2^m} + \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{8\gamma^3V_1^2H^2ML^3}{\beta_2^m} + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \nabla f(\tilde{\*x}_t)\right\|^2 \\
+    & + \frac{\gamma^3\eta_2V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3\eta_2V_1\Delta^2L^2}{\beta_2^m} + \left( \frac{\gamma}{\eta_2} + L\gamma^2 \right)\mathbb{E}\left\| \*q_t\right\|^2.
+\end{align*}
+We set the two constants $\eta_1,\eta_2$ as
+\begin{align*}
+    \eta_1 = & \frac{1}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \eta_2 = & \frac{1}{2\sqrt{G_\infty^2+\epsilon}},
+\end{align*}
+then we have,
+\begin{align*}
+    & \mathbb E f(\tilde{\*{y}}_{t+1}) - \mathbb Ef(\tilde{\*{y}}_{t}) \\
+\leq & -\left( \frac{\gamma}{\sqrt{G_\infty^2+\epsilon}} - \gamma\eta_1 - \frac{\gamma\eta_2}{2} \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{4\gamma^3H^2V_1^2L^2M}{\beta_2^m\eta_1} + \frac{\gamma^3V_1^2ML^2}{\eta_1\beta_2^{2m}(1-\beta_1)^2} \\
+    & + \frac{\gamma^3\eta_1V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3V_1^2\Delta^2L^2}{\eta_1\beta_2^{2m}}\\
+    & + \frac{4\gamma^3\eta_1V_1\Delta^2L^2}{\beta_2^m} + \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \frac{8\gamma^3V_1^2H^2ML^3}{\beta_2^m} + \frac{2L\gamma^2V_1}{\beta_2^m}\mathbb E\left\| \nabla f(\tilde{\*x}_t)\right\|^2 \\
+    & + \frac{\gamma^3\eta_2V_1ML^2}{\beta_2^m(1-\beta_1)^2} + \frac{4\gamma^3\eta_2V_1\Delta^2L^2}{\beta_2^m} + \left( \frac{\gamma}{\eta_2} + L\gamma^2 \right)\mathbb{E}\left\| \*q_t\right\|^2 \\
+%%%%%%%%%%%%
+\leq & - \left( \frac{\gamma}{2\sqrt{G_\infty^2+\epsilon}} - \frac{2L\gamma^2V_1}{\beta_2^m} \right)\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2
+    + \frac{36\gamma^3H^2V_1(M+\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)}{\beta_2^m(1-\beta_1)^2\sqrt{G_\infty^2+\epsilon}} \\
+& + \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} + \left( 2\gamma\sqrt{G_\infty^2+\epsilon} + L\gamma^2 \right)\mathbb{E}\left\| \*q_t\right\|^2.
+\end{align*}
+Finally, we need to bound the norm of $\*q_t$.
+If we denote the last sync step was $k$ steps before $t$, then,
+\begin{align*}
+    \*q_t = & \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_{t+\frac{1}{2}} - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}} \right) - \frac{\gamma\*{\delta}_{t+1} - \gamma\*{\delta}_{t}}{\sqrt{\*v_t+\epsilon}} \\
+= & \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_{t-k+1} + \tilde{\*{x}}_{t-k+1} - \tilde{\*{x}}_{t+\frac{1}{2}} - \frac{\gamma}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \left(\tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}} \right) - \frac{\gamma\*{\delta}_{t+1} - \gamma\*{\delta}_{t}}{\sqrt{\*v_t+\epsilon}} \\
+    = & -\frac{\gamma\tilde{\*u}_{t+\frac{1}{2}}}{\sqrt{\*v_t+\epsilon}} - \left( \sum_{j=t-k+1}^{t}\frac{\gamma\tilde{\*m}_j}{\sqrt{\*v_t+\epsilon}}\right) - \frac{\gamma\left(\tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}} \right)}{(1- \beta_1)\sqrt{\*v_t+\epsilon}} \\
+= & -\frac{\gamma}{(1-\beta_1)\sqrt{\*v_t+\epsilon}} \left( \tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}}+ 2(1-\beta_1)\sum_{j=t-k+1}^{t}\tilde{\*m}_j\right),
+\end{align*}
+based on which we obtain
+\begin{align*}
+    \mathbb{E} \left\| \*q_t\right\|^2 = & \mathbb{E} \left\| \frac{\gamma}{(1-\beta_1)\sqrt{\*v_t+\epsilon}} \left( \tilde{\*{m}}_{t+1} - \tilde{\*{m}}_{t+\frac{1}{2}} + 2(1-\beta_1)\sum_{j=t-k+1}^{t}\tilde{\*m}_j\right)\right\|^2 \\
+\leq & \frac{\gamma^2V_1}{\beta_2^m(1-\beta_1)^2}\left(3\mathbb{E}\left\| \tilde{\*{m}}_{t+1} \right\|^2 + 3\mathbb{E}\left\| \tilde{\*{m}}_{t+\frac{1}{2}}\right\|^2 + 12(1-\beta_1)^2k\sum_{j=t-k+1}^{t}\mathbb{E}\left\|\tilde{\*m}_j\right\|^2\right) \\
+    \leq & \frac{12\gamma^2V_1(H+1)^2M}{\beta_2^m(1-\beta_1)^2}.
+\end{align*}
+Put everything together, and let $\gamma$ fulfills
+\begin{align*}
+    \gamma \leq \min\left\{\frac{\beta_2^m}{4V_1L\sqrt{G_\infty^2+\epsilon}}, \frac{2\sqrt{G_\infty^2+\epsilon}}{L}\right\},
+\end{align*}
+we finally obtain
+\begin{align*}
+    & \mathbb E f(\tilde{\*{y}}_{t+1}) - \mathbb Ef(\tilde{\*{y}}_{t}) \\
+\leq & -\frac{\gamma\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2}{4\sqrt{G_\infty^2+\epsilon}}
+    + \frac{36\gamma^3H^2V_1(M+\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)}{\beta_2^m(1-\beta_1)^2\sqrt{G_\infty^2+\epsilon}} + \frac{L\gamma^2V_1\sigma^2}{n\beta_2^m} \\
+    & + \frac{48\gamma^3V_1(H+1)^2M\sqrt{G_\infty^2+\epsilon}}{\beta_2^m(1-\beta_1)^2}.
+\end{align*}
+To this end, we have provided bound to all the sync steps $t$ with  ($t\not\in\mathcal{T}_{\*v}$ and $t\in\mathcal{T}_{\*u}$). For all the $t$ with  ($t\not\in\mathcal{T}_{\*v}$ and $t\not\in\mathcal{T}_{\*u}$), they can be seen as a special case of $\*q_t=\*0$. Since $A_3+A_4>0$, this bound will continue to hold for them, so that to sum over all the $t$ with $t\not\in\mathcal{T}_{\*v}$, we obtain
+\begin{align*}
+    & \sum_{t\not\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb E\left\| \nabla f(\tilde{\*{x}}_t) \right\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \leq & \sum_{t\not\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*{y}}_{t}) - \mathbb Ef(\tilde{\*{y}}_{t+1}) + \frac{36\gamma^3H^2V_1(3G_\infty^2d+25\Delta^2)L^2(1+L)(G_\infty^2+\epsilon+1)(T-m)}{\beta_2^m(1-\beta_1)^4\sqrt{G_\infty^2+\epsilon}} \\
+    & + \frac{L\gamma^2V_1\sigma^2(T-m)}{n\beta_2^m} + \frac{48\gamma^3V_1(H+1)^2(3G_\infty^2d+24\Delta^2)\sqrt{G_\infty^2+\epsilon}(T-m)}{\beta_2^m(1-\beta_1)^4},
+\end{align*}
+where we replace $M$ with Lemma~\ref{lemma:local:momentum_bound}.
+That completes the proof.
+\end{proof}
+
+\begin{lemma}
+\label{lemma:local:var_step}
+In Algorithm~\ref{algo:localstep01}, For all the $t\geq 0$ that fulfills $\*v_t\neq\*v_{t+1}$, i.e. $t\in\mathcal{T}_{\*v}$, 
+if the learning rate fulfills
+\begin{align*}
+    \gamma < \frac{1}{6}
+\end{align*},
+the following bound holds
+\begin{align*}
+    & \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*y}_{t}) - \mathbb Ef(\tilde{\*y}_{t+1}) + \frac{2\gamma\sigma^2m}{nL} +  \frac{106\gamma H^2V_1(M+\Delta^2)mL}{\beta_2^m(1-\beta_1)^2} + \frac{\gamma\sigma^2m}{4n\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma G_\infty^2dm}{4\sqrt{G_\infty^2+\epsilon}}.
+\end{align*}
+\end{lemma}
+
+\begin{proof}
+From the definition of the auxiliary sequence, we obtain,
+\begin{align*}
+    \tilde{\*{y}}_{t+1} - \tilde{\*{y}}_t = & \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_t - \frac{\gamma}{1- \beta_1} \left(\frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) - \left( \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}}\right).
+\end{align*}
+Based on Assumption~\ref{assum:smooth},
+\begin{align*}
+    & \mathbb E f(\tilde{\*y}_{t+1}) - \mathbb Ef(\tilde{\*y}_{t}) \\
+    \leq & \mathbb E\left\langle \nabla f(\tilde{\*y}_t), \tilde{\*y}_{t+1} - \tilde{\*y}_t \right\rangle + \frac{L}{2}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2 \\
+        \overset{\gamma\eta<1}{\leq}& \frac{\eta\gamma}{2L}\mathbb E\left\|\nabla f(\tilde{\*y}_t)\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2 \\
+    \leq & \frac{\eta\gamma}{L}\mathbb E\left\|\nabla f(\tilde{\*x}_t)\right\|^2 + \eta\gamma L\mathbb E\left\| \tilde{\*y}_t - \tilde{\*x}_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2 \\
+        \leq & \frac{2\eta\gamma}{L}\mathbb E\left\|\nabla f(\tilde{\*x}_t) - \frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)} \right)\right\|^2 + \frac{2\eta\gamma}{L}\mathbb E\left\|\frac{1}{n}\sum_{i=1}^{n}\nabla f\left( \*x_t^{(i)}\right) - \frac{1}{n}\sum_{i=1}^{n} \*g_t^{(i)} \right\|^2 + \eta\gamma L\mathbb E\left\| \tilde{\*y}_t - \tilde{\*x}_t\right\|^2 \\
+        & + \frac{L}{\eta\gamma}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2 \\
+    \leq & \frac{2\eta\gamma L}{n}\sum_{i=1}^{n}\mathbb E\left\|\tilde{\*x}_t - \*x_t^{(i)}\right\|^2 + \frac{2\eta\gamma\sigma^2}{nL} + \eta\gamma L\mathbb E\left\| \tilde{\*y}_t - \tilde{\*x}_t\right\|^2  + \frac{L}{\eta\gamma}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2.
+\end{align*}
+We now bound the three norm terms separately. 
+From Equation~(\ref{equa:lemma:local:mom_step:consensus}), we obtain for the first term,
+\begin{align*}
+\mathbb{E}\left\| \*x_t^{(i)} - \tilde{\*x}_t \right\|^2 \leq \frac{4\gamma^2H^2V_1M}{\beta_2^m},
+\end{align*}
+where we again use $M$ to denote the constant bound from Lemma~\ref{lemma:local:momentum_bound} for brevity.
+On the other hand, based on a similar derivation to Equation~(\ref{equa:lemma:local:mom_step:y-x}), we obtain
+\begin{align*}
+\mathbb{E}\left\| \tilde{\*{y}}_t - \tilde{\*{x}}_t \right\|^2 \leq \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{8\gamma^2V_1\Delta^2}{\beta_2^m}.
+\end{align*}
+Finally, for the last norm, it's possible that the update towards $t+1$ step contains synchronization on the buffer. So that we need to discuss the two cases separately. First, for all the $t\in\mathcal{T}_{\*u}$, denote the last sync step before $t$ is $k$, then we have
+\begin{align*}
+    & \mathbb{E}\left\| \tilde{\*{y}}_{t+1} - \tilde{\*{y}}_t \right\|^2 \\
+    = & \mathbb{E}\left\| \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_t - \frac{\gamma}{1- \beta_1} \left(\frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right) - \left( \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} - \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}}\right) \right\|^2 \\
+\leq & 7\mathbb{E}\left\| \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_{t-k+1} \right\|^2 + 7\mathbb{E}\left\| \tilde{\*{x}}_{t-k+1} - \tilde{\*{x}}_{t+\frac{1}{2}} \right\|^2 + 
+    7\mathbb{E}\left\| \tilde{\*{x}}_{t+\frac{1}{2}} - \tilde{\*{x}}_{t} \right\|^2 + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 \\
+    & + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 \\
+\leq & 7\mathbb{E}\left\| \tilde{\*{x}}_{t+1} - \tilde{\*{x}}_{t-k+1} \right\|^2 + 7\mathbb{E}\left\| \tilde{\*{x}}_{t-k+1} - \tilde{\*{x}}_{t+\frac{1}{2}} \right\|^2 + 
+    7\gamma^2\mathbb{E}\left\| \frac{\tilde{\*m}_t}{\sqrt{\*v_t+\epsilon}} \right\|^2 + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 \\
+    & + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 \\
+\leq & 7\mathbb{E}\left\| \frac{\sum_{j=t-k+1}^{t}\gamma\tilde{\*m}_j + \*\delta_t - \*\delta_{t+1}}{\sqrt{\*v_k+\epsilon}} \right\|^2 + 7\mathbb{E}\left\| \frac{\sum_{j=t-k+1}^{t}\gamma\tilde{\*m}_j}{\sqrt{\*v_k+\epsilon}} \right\|^2 + 
+    7\gamma^2\mathbb{E}\left\| \frac{\tilde{\*m}_t}{\sqrt{\*v_t+\epsilon}} \right\|^2 \\
+    & + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 + 
+    \frac{7\gamma^2}{1-\beta_1}\mathbb{E}\left\| \frac{\tilde{\*{m}}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t+1}}{\sqrt{\*v_{t+1}+\epsilon}} \right\|^2 + 
+    7\mathbb{E}\left\| \frac{\gamma\*{\delta}_{t}}{\sqrt{\*v_{t}+\epsilon}} \right\|^2 \\
+\leq & \frac{105\gamma^2H^2V_1(M+\Delta^2)}{\beta_2^m(1-\beta_1)^2},
+\end{align*}
+where in the last step we use Lemma~\ref{lemma:local:delta_bound}, \ref{lemma:local:momentum_bound} and \ref{lemma:var_term_trick}. 
+It is straightforward to verify that this bound also holds for $t\not\in\mathcal{T}_{\*u}$ (since there will be no noise from the sync step).
+Combine the three norm term bounds, we obtain
+\begin{align*}
+    & \mathbb E f(\tilde{\*y}_{t+1}) - \mathbb Ef(\tilde{\*y}_{t}) \\
+\leq & \frac{2\eta\gamma L}{n}\sum_{i=1}^{n}\mathbb E\left\|\tilde{\*x}_t - \*x_t^{(i)}\right\|^2 + \frac{2\eta\gamma\sigma^2}{nL} + \eta\gamma L\mathbb E\left\| \tilde{\*y}_t - \tilde{\*x}_t\right\|^2 + \frac{L}{\eta\gamma}\mathbb E\left\|\tilde{\*y}_{t+1} - \tilde{\*y}_t \right\|^2 \\
+    = & \frac{8\eta\gamma^3H^2V_1ML}{\beta_2^m} + \frac{2\eta\gamma\sigma^2}{nL} + \eta\gamma L\left( \frac{2\gamma^2V_1M}{\beta_2^m(1-\beta_1)^2} + \frac{8\gamma^2V_1\Delta^2}{\beta_2^m} \right) + \frac{105\gamma H^2V_1(M+\Delta^2)L}{\eta\beta_2^m(1-\beta_1)^2} \\
+\leq & \frac{2\eta\gamma\sigma^2}{nL} + 
+\frac{18\eta\gamma^3H^2V_1ML}{\beta_2^m(1-\beta_1)^2} + \frac{105\gamma H^2V_1(M+\Delta^2)L}{\eta\beta_2^m(1-\beta_1)^2} \\
+    \leq & \frac{2\gamma\sigma^2}{nL} +  \frac{106\gamma H^2V_1(M+\Delta^2)L}{\beta_2^m(1-\beta_1)^2},
+\end{align*}
+where in the last step we set $\eta=1$ and use the requirement that $\gamma<1/6$. Summing over all the $t\in\mathcal{T}_{\*v}$, we get
+\begin{align*}
+    0\leq \sum_{t\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*y}_{t}) - \mathbb Ef(\tilde{\*y}_{t+1}) + \frac{2\gamma\sigma^2m}{nL} +  \frac{106\gamma H^2V_1(M+\Delta^2)mL}{\beta_2^m(1-\beta_1)^2}.
+\end{align*}
+Adding $\frac{\gamma}{4\sqrt{G_\infty^2+\epsilon}}\sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2$ on both sides, and note that
+\begin{align*}
+    \sum_{t\in\mathcal{T}_{\*v}}\mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2 = & \sum_{t\in\mathcal{T}_{\*v}}\mathbb E\left\|\nabla f(\tilde{\*x}_t) - \tilde{\*g}_t\right\|^2 + \sum_{t\in\mathcal{T}_{\*v}}\mathbb E\left\|\tilde{\*g}_t\right\|^2 \\
+\leq & \frac{\sigma^2m}{n} + G_\infty^2dm.
+\end{align*}
+We finally obtain
+\begin{align*}
+    & \sum_{t\in\mathcal{T}_{\*v}}\frac{\gamma\mathbb{E}\|\nabla f(\tilde{\*x}_t)\|^2}{4\sqrt{G_\infty^2+\epsilon}} \\
+    \leq & \sum_{t\in\mathcal{T}_{\*v}}\mathbb E f(\tilde{\*y}_{t}) - \mathbb Ef(\tilde{\*y}_{t+1}) + \frac{2\gamma\sigma^2m}{nL} +  \frac{106\gamma H^2V_1(M+\Delta^2)mL}{\beta_2^m(1-\beta_1)^2} + \frac{\gamma\sigma^2m}{4n\sqrt{G_\infty^2+\epsilon}} + \frac{\gamma G_\infty^2dm}{4\sqrt{G_\infty^2+\epsilon}}.
+\end{align*}
+That completes the proof.
+\end{proof}

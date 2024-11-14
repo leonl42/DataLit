@@ -1,0 +1,83 @@
+\vspace{-.2em}
+\section{Background} \label{sec:background}
+\vspace{-.2em}
+%------------------
+% Out
+%
+%-------------------
+
+\myparagraph{Task-oriented dialogue as reinforcement learning.} \label{sec:tod_rl}
+We formulate the problem of the ToD system as a partially observable Markov decision process (POMDP) \citep{kaelbling1998planning}, 
+specified by $\gM = \langle \sS, \sA, \sO, \gP, \gR, \gamma\rangle $, where state $s \in \sS$ consists of the previous dialogue history $h$ and the user intended goal $g$ specified prior to the start of the dialogue; 
+$o \in \sO$ is the observation that can be the user utterance; action $a \in \sA$ can be the system response or dialogue act; %, whose dimension is the size of the whole vocabulary (denoted by $|\sA|$);
+$\gP(s^\prime \given s, a)$ is the underlying transition probability; 
+$\gR(h, a, g)$ is the intermediate reward function for taking action $a$ under dialogue history $h$  and goal $g$; and $\gamma \in [0, 1]$ is the discount factor.
+
+The dialogue history $h_t$ at timestep $t$ consists of all the previous observations and actions, \ie, $h_t \triangleq \{o_0, a_0,\ldots, o_{t-1}, a_{t-1}, o_t\}$. 
+Since the ToD agent cannot directly observe the user goal $g$, it makes a decision based on the entire dialogue history $h_t$ so far.
+Specifically, the policy $\pi$ is defined as a mapping from $h_t$ to a probability distribution over $\sA$, \ie, $\pi \triangleq \pi(a_t \given h_t)$.
+The training objective is to find a policy $\pi$ that maximizes the expected (discounted) cumulative reward
+\begin{align*}\textstyle
+    J(\pi) \triangleq \E_{\mu_{g}, \pi, \gP}\left[\sum_{t=0}^{T}\gamma^t \gR(h_t, a_t, g)\right]\,,
+\end{align*}
+where $\mu_{g}$ is the distribution of goals and $T$ is the number of turns in the dialogue trajectory.
+% %%%%%
+% When the policy $\pi_{\theta}$ is parameterized with $\theta$, we can optimize $\theta$ by taking one step ascent with policy gradient \citep{rlintro2018}:
+% \begin{align}
+%     \nabla_{\theta}J(\theta):= \E
+% \end{align}
+%%%%%%%
+
+
+\myparagraph{Reward design and learning in ToD systems.}%\label{sec:rew_from_pref}
+Unlike the classical RL problems where the intermediate reward function is well designed and provided,
+in ToD systems we can only get the evaluation results at the end of the dialogue \citep{multiwoz2018}.
+Consequently, most of the existing works adopt the manually designed intermediate reward function that only gives binary reward to indicate whether the dialogue agent achieves the goal or not \citep[\eg,][]{weisz2018sample,wu2019switch,gptcritic2022}:
+\begin{align*}\textstyle
+ \gR(h_t, a_t, g)= \begin{cases}
+     ~~~R_\mathrm{const}~~\text{or}~~0, & \text{if goal}~g~\text{is achieved at timestep}~t \,,\\ 
+     -R_\mathrm{const}, & \text{if goal}~g~ \text{is not achieved at timestep}~t\,,
+ \end{cases}
+\end{align*}
+where $R_\mathrm{const}$ is a positive constant that can be 1.
+However, such a sparse reward signal can be one of the reasons that the ToD agents from RL often have poor performance \citep{takanobu2019guided,wang2020learning}.
+A similar issue is also observed in goal-oriented RL \citep{andrychowicz2017hindsight}. 
+%\st{is this sparse? it has value at every timestep? YF: this is definition of sparse reward RL, you can check HER. }
+
+To address the above issue, a few recent works focus on learning an intermediate reward function from demonstrations or mechanical dialogue assessments \citep[\eg,][]{wang2020learning,caspi2021}, inspired by the reward-learning-from-preferences in RL \citep[\eg,][]{christiano2017deep,trex2019,drex2020}.
+% Unlike traditional RL where the dense reward function is well defined and provided, 
+% in most ToD system, one can only assess the entire dialogue history $h_T$.
+% To apply RL to train ToD system, it is thus necessary to learn a parameterized per-turn reward function $\hat r\br{h_t, a_t,g;\theta}$ from the dialogue-level assessments, which is similar to reward learning from preference in imitation learning (IL).
+More precisely, suppose we are given two dialogue trajectories $\tau_i$ and $\tau_j$, taking the form $\tau_i\triangleq\{g^{(i)}, (o_0^{(i)}, a_0^{(i)}),\ldots,(o_T^{(i)}, a_T^{(i)})\}$.
+We want to learn a parametrized reward function $\gR_{\theta}(o_t, a_t, g)$ with parameter $\theta$,\footnote{We use the belief state, action, and goal as the reward function inputs. 
+The belief state is part of the observation $o_t$. We also drop the dependency on $h_t$ for $\gR_{\theta}$ to simplify the reward function learning.} such that
+$\sum_{t=0}^{T}\gR_{\theta}(o_t^{(i)}, a_t^{(i)}, g^{(i)}) > \sum_{t=0}^{T}\gR_{\theta}(o_t^{(j)}, a_t^{(j)}, g^{(j)})$ when $\tau_i$ is preferred over $\tau_j$ (denoted as $\tau_i \succ \tau_j$) and \textit{vice versa}. 
+Then one can follow the  Bradley-Terry model of pairwise preferences \citep{bradley1952rank} to train the reward function by minimizing the loss
+\begin{equation}\label{eq:original_pref_rew}\textstyle
+\resizebox{.63\linewidth}{!}{%
+$
+    \ell(\theta) = -\sum_{\tau_i \succ \tau_j}\log \sbr{ \frac{\exp\br{\sum_{t=0}^{T}\gR_{\theta}(o_t^{(i)}, a_t^{(i)}, g^{(i)}) }}{\sum_{k \in \{i, j\}}\exp\br{\sum_{t=0}^{T}\gR_{\theta}(o_t^{(k)}, a_t^{(k)}, g^{(k)})} } }\,.
+    $%    
+}
+\end{equation}
+$\ell(\theta)$ can be interpreted as a pairwise ranking loss, which is formalized as binary classification in the problem of learning to rank \citep{ranksvm1999,rankingboosting2003,ranknet2005}.
+%In the classical IL approach \citep[\eg,][]{christiano2017deep,trex2019,drex2020}, one assume pairwise preferences on trajectories in the dataset. 
+%Denote $h_T^i \prec h_T^j$ if dialogue trajectory $h_T^j$ is preferred over trajectory $h_T^i$.
+%The reward function $\hat r\br{h_t, a_t,g;\theta}$ is trained by following the Bradley-Terry model of preferences \citep{bradley1952rank} and by assuming that the preferences result from the sum of rewards of each trajectory. 
+%where $\abs{\gD}$ is the size of the dataset, $g^j$ and $g^i$ are respectively the goal of trajectory $h_T^j$ and $h_T^i$.
+
+% \myparagraph{End-to-End Task-Oriented Dialogue Systems.}
+% Task-Oriented dialogue systems are designed to achieve a goal specified by a user in natural language.
+% The classical approach to solve this problem usually requires solving several sub-tasks \citep{williams2007partially,gao2018neural}, including 
+% More recently, as a way to simplify the system design and reduce human supervision, end-to-end models for the task-oriented dialogue system \citep[\eg,][]{mintl2020,simpletod2020,soloist2021} were proposed,
+% some of which significantly improve the overall performance by leveraging the pre-trained language models \citep[\eg,][]{devlin2018bert,radford2019language,bart2019}. 
+%   such as MinTL \citep{mintl2020}, to , without changing the underlying structures of the original training frameworks. \jg{Maybe you can put the last sentence into related work.} 
+%utilized to guide the training of response-generation model, which provides an enhancement to the original end-to-end training frameworks such as MinTL \citep{mintl2020}, without changing the underlying structures. 
+
+%As an illustration to demonstration our proposed reward-learning approach, we build our framework on MinTL \citep{mintl2020}, with a pre-trained language model BART \citep{bart2019} as the backbone. \st{Already (and better) say this in the experiment section?}
+
+
+
+
+
+
