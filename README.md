@@ -3,7 +3,6 @@
 - Figure out what we'll do for Analysis conceptually
 - Decide on what format we'll use to represent the data throughout our process
 ### Code:
-- Parse the jsons for NeurIPS and ICLR for scores and acceptance status, saving tex source files from arXiv (Linus)
 - Extract Formulas from the tex source files per paper
 - Calculate complexities for each paper
 ### Presentation
