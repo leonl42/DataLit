@@ -1,0 +1,1633 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?latexml searchpaths="/home/miri/Documents/DataLit/arXiv_src_fetcher/ICLR_2023_first100/-Aw0rrrPUF"?>
+<!--  %File emnlp2020.tex --><!--  %% Based on the style files for ACL 2020, which were --><!--  %% Based on the style files for ACL 2018, NAACL 2018/19, which were --><!--  %% Based on the style files for ACL-2015, with some improvements --><!--  %%  taken from the NAACL-2016 style --><!--  %% Based on the style files for ACL-2014, which were, in turn, --><!--  %% based on ACL-2013, ACL-2012, ACL-2011, ACL-2010, ACL-IJCNLP-2009, --><!--  %% EACL-2009, IJCNLP-2008... --><!--  %% Based on the style files for EACL 2006 by --><!--  %%e.agirre@ehu.es or Sergi.Balari@uab.es --><!--  %% and that of ACL 08 by Joakim Nivre and Noah Smith --><?latexml class="article" options="11pt,a4paper"?>
+<?latexml package="emnlp2020" options="hyperref"?>
+<?latexml package="times"?>
+<?latexml package="latexsym"?>
+<!--  %This is not strictly necessary, and may be commented out, --><!--  %but it will improve the layout of the manuscript, --><!--  %and will typically save some space. --><?latexml RelaxNGSchema="LaTeXML"?>
+<?latexml package="microtype"?>
+<?latexml package="amsmath"?>
+<?latexml package="bm"?>
+<?latexml package="color"?>
+<?latexml package="multirow"?>
+<?latexml package="amsmath"?>
+<?latexml package="subfig"?>
+<?latexml package="enumitem"?>
+<?latexml package="amsfonts"?>
+<?latexml package="multirow"?>
+<?latexml package="makecell"?>
+<?latexml package="arydshln"?>
+<?latexml package="graphicx"?>
+<?latexml package="graphics"?>
+<?latexml package="bbm"?>
+<?latexml package="balance"?>
+<?latexml package="algorithm"?>
+<?latexml package="algpseudocode" options="noend"?>
+<?latexml package="booktabs"?>
+<?latexml package="textcomp"?>
+<document xmlns="http://dlmf.nist.gov/LaTeXML" class="ltx_authors_1line">
+  <resource src="LaTeXML.css" type="text/css"/>
+  <resource src="ltx-article.css" type="text/css"/>
+  <para xml:id="p1">
+    <ERROR class="undefined">\aclfinalcopy</ERROR>
+<!--  %**** emnlp2020.tex Line 25 **** 
+     %Uncomment this line for the final submission 
+     %“def“aclpaperid–***˝ %  Enter the acl Paper ID here 
+     %“setlength“titlebox–5cm˝ 
+     %You can expand the titlebox if you need extra space 
+     %to show all the authors. Please do not make the titlebox 
+     %smaller than 5cm (the original size); we will check this 
+     %in the camera-ready version and ask you to change it back. 
+     %“aclfinalcopy % Uncomment this line for the final submission 
+     %“def“aclpaperid–***˝ %  Enter the acl Paper ID here 
+     %“setlength“titlebox–5cm˝ 
+     %You can expand the titlebox if you need extra space 
+     %to show all the authors. Please do not make the titlebox 
+     %smaller than 5cm (the original size); we will check this 
+     %in the camera-ready version and ask you to change it back. 
+     %**** emnlp2020.tex Line 75 **** -->  </para>
+  <title>Assessing the Bilingual Knowledge Learned by Neural Machine Translation Models</title>
+  <creator role="author">
+    <personname>
+Shilin He <break/>The Chinese University of Hong Kong <break/><text font="sansserif" fontsize="90%">slhe@cse.cuhk.edu.hk <text font="serif">&amp;</text>Xing Wang <break/><text fontsize="111%">Tencent AI Lab <break/></text>brightxwang@tencent.com <ERROR class="undefined">\AND</ERROR>Shuming Shi <break/><text fontsize="111%">Tencent AI Lab <break/></text>shumingshi@tencent.com <text font="serif">&amp;</text>Michael R. Lyu <break/><text fontsize="111%">The Chinese University of Hong Kong <break/></text>lyu@cse.cuhk.edu.hk <text font="serif">&amp;</text>Zhaopeng Tu <break/><text fontsize="111%">Tencent AI Lab <break/></text>zptu@tencent.com
+</text></personname>
+    <contact role="thanks">  Work done when interning at Tencent AI Lab.</contact>
+  </creator>
+  <abstract name="Abstract">
+<!--  %**** emnlp2020.tex Line 100 **** -->    <p>Machine translation (MT) systems translate text between different languages by automatically learning in-depth knowledge of bilingual lexicons, grammar and semantics from the training examples.
+Although neural machine translation (NMT) has led the field of MT, we have a poor understanding on how and why it works. In this paper, we bridge the gap by assessing the bilingual knowledge learned by NMT models with <text font="italic">phrase table</text> – an interpretable table of bilingual lexicons.
+We extract the phrase table from the training examples that a NMT model correctly predicts.
+Extensive experiments on widely-used datasets show that the phrase table is reasonable and consistent against language pairs and random seeds. Equipped with the interpretable phrase table, we find that NMT models learn patterns from simple to complex and distill essential bilingual knowledge from the training examples.
+We also revisit some advances that potentially affect the learning of bilingual knowledge (e.g., back-translation), and report some interesting findings.
+We believe this work opens a new angle to interpret NMT with statistic models, and provides empirical supports for recent advances in improving NMT models.</p>
+  </abstract>
+  <section inlist="toc" xml:id="S1">
+    <tags>
+      <tag>1</tag>
+      <tag role="autoref">section 1</tag>
+      <tag role="refnum">1</tag>
+      <tag role="typerefnum">§1</tag>
+    </tags>
+    <title><tag close=" ">1</tag>Introduction</title>
+    <para xml:id="S1.p1">
+      <p>Modern machine translation (MT) systems aim to produce fluent and adequate translations by automatically learning in-depth knowledge of bilingual lexicons, grammar and semantics from the training examples.
+Two technological advances solving this problem with statistical and neural techniques, statistical machine translation (SMT) and neural machine translation (NMT), have seen vast progress over the last two decades.
+SMT models generate translations on the basis of several statistical models that <text font="italic">explicitly</text> represent the knowledge bases, such as translation model for bilingual lexicons, reordering and language models for grammar and semantics <cite class="ltx_citemacro_cite"><bibref bibrefs="koehn2009statistical" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>. Recently, NMT models have advanced the state-of-the-art by <text font="italic">implicitly</text> modeling the knowledge bases in a large neural network, which are trained jointly to maximize the translation performance <cite class="ltx_citemacro_cite"><bibref bibrefs="Bahdanau:2015:ICLR,gehring17:icml:2017,Vaswani:2017:NIPS" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>.
+Despite their power with a massive amount of parameters, we have limited understanding of how and why NMT models work, which poses great challenges for error analysis and model refinement.</p>
+    </para>
+    <para xml:id="S1.p2">
+      <p>In this work, we bridge the gap by assessing the knowledge bases learned by NMT models with the statistical models of SMT systems.
+We believed (and in fact, provide some evidence to support the claim) that although using different forms (e.g., continuous vs. discrete) to represent the knowledge, NMT and SMT models are identical in modeling the essential knowledge.
+In the long-goal journey, we start with probing the bilingual knowledge with the translation model, also known as <text font="italic">phrase table</text>, which is one core component of SMT systems to represent the bilingual lexicons.
+Bilingual knowledge is at the core of adequacy modeling, which is a major weakness of the NMT models <cite class="ltx_citemacro_cite"><bibref bibrefs="Tu_2016" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>.
+Phrase table has proven its effectiveness for carrying useful bilingual knowledge, which can be seamlessly integrated to NMT models <cite class="ltx_citemacro_cite"><bibref bibrefs="Wang:2018:TASLP,lample2018phrase" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>. For instance,  <ERROR class="undefined">\newcite</ERROR>lample2018phrase have advanced the SOTA of unsupervised NMT by learning to align for phrase embeddings based on an external phrase table.</p>
+    </para>
+    <figure inlist="lof" labels="LABEL:fig:example" xml:id="S1.F1">
+      <tags>
+        <tag>Figure 1</tag>
+        <tag role="autoref">Figure 1</tag>
+        <tag role="refnum">1</tag>
+        <tag role="typerefnum">Figure 1</tag>
+      </tags>
+      <figure align="center" class="ltx_figure_panel" xml:id="S1.F1.sf1">
+        <tags>
+          <tag>(a)</tag>
+          <tag role="autoref">1a</tag>
+          <tag role="refnum">1a</tag>
+        </tags>
+        <graphics candidates="figures/Example_NMT.pdf" graphic="figures/Example_NMT.pdf" options="width=208.13574pt,keepaspectratio=true" xml:id="S1.F1.sf1.g1"/>
+        <toccaption><tag close=" ">a</tag>Output of an English <Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S1.F1.sf1.m1">
+            <XMath>
+              <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+            </XMath>
+          </Math> German NMT model</toccaption>
+        <caption><tag close=" ">(a)</tag>Output of an English <Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S1.F1.sf1.m2">
+            <XMath>
+              <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+            </XMath>
+          </Math> German NMT model</caption>
+      </figure>
+      <break class="ltx_centering"/>
+      <figure align="center" class="ltx_figure_panel" xml:id="S1.F1.sf2">
+        <tags>
+          <tag>(b)</tag>
+          <tag role="autoref">1b</tag>
+          <tag role="refnum">1b</tag>
+        </tags>
+        <graphics candidates="figures/Example_PhraseTable.pdf" graphic="figures/Example_PhraseTable.pdf" options="width=208.13574pt,keepaspectratio=true" xml:id="S1.F1.sf2.g1"/>
+        <toccaption><tag close=" ">b</tag>Phrase table extracted from the NMT model</toccaption>
+        <caption><tag close=" ">(b)</tag>Phrase table extracted from the NMT model</caption>
+      </figure>
+      <toccaption class="ltx_centering"><tag close=" ">1</tag>The output of a NMT model (a) can be explained by the extracted phrase table (b). </toccaption>
+      <caption class="ltx_centering"><tag close=": ">Figure 1</tag>The output of a NMT model (a) can be explained by the extracted phrase table (b). </caption>
+    </figure>
+    <para xml:id="S1.p3">
+      <p>Specifically, we extract the phrase table from the predictions of NMT models, which is inspired by recent work on investigating the forgetting phenomenon of training examples in the image classification task <cite class="ltx_citemacro_cite"><bibref bibrefs="toneva:2018:empirical" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>. Intuitively, if a trained NMT model can successfully recover (part of) a training example, the NMT model is more likely to have learned the necessary bilingual lexicons for the recovery.
+Experimental results on three representative language pairs and random seeds show that the extracted phrase table correlates well with the NMT model performance, demonstrating that the phrase table can reasonably represent the bilingual knowledge learned by NMT models.
+Figure <ref labelref="LABEL:fig:example"/> shows an example, in which the phrase table extracted from a NMT model can well explain the generated output.</p>
+    </para>
+    <para xml:id="S1.p4">
+      <p>With the interpretable phrase table in hand, we are able to better understand behaviors of NMT models in many aspects. We start with investigating the learning dynamics of bilingual knowledge. We find that NMT tend to first learn simple patterns and then complex patterns, and the catastrophic forgetting phenomenon occurs during the training.<note mark="1" role="footnote" xml:id="footnote1"><tags>
+            <tag>1</tag>
+            <tag role="autoref">footnote 1</tag>
+            <tag role="refnum">1</tag>
+            <tag role="typerefnum">footnote 1</tag>
+          </tags>We follow <ERROR class="undefined">\newcite</ERROR>toneva:2018:empirical to define “forgetting event” to have occurred when a training example transitions from being predicted correctly to incorrectly during training.</note>
+We also reveal that one of the strengths of NMT models over SMT models lie in their ability to distill high-quality bilingual knowledge from the training data.</p>
+    </para>
+    <para xml:id="S1.p5">
+      <p>We then revisit some advances in improving NMT models, which potentially affect the learning of bilingual knowledge. Though we cannot claim causality, we have several observations:</p>
+      <itemize xml:id="S1.I1">
+        <item xml:id="S1.I1.i1">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">1st item</tag>
+          </tags>
+          <para xml:id="S1.I1.i1.p1">
+            <p><text font="italic">Model Capacity</text>:
+We thought it likely that increasing model capacity learns more bilingual lexicons. This turned out to be false. Transformer-Big outperforms Transformer-Base by 1.3 BLEU points, while the extracted phrase tables are almost the same. We conjecture that the strengths of larger models lie in a better learning of more complex knowledge, such as composition rules to combine the bilingual lexicons.</p>
+          </para>
+        </item>
+        <item xml:id="S1.I1.i2">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">2nd item</tag>
+          </tags>
+          <para xml:id="S1.I1.i2.p1">
+            <p><text font="italic">Data Augmentation</text>: We investigate back-translation <cite class="ltx_citemacro_cite"><bibref bibrefs="sennrich:2016:acl" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite> and forward-translation <cite class="ltx_citemacro_cite"><bibref bibrefs="zhang2016exploiting,he2019revisiting" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite>, which introduce additionally synthetic parallel corpus. Both techniques improve performance not only by introducing new bilingual knowledge, but also with a better quality estimation of existing knowledge.</p>
+          </para>
+        </item>
+        <item xml:id="S1.I1.i3">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">3rd item</tag>
+          </tags>
+          <para xml:id="S1.I1.i3.p1">
+            <p><text font="italic">Domain Adaptation</text>: Fine-tune is a simple yet effective technique in domain adaptation, which learns to transfer out-domain knowledge to in-domain <cite class="ltx_citemacro_cite"><bibref bibrefs="luong2015stanford" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite>. As expected, by adapting to the target-domain, the fine-tune approach learns more and better bilingual knowledge from the target-domain data.</p>
+          </para>
+        </item>
+      </itemize>
+    </para>
+    <para class="ltx_noindent" xml:id="S1.p6">
+      <p>The key contributions of this paper are:</p>
+      <itemize xml:id="S1.I2">
+        <item xml:id="S1.I2.i1">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">1st item</tag>
+          </tags>
+          <para xml:id="S1.I2.i1.p1">
+            <p>Our study demonstrates the reasonableness and effectiveness of assessing the NMT knowledge with statistic models, which opens up a new angle to interpret NMT models.</p>
+          </para>
+        </item>
+        <item xml:id="S1.I2.i2">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">2nd item</tag>
+          </tags>
+          <para xml:id="S1.I2.i2.p1">
+            <p>We report several interesting findings that can help humans better analyze and understand NMT models and some recent advances.</p>
+          </para>
+        </item>
+      </itemize>
+    </para>
+  </section>
+  <section inlist="toc" xml:id="S2">
+    <tags>
+      <tag>2</tag>
+      <tag role="autoref">section 2</tag>
+      <tag role="refnum">2</tag>
+      <tag role="typerefnum">§2</tag>
+    </tags>
+    <title><tag close=" ">2</tag>Related Work</title>
+    <paragraph inlist="toc" xml:id="S2.SS0.SSS0.Px1">
+      <title>Evolution of MT Models.</title>
+      <para xml:id="S2.SS0.SSS0.Px1.p1">
+        <p>The MT task has a long history, in which the techniques have evolved from rule-based MT (RBMT) <cite class="ltx_citemacro_cite"><bibref bibrefs="hayes1985rule,sato1992example" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, through SMT <cite class="ltx_citemacro_cite"><bibref bibrefs="brown:1993:CL,Och:2004:CL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, to NMT <cite class="ltx_citemacro_cite"><bibref bibrefs="Sutskever:2014:NIPS,Bahdanau:2015:ICLR" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. RBMT methods require large sets of linguistic rules and extensive lexicons with morphological, syntactic, and semantic information, which are manually constructed by humans. Benefiting from the availability of large amounts of parallel data in 1990s, SMT approaches relieve the labor-intensive problem of RBMT by automatically learning the linguistic knowledge from bilingual corpora with statistic models.
+More recently, NMT models have taken the field of MT by building a single network that can be trained on the corpora in an end-to-end manner.
+Several studies have shown that representations learned by NMT models contain a substantial amount of linguistic information on multiple levels: morphological <cite class="ltx_citemacro_cite"><bibref bibrefs="belinkov:2017:ACL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, syntactic <cite class="ltx_citemacro_cite"><bibref bibrefs="shi:2016:EMNLP" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, and semantic <cite class="ltx_citemacro_cite"><bibref bibrefs="Hill:2017:MT" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>.</p>
+      </para>
+      <para xml:id="S2.SS0.SSS0.Px1.p2">
+        <p>In the development circle of each generation, MT models are generally improved with techniques that are essential in the last generation. For example, <ERROR class="undefined">\newcite</ERROR>Chiang:2005:ACL and <ERROR class="undefined">\newcite</ERROR>Liu:2006:ACL relieved the nonfluent translation problem of SMT models by automatically learning syntactic rules from the parallel corpus, which are created manually by humans in RBMT systems. <ERROR class="undefined">\newcite</ERROR>Tu_2016 alleviated the inadequate translation problem of NMT models by introducing the coverage mechanism, which is a standard concept in SMT to indicate how many source words have been translated.
+Inspired by previous these studies, we hypothesize that MT models of different generations are possibly identical to model the essential knowledge. In this work, we propose to leverage the phrase table – a basic module of SMT system, to assess the bilingual knowledge learned by NMT models.</p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="S2.SS0.SSS0.Px2">
+      <title>Exploiting Phrase Table for NMT.</title>
+      <para xml:id="S2.SS0.SSS0.Px2.p1">
+        <p>Phrase table is an essential component of SMT systems, which records the correspondence between bilingual lexicons <cite class="ltx_citemacro_cite"><bibref bibrefs="koehn2009statistical" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite><!--  %**** emnlp2020.tex Line 175 **** -->.
+Previous studies have incorporated phrase table as an external signal to guide the generation of NMT models <cite class="ltx_citemacro_cite"><bibref bibrefs="wang:2017:aaai,zhang2018prior,zhao2018phrase,guo2019non" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>.
+All these works show that the bilingual knowledge in phrase table can be identical to those in NMT models, and thereby can be seamlessly integrated to NMT models. Based on this observation, we employ the phrase table as an assessment tool of bilingual knowledge for NMT models.</p>
+      </para>
+      <para xml:id="S2.SS0.SSS0.Px2.p2">
+        <ERROR class="undefined">\newcite</ERROR>
+        <p>lample2018phrase have advanced the SOTA of unsupervised NMT by evolving from learning alignment of word embeddings to learning to align for phrase embeddings based on an external phrase table, which is identical to the evolution of SMT from word-based model <cite class="ltx_citemacro_cite"><bibref bibrefs="brown:1993:CL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite> to phrase-based model <cite class="ltx_citemacro_cite"><bibref bibrefs="koehn:2003:NAACL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. This reconfirms our hypothesis that MT models of different generations are identical to model the essential knowledge, and thus share similar evolving trends.</p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="S2.SS0.SSS0.Px3">
+      <title>Interpretability of NMT Models.</title>
+      <para xml:id="S2.SS0.SSS0.Px3.p1">
+        <p>The interpretability of NMT models has recently been approached mainly from two aspects <cite class="ltx_citemacro_cite"><bibref bibrefs="alvarez2017causal" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>: (1) <text font="italic">model interpretability</text>, which aims to understand the internal properties of NMT models, such as layer representations <cite class="ltx_citemacro_cite"><bibref bibrefs="shi:2016:EMNLP,belinkov:2017:ACL,Yang:2019:ACL,voita:2019:EMNLP" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite> and attention <cite class="ltx_citemacro_cite"><bibref bibrefs="Voita:2019:ACL,Jain:2019:NAACL,Wiegreffe:2019:EMNLP,Li:2018:EMNLP" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>; and (2) <text font="italic">behavior interpretability</text>, which aims to explain particular behaviors of a NMT model, such as the input-output behavior <cite class="ltx_citemacro_cite"><bibref bibrefs="alvarez2017causal,ding2017visualizing,He:2019:EMNLP" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. In this paper, we focus on the second thread from a complementary viewpoint – assessing the bilingual knowledge learned by NMT models, which can provide explanations for model output, as shown in Figure <ref labelref="LABEL:fig:example"/>.</p>
+      </para>
+    </paragraph>
+  </section>
+  <section inlist="toc" labels="LABEL:sec:bilingual_knowledge" xml:id="S3">
+    <tags>
+      <tag>3</tag>
+      <tag role="autoref">section 3</tag>
+      <tag role="refnum">3</tag>
+      <tag role="typerefnum">§3</tag>
+    </tags>
+    <title><tag close=" ">3</tag>Assessing Bilingual Knowledge with Phrase Table</title>
+    <para xml:id="S3.p1">
+      <p>In this section, we describe how to extract phrase table from the predictions of NMT models (Section <ref labelref="LABEL:sec:extract_knowledge"/>), and verify our hypothesis by checking the correlation between the extracted phrase table and NMT performance (Section <ref labelref="LABEL:section:evaluate_bilingual_knowledge"/>).</p>
+    </para>
+<!--  %on the benchmarks (Section~“ref–section:setup˝). -->    <subsection inlist="toc" labels="LABEL:alg:phrase-table LABEL:sec:extract_knowledge" xml:id="S3.SS1">
+      <tags>
+        <tag>3.1</tag>
+        <tag role="autoref">subsection 3.1</tag>
+        <tag role="refnum">3.1</tag>
+        <tag role="typerefnum">§3.1</tag>
+      </tags>
+      <title><tag close=" ">3.1</tag>Methodology</title>
+      <para xml:id="S3.SS1.p1">
+        <p>There are many possible ways to implement the general idea of extracting phrase table from the predictions of NMT models. The aim of this paper is not to explore this whole space but simply to show that one fairly straightforward implementation works well and the proposed framework is reasonable. We leave the exploitation of more advanced forms of statistic models on bilingual knowledge such as syntax rules <cite class="ltx_citemacro_cite"><bibref bibrefs="Liu:2006:ACL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite> and discontinuous phrases <cite class="ltx_citemacro_cite"><bibref bibrefs="Galley:2010:NAACL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite> for future work.</p>
+      </para>
+      <para xml:id="S3.SS1.p2">
+        <p>We follow the standard pipeline in SMT to construct the phrase table with a two-phase approach.
+The first phase, which is the focus of this paper, is <text font="italic">phrase extraction</text> where the bilingual phrase pairs are extracted from a word-aligned parallel data. Secondly, each phrase pair is assigned with some scores, which are estimated based on the occurrences of these phrases or their words on the same word-aligned training data.
+The key challenge lies in how to incorporate the prior of NMT predictions into the SMT pipeline. In this study, we model the NMT priors as a mask sequence, which is integrated into the standard SMT pipeline as a constraint, as listed in Algorithm <ref labelref="LABEL:alg:phrase-table"/>.</p>
+      </para>
+      <para xml:id="S3.SS1.p3">
+        <ERROR class="undefined">{algorithm}</ERROR>
+        <p>[t]
+<text class="ltx_caption" fontsize="90%">Constructing Phrase Table</text><text fontsize="90%">
+
+<ERROR class="undefined">{algorithmic}</ERROR>[1]
+<ERROR class="undefined">\Statex</ERROR><text font="bold">Input</text>: training example (<Math mode="inline" tex="\bf x" text="x" xml:id="S3.SS1.p3.m1">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">x</XMTok>
+              </XMath>
+            </Math>, <Math mode="inline" tex="\bf y" text="y" xml:id="S3.SS1.p3.m2">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">y</XMTok>
+              </XMath>
+            </Math>), alignment <Math mode="inline" tex="\bf a" text="a" xml:id="S3.SS1.p3.m3">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">a</XMTok>
+              </XMath>
+            </Math>, mask <Math mode="inline" tex="\bf m" text="m" xml:id="S3.SS1.p3.m4">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">m</XMTok>
+              </XMath>
+            </Math>
+<ERROR class="undefined">\Statex</ERROR><text font="bold">Output</text>: phrase set <Math mode="inline" tex="\mathcal{R}" text="R" xml:id="S3.SS1.p3.m5">
+              <XMath>
+                <XMTok font="caligraphic" role="UNKNOWN">R</XMTok>
+              </XMath>
+            </Math></text></p>
+      </para>
+      <para xml:id="S3.SS1.p4">
+        <ERROR class="undefined">\Procedure</ERROR>
+        <p><text fontsize="90%">PhraseTable
+<ERROR class="undefined">\State</ERROR><text font="smallcaps">Extraction</text>
+<ERROR class="undefined">\State</ERROR><text font="smallcaps">Estimation</text>
+<ERROR class="undefined">\EndProcedure</ERROR></text></p>
+      </para>
+      <para xml:id="S3.SS1.p5">
+        <ERROR class="undefined">\Procedure</ERROR>
+        <p><text fontsize="90%">Extraction
+<ERROR class="undefined">\State</ERROR><Math mode="inline" tex="\widehat{\mathcal{R}}\leftarrow" text="widehat@(R) leftarrow absent" xml:id="S3.SS1.p5.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok name="leftarrow" role="ARROW">←</XMTok>
+                  <XMApp>
+                    <XMTok name="widehat" role="OVERACCENT">^</XMTok>
+                    <XMTok font="caligraphic" role="UNKNOWN">R</XMTok>
+                  </XMApp>
+                  <XMTok meaning="absent"/>
+                </XMApp>
+              </XMath>
+            </Math> extract candidates from {(<Math mode="inline" tex="\bf x" text="x" xml:id="S3.SS1.p5.m2">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">x</XMTok>
+              </XMath>
+            </Math>, <Math mode="inline" tex="\bf y" text="y" xml:id="S3.SS1.p5.m3">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">y</XMTok>
+              </XMath>
+            </Math>), <Math mode="inline" tex="\bf a" text="a" xml:id="S3.SS1.p5.m4">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">a</XMTok>
+              </XMath>
+            </Math>}
+<ERROR class="undefined">\For</ERROR>each <Math mode="inline" tex="r\in\widehat{\mathcal{R}}" text="r element-of widehat@(R)" xml:id="S3.SS1.p5.m5">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                  <XMTok font="italic" role="UNKNOWN">r</XMTok>
+                  <XMApp>
+                    <XMTok name="widehat" role="OVERACCENT">^</XMTok>
+                    <XMTok font="caligraphic" role="UNKNOWN">R</XMTok>
+                  </XMApp>
+                </XMApp>
+              </XMath>
+            </Math> <ERROR class="undefined">\Comment</ERROR><text font="italic">priors of NMT predictions</text>
+<ERROR class="undefined">\If</ERROR><Math mode="inline" tex="r" text="r" xml:id="S3.SS1.p5.m6">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">r</XMTok>
+              </XMath>
+            </Math> is consistent with <Math mode="inline" tex="\bf m" text="m" xml:id="S3.SS1.p5.m7">
+              <XMath>
+                <XMTok font="bold" role="UNKNOWN">m</XMTok>
+              </XMath>
+            </Math>
+<ERROR class="undefined">\State</ERROR><Math mode="inline" tex="\mathcal{R}" text="R" xml:id="S3.SS1.p5.m8">
+              <XMath>
+                <XMTok font="caligraphic" role="UNKNOWN">R</XMTok>
+              </XMath>
+            </Math>.append(<Math mode="inline" tex="r" text="r" xml:id="S3.SS1.p5.m9">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">r</XMTok>
+              </XMath>
+            </Math>)
+<ERROR class="undefined">\EndIf</ERROR><!--  %**** emnlp2020.tex Line 225 **** --><ERROR class="undefined">\EndFor</ERROR><ERROR class="undefined">\EndProcedure</ERROR></text></p>
+      </para>
+      <para xml:id="S3.SS1.p6">
+        <ERROR class="undefined">\Procedure</ERROR>
+        <p><text fontsize="90%">Estimation
+<ERROR class="undefined">\State</ERROR>standard procedure
+<ERROR class="undefined">\EndProcedure</ERROR>
+</text></p>
+      </para>
+      <paragraph inlist="toc" xml:id="S3.SS1.SSS0.Px1">
+        <title>Building <text font="italic">Masked</text> Word-Aligned Parallel Data.</title>
+        <para xml:id="S3.SS1.SSS0.Px1.p1">
+          <p>Inspired by <ERROR class="undefined">\newcite</ERROR>toneva:2018:empirical, we define “<text font="italic">memorized phrase pair</text>” to be extracted from the associated (partial) training example, which is predicted correctly by the NMT model.
+To this end, we first decompose the sequence generation of NMT into a series of classification tasks. Given a training example <Math mode="inline" tex="(\textbf{x}=\{x_{1},\dots,x_{I}\},\textbf{y}=\{y_{1},\dots,y_{J}\})" text="formulae@([x] = set@(x _ 1, dots, x _ I), [y] = set@(y _ 1, dots, y _ J))" xml:id="S3.SS1.SSS0.Px1.p1.m1">
+              <XMath>
+                <XMDual>
+                  <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3"/>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMDual xml:id="S3.SS1.SSS0.Px1.p1.m1.3">
+                      <XMApp>
+                        <XMTok meaning="formulae"/>
+                        <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.1"/>
+                        <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.2"/>
+                      </XMApp>
+                      <XMWrap>
+                        <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.1">
+                          <XMTok meaning="equals" role="RELOP">=</XMTok>
+                          <XMText><text font="bold">x</text></XMText>
+                          <XMDual>
+                            <XMApp>
+                              <XMTok meaning="set"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.1.1"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.1"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.1.2"/>
+                            </XMApp>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">{</XMTok>
+                              <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.1.1">
+                                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                                <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                <XMTok fontsize="70%" meaning="1" role="NUMBER">1</XMTok>
+                              </XMApp>
+                              <XMTok role="PUNCT">,</XMTok>
+                              <XMTok name="dots" role="ID" xml:id="S3.SS1.SSS0.Px1.p1.m1.1">…</XMTok>
+                              <XMTok role="PUNCT">,</XMTok>
+                              <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.1.2">
+                                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                                <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                <XMTok font="italic" fontsize="70%" role="UNKNOWN">I</XMTok>
+                              </XMApp>
+                              <XMTok role="CLOSE" stretchy="false">}</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                        <XMTok role="PUNCT">,</XMTok>
+                        <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.2">
+                          <XMTok meaning="equals" role="RELOP">=</XMTok>
+                          <XMText><text font="bold">y</text></XMText>
+                          <XMDual>
+                            <XMApp>
+                              <XMTok meaning="set"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.2.1"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.2"/>
+                              <XMRef idref="S3.SS1.SSS0.Px1.p1.m1.3.2.2"/>
+                            </XMApp>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">{</XMTok>
+                              <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.2.1">
+                                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                                <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                                <XMTok fontsize="70%" meaning="1" role="NUMBER">1</XMTok>
+                              </XMApp>
+                              <XMTok role="PUNCT">,</XMTok>
+                              <XMTok name="dots" role="ID" xml:id="S3.SS1.SSS0.Px1.p1.m1.2">…</XMTok>
+                              <XMTok role="PUNCT">,</XMTok>
+                              <XMApp xml:id="S3.SS1.SSS0.Px1.p1.m1.3.2.2">
+                                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                                <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                                <XMTok font="italic" fontsize="70%" role="UNKNOWN">J</XMTok>
+                              </XMApp>
+                              <XMTok role="CLOSE" stretchy="false">}</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                      </XMWrap>
+                    </XMDual>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMath>
+            </Math> and a model <Math mode="inline" tex="M" text="M" xml:id="S3.SS1.SSS0.Px1.p1.m2">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">M</XMTok>
+              </XMath>
+            </Math>, we use the model <Math mode="inline" tex="M" text="M" xml:id="S3.SS1.SSS0.Px1.p1.m3">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">M</XMTok>
+              </XMath>
+            </Math> to force-decode <text class="ltx_markedasmath" font="bold">x</text> to <text class="ltx_markedasmath" font="bold">y</text>, and check whether each <Math mode="inline" tex="y_{j}" text="y _ j" xml:id="S3.SS1.SSS0.Px1.p1.m6">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> is correctly predicted by <Math mode="inline" tex="M" text="M" xml:id="S3.SS1.SSS0.Px1.p1.m7">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">M</XMTok>
+              </XMath>
+            </Math>:</p>
+          <equation xml:id="S3.Ex1">
+            <Math content-tex="m_{j}=\begin{cases}1,&amp;\text{if }y_{j}=\argmax_{y}\mathcal{N}_{j}[y]\\&#10;0,&amp;\text{otherwise}\end{cases}" mode="display" tex="m_{j}=\begin{cases}1,&amp;\text{if }y_{j}=\operatorname*{arg\,max}_{y}\mathcal{N}_%&#10;{j}[y]\\&#10;0,&amp;\text{otherwise}\end{cases}" text="m _ j = cases@(1, [if ] * y _ j = (argmax _ y)@(N _ j) * delimited-[]@(y), 0, [otherwise])" xml:id="S3.Ex1.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="equals" role="RELOP">=</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMTok font="italic" role="UNKNOWN">m</XMTok>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                  </XMApp>
+                  <XMDual>
+                    <XMApp>
+                      <XMTok meaning="cases"/>
+                      <XMRef idref="S3.Ex1.m1.1"/>
+                      <XMRef idref="S3.Ex1.m1.2"/>
+                      <XMRef idref="S3.Ex1.m1.3"/>
+                      <XMRef idref="S3.Ex1.m1.4"/>
+                    </XMApp>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="true">{</XMTok>
+                      <XMArray>
+                        <XMRow>
+                          <XMCell align="left">
+                            <XMDual xml:id="S3.Ex1.m1.1">
+                              <XMRef idref="S3.Ex1.m1.1.1"/>
+                              <XMWrap>
+                                <XMTok meaning="1" role="NUMBER" xml:id="S3.Ex1.m1.1.1">1</XMTok>
+                                <XMTok role="PUNCT">,</XMTok>
+                              </XMWrap>
+                            </XMDual>
+                          </XMCell>
+                          <XMCell align="left">
+                            <XMApp xml:id="S3.Ex1.m1.2">
+                              <XMTok meaning="equals" role="RELOP">=</XMTok>
+                              <XMApp>
+                                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                                <XMText>if </XMText>
+                                <XMApp>
+                                  <XMTok role="SUBSCRIPTOP" scriptpos="post5"/>
+                                  <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                                </XMApp>
+                              </XMApp>
+                              <XMApp>
+                                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                                <XMApp>
+                                  <XMApp>
+                                    <XMTok role="SUBSCRIPTOP" scriptpos="post5"/>
+                                    <XMApp name="argmax" role="OPERATOR" scriptpos="post">
+                                      <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                                      <XMTok role="UNKNOWN" rpadding="1.7pt">arg</XMTok>
+                                      <XMTok role="UNKNOWN">max</XMTok>
+                                    </XMApp>
+                                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">y</XMTok>
+                                  </XMApp>
+                                  <XMApp>
+                                    <XMTok role="SUBSCRIPTOP" scriptpos="post5"/>
+                                    <XMTok font="caligraphic" role="UNKNOWN">N</XMTok>
+                                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                                  </XMApp>
+                                </XMApp>
+                                <XMDual>
+                                  <XMApp>
+                                    <XMTok meaning="delimited-[]"/>
+                                    <XMRef idref="S3.Ex1.m1.2.1"/>
+                                  </XMApp>
+                                  <XMWrap>
+                                    <XMTok role="OPEN" stretchy="false">[</XMTok>
+                                    <XMTok font="italic" role="UNKNOWN" xml:id="S3.Ex1.m1.2.1">y</XMTok>
+                                    <XMTok role="CLOSE" stretchy="false">]</XMTok>
+                                  </XMWrap>
+                                </XMDual>
+                              </XMApp>
+                            </XMApp>
+                          </XMCell>
+                        </XMRow>
+                        <XMRow>
+                          <XMCell align="left">
+                            <XMDual xml:id="S3.Ex1.m1.3">
+                              <XMRef idref="S3.Ex1.m1.3.1"/>
+                              <XMWrap>
+                                <XMTok meaning="0" role="NUMBER" xml:id="S3.Ex1.m1.3.1">0</XMTok>
+                                <XMTok role="PUNCT">,</XMTok>
+                              </XMWrap>
+                            </XMDual>
+                          </XMCell>
+                          <XMCell align="left">
+                            <XMText xml:id="S3.Ex1.m1.4">otherwise</XMText>
+                          </XMCell>
+                        </XMRow>
+                      </XMArray>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+              </XMath>
+            </Math>
+          </equation>
+          <p>where <Math mode="inline" tex="\mathcal{N}_{j}" text="N _ j" xml:id="S3.SS1.SSS0.Px1.p1.m8">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="caligraphic" role="UNKNOWN">N</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> is the probability distribution of model prediction at step <Math mode="inline" tex="j" text="j" xml:id="S3.SS1.SSS0.Px1.p1.m9">
+              <XMath>
+                <XMTok font="italic" role="UNKNOWN">j</XMTok>
+              </XMath>
+            </Math>. A token <Math mode="inline" tex="y_{j}" text="y _ j" xml:id="S3.SS1.SSS0.Px1.p1.m10">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> is predicted correctly if it is assigned the highest probability by the model (“<Math content-tex="y_{j}=\argmax_{y}\mathcal{N}_{j}[y]" mode="inline" tex="y_{j}=\operatorname*{arg\,max}_{y}\mathcal{N}_{j}[y]" text="y _ j = (argmax _ y)@(N _ j) * delimited-[]@(y)" xml:id="S3.SS1.SSS0.Px1.p1.m11">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="equals" role="RELOP">=</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                  </XMApp>
+                  <XMApp>
+                    <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                    <XMApp>
+                      <XMApp>
+                        <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                        <XMApp name="argmax" role="OPERATOR" scriptpos="post">
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok role="UNKNOWN" rpadding="1.7pt">arg</XMTok>
+                          <XMTok role="UNKNOWN">max</XMTok>
+                        </XMApp>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">y</XMTok>
+                      </XMApp>
+                      <XMApp>
+                        <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                        <XMTok font="caligraphic" role="UNKNOWN">N</XMTok>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                      </XMApp>
+                    </XMApp>
+                    <XMDual>
+                      <XMApp>
+                        <XMTok meaning="delimited-[]"/>
+                        <XMRef idref="S3.SS1.SSS0.Px1.p1.m11.1"/>
+                      </XMApp>
+                      <XMWrap>
+                        <XMTok role="OPEN" stretchy="false">[</XMTok>
+                        <XMTok font="italic" role="UNKNOWN" xml:id="S3.SS1.SSS0.Px1.p1.m11.1">y</XMTok>
+                        <XMTok role="CLOSE" stretchy="false">]</XMTok>
+                      </XMWrap>
+                    </XMDual>
+                  </XMApp>
+                </XMApp>
+              </XMath>
+            </Math>”).</p>
+        </para>
+        <para xml:id="S3.SS1.SSS0.Px1.p2">
+          <p>Intuitively, a token <Math mode="inline" tex="y_{j}" text="y _ j" xml:id="S3.SS1.SSS0.Px1.p2.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> with mask <Math mode="inline" tex="m_{j}=0" text="m _ j = 0" xml:id="S3.SS1.SSS0.Px1.p2.m2">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="equals" role="RELOP">=</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMTok font="italic" role="UNKNOWN">m</XMTok>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                  </XMApp>
+                  <XMTok meaning="0" role="NUMBER">0</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> denotes that this token is not correctly predicted by the model. Accordingly, any phrase pairs that contain the token <Math mode="inline" tex="y_{j}" text="y _ j" xml:id="S3.SS1.SSS0.Px1.p2.m3">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">y</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">j</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> should not be extracted from the training example <Math mode="inline" tex="(\textbf{x},\textbf{y})" text="open-interval@([x], [y])" xml:id="S3.SS1.SSS0.Px1.p2.m4">
+              <XMath>
+                <XMDual>
+                  <XMApp>
+                    <XMTok meaning="open-interval"/>
+                    <XMRef idref="S3.SS1.SSS0.Px1.p2.m4.1"/>
+                    <XMRef idref="S3.SS1.SSS0.Px1.p2.m4.2"/>
+                  </XMApp>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMText xml:id="S3.SS1.SSS0.Px1.p2.m4.1"><text font="bold">x</text></XMText>
+                    <XMTok role="PUNCT">,</XMTok>
+                    <XMText xml:id="S3.SS1.SSS0.Px1.p2.m4.2"><text font="bold">y</text></XMText>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMath>
+            </Math>, since these phrase pairs are not fully learned by the NMT model. A lightweight implementation is to replace these tokens with a special symbol “$MASK$”, and run the standard phrase extraction phase as in the SMT pipeline. Then we remove all the phrase pairs that contain the symbol “$MASK$” (lines 6-8 in Algorithm <ref labelref="LABEL:alg:phrase-table"/>), and feed the pruned phrase pairs to the second phase of parameter estimation.</p>
+        </para>
+        <figure inlist="lof" labels="LABEL:fig:phrase_table" placement="t" xml:id="S3.F2">
+          <tags>
+            <tag>Figure 2</tag>
+            <tag role="autoref">Figure 2</tag>
+            <tag role="refnum">2</tag>
+            <tag role="typerefnum">Figure 2</tag>
+          </tags>
+          <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_en_de" xml:id="S3.F2.sf1">
+            <tags>
+              <tag>(a)</tag>
+              <tag role="autoref">2a</tag>
+              <tag role="refnum">2a</tag>
+            </tags>
+            <graphics candidates="figures/phrase_en_de.pdf" graphic="figures/phrase_en_de.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S3.F2.sf1.g1"/>
+            <toccaption><tag close=" ">a</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf1.m1">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>De</toccaption>
+            <caption><tag close=" ">(a)</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf1.m2">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>De</caption>
+          </figure>
+          <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_en_ja" xml:id="S3.F2.sf2">
+            <tags>
+              <tag>(b)</tag>
+              <tag role="autoref">2b</tag>
+              <tag role="refnum">2b</tag>
+            </tags>
+            <graphics candidates="figures/phrase_en_ja.pdf" graphic="figures/phrase_en_ja.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S3.F2.sf2.g1"/>
+            <toccaption><tag close=" ">b</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf2.m1">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>Ja</toccaption>
+            <caption><tag close=" ">(b)</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf2.m2">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>Ja</caption>
+          </figure>
+          <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_seeds" xml:id="S3.F2.sf3">
+            <tags>
+              <tag>(c)</tag>
+              <tag role="autoref">2c</tag>
+              <tag role="refnum">2c</tag>
+            </tags>
+            <graphics candidates="figures/phrase_seeds.pdf" graphic="figures/phrase_seeds.pdf" options="width=121.41306pt,keepaspectratio=true" xml:id="S3.F2.sf3.g1"/>
+            <toccaption><tag close=" ">c</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf3.m1">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>De with Different Seeds</toccaption>
+            <caption><tag close=" ">(c)</tag>En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.sf3.m2">
+                <XMath>
+                  <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+                </XMath>
+              </Math>De with Different Seeds</caption>
+          </figure>
+          <toccaption class="ltx_centering"><tag close=" ">2</tag>Evaluating the correlation between quality metrics of phrase table and NMT performance (“NMT BLEU”) on (a) En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.m1">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>De and (b) En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.m2">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>Ja datasets. All metrics are scaled by the corresponding best score to fit in the figure. We also report results on phrase table size for NMT models with different random seeds (c). </toccaption>
+          <caption class="ltx_centering"><tag close=": ">Figure 2</tag>Evaluating the correlation between quality metrics of phrase table and NMT performance (“NMT BLEU”) on (a) En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.m3">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>De and (b) En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.F2.m4">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>Ja datasets. All metrics are scaled by the corresponding best score to fit in the figure. We also report results on phrase table size for NMT models with different random seeds (c). </caption>
+        </figure>
+      </paragraph>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:section:setup" xml:id="S3.SS2">
+      <tags>
+        <tag>3.2</tag>
+        <tag role="autoref">subsection 3.2</tag>
+        <tag role="refnum">3.2</tag>
+        <tag role="typerefnum">§3.2</tag>
+      </tags>
+      <title><tag close=" ">3.2</tag>Experimental Setup</title>
+      <paragraph inlist="toc" xml:id="S3.SS2.SSS0.Px1">
+        <title>Data and Models</title>
+        <para xml:id="S3.SS2.SSS0.Px1.p1">
+          <p>We conduct experiments on both the widely-used WMT2014 English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS2.SSS0.Px1.p1.m1">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>German (En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS2.SSS0.Px1.p1.m2">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>De) and the syntactically-distant WAT2017 English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS2.SSS0.Px1.p1.m3">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>Japanese (En<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS2.SSS0.Px1.p1.m4">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>Ja) <cite class="ltx_citemacro_cite"><bibref bibrefs="neubig:2015:wat" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite> datasets. We use 4-gram NIST BLEU score <cite class="ltx_citemacro_cite"><bibref bibrefs="papineni2002bleu" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite> as the evaluation metric.</p>
+        </para>
+        <para xml:id="S3.SS2.SSS0.Px1.p2">
+          <p>For SMT experiments, we follow the standard SMT pipeline and the setting of Edinburgh’s phrase-based system in WMT-2014 <cite class="ltx_citemacro_cite"><bibref bibrefs="durrani2014edinburgh" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite><!--  %We use Moses“footnote–http://www.statmt.org/moses/˝~“cite–koehn2007moses˝ with default system setting and   fast“˙align“footnote–https://github.com/clab/fast“˙align˝~“cite–dyer:2013:naacl˝ for other necessary ingredients, which is fast and automatic. --> with as few human heuristics as possible.
+We use Moses <cite class="ltx_citemacro_cite"><bibref bibrefs="koehn2007moses" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite> with default system setting and the toolkit Fast_Align <cite class="ltx_citemacro_cite"><bibref bibrefs="dyer:2013:naacl" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite><!--  %**** emnlp2020.tex Line 275 **** --> for building word-aligned corpus, which is fast and automatic.
+Following <ERROR class="undefined">\newcite</ERROR>johnson2007improving to reduce redundancy, we further remove phrase pairs that occur only once in the training data.</p>
+        </para>
+        <para xml:id="S3.SS2.SSS0.Px1.p3">
+          <p>For NMT experiments, We use the toolkit Fairseq <cite class="ltx_citemacro_cite"><bibref bibrefs="ott:2019:naacl" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite> to implement NMT models <cite class="ltx_citemacro_cite"><bibref bibrefs="Vaswani:2017:NIPS" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite>. We train the NMT models for 100,000 steps and save the checkpoint models at each epoch. In the first epoch, we save the model per 200 steps and extract phrase tables from training examples that have seen on so far only.</p>
+        </para>
+      </paragraph>
+      <paragraph inlist="toc" xml:id="S3.SS2.SSS0.Px2">
+        <title>Evaluation Metrics</title>
+        <para xml:id="S3.SS2.SSS0.Px2.p1">
+          <p>To verify our claim in this paper, we propose several metrics to quantitatively evaluate quality of the phrase table. If the metrics correlate well with NMT performance, then the phrase table is a reasonable assessment to represent the bilingual knowledge learned by NMT models.
+The metrics are as follows:</p>
+        </para>
+        <para class="ltx_noindent" xml:id="S3.SS2.SSS0.Px2.p2">
+          <p><text font="italic">Phrase Table Size:</text> As a straightforward metric, the size measures the number of distinct phrase pairs in a phrase table. A larger phrase table size indicates more abundant bilingual knowledge.</p>
+        </para>
+        <para class="ltx_noindent" xml:id="S3.SS2.SSS0.Px2.p3">
+          <p><text font="italic">Recovery Percent:</text> The phrase table size might be less accurate due to duplicate counting of compositions of existing phrase pairs. Accordingly, we propose another metric, recovery percent, to measure the distinct knowledge on data reconstruction. In detail, we use the phrase table to force decode the target sentence to recover as many target tokens as possible, and the ratio is denoted as the recovery percentage. A higher recovery percent indicates more distinct knowledge since more data can be reconstructed based on the phrase table.</p>
+        </para>
+        <para class="ltx_noindent" xml:id="S3.SS2.SSS0.Px2.p4">
+          <p><text font="italic">Translation Quality:</text> Finally, we directly evaluate the essential knowledge in the phrase table for the ultimate translation. Specifically, we train a SMT model with the extracted phrase table by the off-the-shelf Moses toolkit, and evaluate its BLEU score on the test set. For fair comparison, we keep other SMT components unchanged and only alter the phrase table, therefore the relative SMT BLEU values is our focus of interest.</p>
+        </para>
+      </paragraph>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:section:evaluate_bilingual_knowledge" xml:id="S3.SS3">
+      <tags>
+        <tag>3.3</tag>
+        <tag role="autoref">subsection 3.3</tag>
+        <tag role="refnum">3.3</tag>
+        <tag role="typerefnum">§3.3</tag>
+      </tags>
+      <title><tag close=" ">3.3</tag>Evaluating the Phrase Table</title>
+      <paragraph inlist="toc" xml:id="S3.SS3.SSS0.Px1">
+        <title>The extracted phrase table correlates well with the NMT performance.</title>
+        <para xml:id="S3.SS3.SSS0.Px1.p1">
+          <p>Figure <ref labelref="LABEL:fig:phrase_en_de"/> illustrates the results of the above metrics on the English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS3.SSS0.Px1.p1.m1">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>German dataset.
+As seen, all three metrics are highly in line with the NMT performance (“NMT BLEU”) during the entire learning process.
+The Pearson correlations between NMT BLEU scores and phrase table size, recovery percent, and the translation quality are 0.975, 0.987, and 0.956, respectively, demonstrating very high correlations between the phrase table and NMT performance. This confirms our claim that phrase table is a reasonable assessment to represent the bilingual knowledge learned by NMT models.</p>
+        </para>
+      </paragraph>
+      <paragraph inlist="toc" xml:id="S3.SS3.SSS0.Px2">
+        <title>The conclusion is robust across language pairs and random seeds.</title>
+        <para xml:id="S3.SS3.SSS0.Px2.p1">
+          <p>We also validate our approach on the English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS3.SSS0.Px2.p1.m1">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>Japanese dataset, as shown in Figure <ref labelref="LABEL:fig:phrase_en_ja"/>.
+The Pearson correlations are respectively 0.988, 0.990, and 0.908, demonstrating the universality of our conclusions .
+To avoid the potential bias, we vary the initialization seed and analyze whether the extracted phrase table is robust. Figure <ref labelref="LABEL:fig:phrase_seeds"/> depicts the results. The phrase table size increases similarly in different seeds. Additionally, at each epoch, more than 85% phrase pairs are same among three seeds (“Overlap”), which shows that its robustness against random seeds.</p>
+        </para>
+        <para xml:id="S3.SS3.SSS0.Px2.p2">
+          <p>Given the general applicability of the phrase table, we use the English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S3.SS3.SSS0.Px2.p2.m1">
+              <XMath>
+                <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+              </XMath>
+            </Math>German translation as our test bed for further analyses. We will interchangeably use the terms “phrase table” and “bilingual knowledge” in the following sections.</p>
+        </para>
+      </paragraph>
+    </subsection>
+  </section>
+  <section inlist="toc" labels="LABEL:sec:analyze" xml:id="S4">
+    <tags>
+      <tag>4</tag>
+      <tag role="autoref">section 4</tag>
+      <tag role="refnum">4</tag>
+      <tag role="typerefnum">§4</tag>
+    </tags>
+    <title><tag close=" ">4</tag>Learning of Bilingual Knowledge</title>
+    <para xml:id="S4.p1">
+      <p>With the interpretable phrase table in hand, we attempt to understand how NMT models learn the bilingual knowledge from two perspectives:</p>
+      <itemize xml:id="S4.I1">
+        <item xml:id="S4.I1.i1">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">1st item</tag>
+          </tags>
+          <para xml:id="S4.I1.i1.p1">
+            <p>How do NMT models learn the bilingual knowledge during training? (Section <ref labelref="LABEL:sec:learning_dynamics"/>)</p>
+          </para>
+        </item>
+        <item xml:id="S4.I1.i2">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">2nd item</tag>
+          </tags>
+          <para xml:id="S4.I1.i2.p1">
+            <p>Does the trained NMT model sufficiently explore the bilingual knowledge embedded in the training examples? (Section <ref labelref="LABEL:sec:knowledge"/>)</p>
+          </para>
+        </item>
+      </itemize>
+    </para>
+    <subsection inlist="toc" labels="LABEL:sec:learning_dynamics" xml:id="S4.SS1">
+      <tags>
+        <tag>4.1</tag>
+        <tag role="autoref">subsection 4.1</tag>
+        <tag role="refnum">4.1</tag>
+        <tag role="typerefnum">§4.1</tag>
+      </tags>
+      <title><tag close=" ">4.1</tag>Learning Dynamics</title>
+      <para xml:id="S4.SS1.p1">
+        <p>In this section, we investigate the evolvement of bilingual knowledge during the training. To this end, we first categorize the phrase pair into different complexity levels using several metrics that are widely used in the SMT research:</p>
+      </para>
+      <para class="ltx_noindent" xml:id="S4.SS1.p2">
+        <p><text font="italic">Phrase Length:</text> A longer phrase is usually of more complexity <cite class="ltx_citemacro_cite"><bibref bibrefs="lu2010automatic" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. We categorize the phrase length into three types with increasing complexity: <text font="italic">short</text> (1-3) <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p2.m1">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">middle</text> (3-5) <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p2.m2">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">long</text> (5-7).</p>
+      </para>
+      <para class="ltx_noindent" xml:id="S4.SS1.p3">
+        <p><text font="italic">Reordering Type:</text>
+This metric measures the order of two phrases with lexicalized reordering <cite class="ltx_citemacro_cite"><bibref bibrefs="tillmann:2004:naacl" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, and disordered phrases are often hard to translate <cite class="ltx_citemacro_cite"><bibref bibrefs="koehn2009statistical" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. We have three types with increasing complexity: <text font="italic">monotone</text> <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p3.m1">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">swap</text> <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p3.m2">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">discontinuous</text>.</p>
+      </para>
+      <para class="ltx_noindent" xml:id="S4.SS1.p4">
+        <p><text font="italic">Word Fertility:</text> Word fertility measures the alignment relations between the words inside the phrase pair. Words with a complex fertility might indicate inherent translation difficulty <cite class="ltx_citemacro_cite"><bibref bibrefs="brown1990statistical" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>. We have three fertility types with increasing difficulty: <text font="italic">1-1 align</text> <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p4.m1">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">M-1 align</text> <Math mode="inline" tex="&lt;" text="&lt;" xml:id="S4.SS1.p4.m2">
+            <XMath>
+              <XMTok meaning="less-than" role="RELOP">&lt;</XMTok>
+            </XMath>
+          </Math> <text font="italic">1-M align</text>.</p>
+      </para>
+      <figure inlist="lof" labels="LABEL:fig:learning-dynamics" placement="t" xml:id="S4.F3">
+        <tags>
+          <tag>Figure 3</tag>
+          <tag role="autoref">Figure 3</tag>
+          <tag role="refnum">3</tag>
+          <tag role="typerefnum">Figure 3</tag>
+        </tags>
+        <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_length" xml:id="S4.F3.sf1">
+          <tags>
+            <tag>(a)</tag>
+            <tag role="autoref">3a</tag>
+            <tag role="refnum">3a</tag>
+          </tags>
+          <graphics candidates="figures/learning_length.pdf" graphic="figures/learning_length.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S4.F3.sf1.g1"/>
+          <toccaption><tag close=" ">a</tag>Phrase Length</toccaption>
+          <caption><tag close=" ">(a)</tag>Phrase Length</caption>
+        </figure>
+        <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_reorder" xml:id="S4.F3.sf2">
+          <tags>
+            <tag>(b)</tag>
+            <tag role="autoref">3b</tag>
+            <tag role="refnum">3b</tag>
+          </tags>
+          <graphics candidates="figures/learning_reorder.pdf" graphic="figures/learning_reorder.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S4.F3.sf2.g1"/>
+          <toccaption><tag close=" ">b</tag>Reordering Type</toccaption>
+          <caption><tag close=" ">(b)</tag>Reordering Type</caption>
+        </figure>
+        <figure align="center" class="ltx_figure_panel" labels="LABEL:fig:phrase_fertility" xml:id="S4.F3.sf3">
+          <tags>
+            <tag>(c)</tag>
+            <tag role="autoref">3c</tag>
+            <tag role="refnum">3c</tag>
+          </tags>
+<!--  %**** emnlp2020.tex Line 350 **** -->          <graphics candidates="figures/learning_align.pdf" graphic="figures/learning_align.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S4.F3.sf3.g1"/>
+          <toccaption><tag close=" ">c</tag>Word Fertility</toccaption>
+          <caption><tag close=" ">(c)</tag>Word Fertility</caption>
+        </figure>
+        <toccaption class="ltx_centering"><tag close=" ">3</tag>Learning dynamics of bilingual knowledge according to different complexity metrics.</toccaption>
+        <caption class="ltx_centering"><tag close=": ">Figure 3</tag>Learning dynamics of bilingual knowledge according to different complexity metrics.</caption>
+      </figure>
+      <para xml:id="S4.SS1.p5">
+        <p>For each metric, we normalize the value by the maximum phrase pair size in each category.</p>
+      </para>
+      <paragraph inlist="toc" xml:id="S4.SS1.SSS0.Px1">
+        <title>NMT models tend to learn simple patterns first and complex patterns later.</title>
+        <para xml:id="S4.SS1.SSS0.Px1.p1">
+          <p>As shown in Figure <ref labelref="LABEL:fig:phrase_length"/>, NMT models learn short phrases faster than medium phrases and long phrases, embodied by a fastest convergence and a highest slope among three categories in the first epoch. As the learning continues, medium and long phrases start to converge to a relative stable state slowly. Besides, NMT BLEU scores show a very similar increasing trend as the short phrase, demonstrating a high correlation (Pearson correlation: 0.992) between the NMT performance and short phrases.</p>
+        </para>
+        <para xml:id="S4.SS1.SSS0.Px1.p2">
+          <p>We can observe similar findings on the phrase reordering type (Figure <ref labelref="LABEL:fig:phrase_reorder"/>) and word fertility (Figure <ref labelref="LABEL:fig:phrase_fertility"/>). Simple patterns like monotone and 1-1 aligned phrase can be quickly learned by NMT models, while complex patterns are learned in a slower manner.
+This is in line with the findings of <ERROR class="undefined">\newcite</ERROR>Rohaman:2019:ICML: deep networks will first learn low-complexity functional components, before absorbing high-complexity features.
+These results also indicate that NMT models might by nature has the learning ability similar to the <text font="italic">curriculum learning</text> <cite class="ltx_citemacro_cite"><bibref bibrefs="bengio2009curriculum,kocmi2017curriculum" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                <bibrefphrase>(</bibrefphrase>
+                <bibrefphrase>)</bibrefphrase>
+              </bibref></cite> without any explicit curriculum.</p>
+        </para>
+      </paragraph>
+      <paragraph inlist="toc" xml:id="S4.SS1.SSS0.Px2">
+        <title>Forgetting dynamics occur in the learning of bilingual knowledge.</title>
+        <para xml:id="S4.SS1.SSS0.Px2.p1">
+          <p>As shown in Figures <ref labelref="LABEL:fig:phrase_table"/> and <ref labelref="LABEL:fig:learning-dynamics"/>, the size of learned phrase table is monotonically increasing as the learning processes. One question naturally arises: <text font="italic">are the phrase pairs never forgotten once learnt?</text></p>
+        </para>
+        <para xml:id="S4.SS1.SSS0.Px2.p2">
+          <p>Figure <ref labelref="LABEL:fig:phrase_forget"/> shows the result. Note that we only plot the first 15 epochs to ensure that the phrases are never forgotten for at least 6 epochs.
+Around 80% of learned phrase table is unforgettable phrases (always learned phrase pairs), while the rest phrase pairs are forgotten. This is consistent with the findings of <ERROR class="undefined">\newcite</ERROR>toneva:2018:empirical on the image classification tasks.</p>
+        </para>
+        <figure inlist="lof" labels="LABEL:fig:phrase_forget" placement="t" xml:id="S4.F4">
+          <tags>
+            <tag>Figure 4</tag>
+            <tag role="autoref">Figure 4</tag>
+            <tag role="refnum">4</tag>
+            <tag role="typerefnum">Figure 4</tag>
+          </tags>
+          <graphics candidates="figures/phrase_forget.pdf" class="ltx_centering" graphic="figures/phrase_forget.pdf" options="width=130.08731pt,keepaspectratio=true" xml:id="S4.F4.g1"/>
+          <toccaption class="ltx_centering"><tag close=" ">4</tag>Illustration of unforgettable phrases.</toccaption>
+          <caption class="ltx_centering"><tag close=": ">Figure 4</tag>Illustration of unforgettable phrases.</caption>
+        </figure>
+        <table inlist="lot" labels="LABEL:table:knowledge-distillation" placement="t" xml:id="S4.T1">
+          <tags>
+            <tag>Table 1</tag>
+            <tag role="autoref">Table 1</tag>
+            <tag role="refnum">1</tag>
+            <tag role="typerefnum">Table 1</tag>
+          </tags>
+          <tabular class="ltx_centering" vattach="middle">
+            <tr>
+              <td align="center" border="r" rowspan="2"><text font="bold">Phrase Table</text></td>
+              <td align="center" border="r" colspan="2"><text font="bold">Shared</text></td>
+              <td align="center" border="r" colspan="2"><text font="bold">Non-Shared</text></td>
+              <td align="center" colspan="2"><text font="bold">All</text></td>
+            </tr>
+            <tr>
+              <td align="right" border="r t"><text font="italic">Size</text></td>
+              <td align="right" border="r t"><text font="italic">BLEU</text></td>
+              <td align="right" border="r t"><text font="italic">Size</text></td>
+              <td align="right" border="r t"><text font="italic">BLEU</text></td>
+              <td align="right" border="r t"><text font="italic">Size</text></td>
+              <td align="right" border="t"><text font="italic">BLEU</text></td>
+            </tr>
+            <tr>
+              <td align="center" border="r tt">Full</td>
+              <td align="right" border="r tt">9.0M</td>
+              <td align="right" border="r tt">17.32</td>
+              <td align="right" border="r tt">8.5M</td>
+              <td align="right" border="r tt">4.50</td>
+              <td align="right" border="r tt">17.5M</td>
+              <td align="right" border="tt">17.91</td>
+            </tr>
+            <tr>
+              <td align="center" border="r t">NMT</td>
+              <td align="right" border="r t">9.0M</td>
+              <td align="right" border="r t">17.90</td>
+              <td align="right" border="r t">0M</td>
+              <td align="right" border="r t">0</td>
+              <td align="right" border="r t">9.0M</td>
+              <td align="right" border="t">17.90</td>
+            </tr>
+          </tabular>
+          <toccaption><tag close=" ">1</tag>Comparison of the phrase table extracted from the full training data (“Full”) and NMT models (“NMT”).
+“All” denotes the whole phrase table, “Shared” denotes the intersection of two tables, and “Non-shared” denotes the complement. Note that the probabilities of “Shared” phrases are different for the two tables.</toccaption>
+          <caption><tag close=": ">Table 1</tag>Comparison of the phrase table extracted from the full training data (“Full”) and NMT models (“NMT”).
+“All” denotes the whole phrase table, “Shared” denotes the intersection of two tables, and “Non-shared” denotes the complement. Note that the probabilities of “Shared” phrases are different for the two tables.</caption>
+        </table>
+      </paragraph>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:sec:knowledge" xml:id="S4.SS2">
+      <tags>
+        <tag>4.2</tag>
+        <tag role="autoref">subsection 4.2</tag>
+        <tag role="refnum">4.2</tag>
+        <tag role="typerefnum">§4.2</tag>
+      </tags>
+      <title><tag close=" ">4.2</tag>Learned Bilingual Knowledge</title>
+      <para xml:id="S4.SS2.p1">
+        <p>In this experiment, we evaluate whether NMT models have sufficiently explore the bilingual knowledge in the training examples, by comparing the phrase tables extracted from NMT predictions and from the raw training data. We use the latter to represent the full bilingual knowledge embedded in the training examples.</p>
+      </para>
+      <para xml:id="S4.SS2.p2">
+        <p>As shown in Table <ref labelref="LABEL:table:knowledge-distillation"/>, the bilingual knowledge learned by NMT model (“NMT”) shows comparable translation quality with the full-data knowledge (“Full”) (17.90 vs. 17.91), but with only <text font="italic">a half of </text> phrases (9.0M vs. 17.5M).<note mark="2" role="footnote" xml:id="footnote2"><tags>
+              <tag>2</tag>
+              <tag role="autoref">footnote 2</tag>
+              <tag role="refnum">2</tag>
+              <tag role="typerefnum">footnote 2</tag>
+            </tags>When considering the filtered one-shot phrases, NMT phrase only takes 22.8% of the full table (76M vs. 335M).</note>
+In addition, NMT provides a better probability estimation for the distilled phrases (“Shared”, 17.90 vs. 17.32). In the “Non-Shared” table, 78.2% of the phrase pairs share the same source phrase with the “Shared” table, of which 83.2% have a lower translation probability. The results empirically confirm our hypothesis that <text font="italic">NMT models distill the bilingual knowledge by discarding those low-quality phrase pairs</text>.</p>
+      </para>
+    </subsection>
+  </section>
+  <section inlist="toc" labels="LABEL:sec:application" xml:id="S5">
+    <tags>
+      <tag>5</tag>
+      <tag role="autoref">section 5</tag>
+      <tag role="refnum">5</tag>
+      <tag role="typerefnum">§5</tag>
+    </tags>
+    <title><tag close=" ">5</tag>Revisiting Recent Advances</title>
+    <para xml:id="S5.p1">
+      <p>In this section, we revisit recent advances that potentially affect the learning of bilingual knowledge. Specifically, we investigate three types of techniques: (1) <text font="italic">model capacity</text> that indicates how complicated patterns a model can express (Section <ref labelref="LABEL:sec:capacity"/>); (2) <text font="italic">data augmentation</text> that introduces additional knowledge with external data (Section <ref labelref="LABEL:sec:augmentation"/>); and (3) <text font="italic">domain adaptation</text> that transfers knowledge across different domains (Section <ref labelref="LABEL:sec:adaptation"/>).</p>
+    </para>
+    <subsection inlist="toc" labels="LABEL:sec:capacity" xml:id="S5.SS1">
+      <tags>
+        <tag>5.1</tag>
+        <tag role="autoref">subsection 5.1</tag>
+        <tag role="refnum">5.1</tag>
+        <tag role="typerefnum">§5.1</tag>
+      </tags>
+      <title><tag close=" ">5.1</tag>Model Capacity </title>
+      <table inlist="lot" labels="LABEL:tab:capacity" placement="t" xml:id="S5.T2">
+        <tags>
+          <tag>Table 2</tag>
+          <tag role="autoref">Table 2</tag>
+          <tag role="refnum">2</tag>
+          <tag role="typerefnum">Table 2</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="center" border="rr" rowspan="2"><text font="bold">Model</text></td>
+            <td align="center" border="rr" colspan="2"><text font="bold">NMT</text></td>
+            <td align="center" colspan="2"><text font="bold">Phrase Table</text></td>
+          </tr>
+          <tr>
+            <td align="right" border="r t"><text font="italic">#Para</text></td>
+            <td align="center" border="rr t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="center" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="rr t"><text font="smallcaps">Small</text></td>
+            <td align="right" border="r t">38M</td>
+            <td align="center" border="rr t">25.45</td>
+            <td align="right" border="r t">7.7M</td>
+            <td align="center" border="t">17.35</td>
+          </tr>
+          <tr>
+            <td align="center" border="rr"><text font="smallcaps">Base</text></td>
+            <td align="right" border="r">98M</td>
+            <td align="center" border="rr">27.11</td>
+            <td align="right" border="r">9.0M</td>
+            <td align="center">17.90</td>
+          </tr>
+          <tr>
+            <td align="center" border="rr"><text font="smallcaps">Big</text></td>
+            <td align="right" border="r">284M</td>
+            <td align="center" border="rr">28.40</td>
+            <td align="right" border="r">9.2M</td>
+            <td align="center">17.89</td>
+          </tr>
+        </tabular>
+        <toccaption class="ltx_centering"><tag close=" ">2</tag>Results of NMT models of different capacities.</toccaption>
+        <caption class="ltx_centering"><tag close=": ">Table 2</tag>Results of NMT models of different capacities.</caption>
+      </table>
+      <table inlist="lot" labels="LABEL:tab:capacity-shared" placement="t" xml:id="S5.T3">
+        <tags>
+          <tag>Table 3</tag>
+          <tag role="autoref">Table 3</tag>
+          <tag role="refnum">3</tag>
+          <tag role="typerefnum">Table 3</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="center" border="r" rowspan="2"><text font="bold">Model</text></td>
+            <td align="center" border="rr" colspan="2"><text font="bold">Shared</text></td>
+            <td align="center" colspan="2"><text font="bold">Non-Shared</text></td>
+          </tr>
+          <tr>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="rr t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r tt"><text font="smallcaps">Small</text></td>
+            <td align="right" border="r tt">7.0M</td>
+            <td align="right" border="rr tt">17.53</td>
+            <td align="right" border="r tt">0.7M</td>
+            <td align="right" border="tt">2.37</td>
+          </tr>
+          <tr>
+            <td align="center" border="r"><text font="smallcaps">Base</text></td>
+            <td align="right" border="r">7.0M</td>
+            <td align="right" border="rr">17.49</td>
+            <td align="right" border="r">2.0M</td>
+            <td align="right">3.57</td>
+          </tr>
+          <tr>
+            <td align="center" border="r"><text font="smallcaps">Big</text></td>
+            <td align="right" border="r">7.0M</td>
+            <td align="right" border="rr">17.29</td>
+            <td align="right" border="r">2.2M</td>
+            <td align="right">3.47</td>
+          </tr>
+        </tabular>
+        <toccaption><tag close=" ">3</tag>Comparison of phrases from three capacities.</toccaption>
+        <caption><tag close=": ">Table 3</tag>Comparison of phrases from three capacities.</caption>
+      </table>
+      <para xml:id="S5.SS1.p1">
+        <p>We vary the layer dimensionality of Transformer, and obtain three model variants: <text font="smallcaps">Small</text> (256), <text font="smallcaps">Base</text> (512), and <text font="smallcaps">Big</text> (1024). As listed in Table <ref labelref="LABEL:tab:capacity"/>, increasing model capacity consistently improves translation performance. However, the extracted phrase table is only marginally increased.</p>
+      </para>
+      <para xml:id="S5.SS1.p2">
+        <p>We compare the phrase tables learned by different models, as shown in Table <ref labelref="LABEL:tab:capacity-shared"/>. The phrases shared by all models take the overwhelming majority, which add most value to the translation performance. We conjecture that enlarging capacity improves NMT performance by better exploiting complex patterns beyond bilingual lexicons. This also confirms our intuition that bilingual lexicons can be a crucial early step in assessing the knowledge in NMT models.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:sec:augmentation" xml:id="S5.SS2">
+      <tags>
+        <tag>5.2</tag>
+        <tag role="autoref">subsection 5.2</tag>
+        <tag role="refnum">5.2</tag>
+        <tag role="typerefnum">§5.2</tag>
+      </tags>
+      <title><tag close=" ">5.2</tag>Data Augmentation</title>
+      <table inlist="lot" labels="LABEL:tab:augmentation" placement="t" xml:id="S5.T4">
+        <tags>
+          <tag>Table 4</tag>
+          <tag role="autoref">Table 4</tag>
+          <tag role="refnum">4</tag>
+          <tag role="typerefnum">Table 4</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="left" border="rr" rowspan="2"><text font="bold">Model</text></td>
+            <td align="center" border="rr" colspan="2"><text font="bold">NMT</text></td>
+            <td align="center" colspan="2"><text font="bold">Phrase Table</text></td>
+          </tr>
+          <tr>
+            <td align="right" border="r t"><text font="italic">#Para</text></td>
+            <td align="center" border="rr t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="center" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="left" border="rr tt"><text font="smallcaps">Base</text></td>
+            <td align="right" border="r tt">98M</td>
+            <td align="center" border="rr tt">27.11</td>
+            <td align="right" border="r tt">9.0M</td>
+            <td align="center" border="tt">17.90</td>
+          </tr>
+          <tr>
+            <td align="left" border="rr t">      + BT</td>
+            <td align="right" border="r t">98M</td>
+            <td align="center" border="rr t">29.75</td>
+            <td align="right" border="r t">20.9M</td>
+            <td align="center" border="t">19.26</td>
+          </tr>
+          <tr>
+            <td align="left" border="rr">      + FT</td>
+            <td align="right" border="r">98M</td>
+            <td align="center" border="rr">28.43</td>
+            <td align="right" border="r">28.0M</td>
+            <td align="center">19.33</td>
+          </tr>
+        </tabular>
+        <toccaption class="ltx_centering"><tag close=" ">4</tag>Results of back-translation (“BT”) and forward-translation (“FT”).</toccaption>
+        <caption class="ltx_centering"><tag close=": ">Table 4</tag>Results of back-translation (“BT”) and forward-translation (“FT”).</caption>
+      </table>
+      <table inlist="lot" labels="LABEL:table:back_transaltion_shared" placement="t" xml:id="S5.T5">
+        <tags>
+          <tag>Table 5</tag>
+          <tag role="autoref">Table 5</tag>
+          <tag role="refnum">5</tag>
+          <tag role="typerefnum">Table 5</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="center" border="r" rowspan="2"><text font="bold">Model</text></td>
+            <td align="center" border="r" colspan="2"><text font="bold">Shared</text></td>
+            <td align="center" colspan="2"><text font="bold">Non-Shared</text></td>
+          </tr>
+          <tr>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="rr t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r tt"><text font="smallcaps">Base</text></td>
+            <td align="right" border="r tt">8.3M</td>
+            <td align="right" border="rr tt">17.67</td>
+            <td align="right" border="r tt">0.7M</td>
+            <td align="right" border="tt">1.78</td>
+          </tr>
+          <tr>
+            <td align="center" border="r">    + BT</td>
+            <td align="right" border="r">8.3M</td>
+            <td align="right" border="rr">18.61</td>
+            <td align="right" border="r">12.6M</td>
+            <td align="right">10.45</td>
+          </tr>
+          <tr>
+            <td align="center" border="r tt"><text font="smallcaps">Base</text></td>
+            <td align="right" border="r tt">8.4M</td>
+            <td align="right" border="rr tt">17.83</td>
+            <td align="right" border="r tt">0.5M</td>
+            <td align="right" border="tt">1.21</td>
+          </tr>
+          <tr>
+            <td align="center" border="r">    + FT</td>
+            <td align="right" border="r">8.4M</td>
+            <td align="right" border="rr">18.30</td>
+            <td align="right" border="r">19.6M</td>
+            <td align="right">11.25</td>
+          </tr>
+        </tabular>
+        <toccaption><tag close=" ">5</tag>Comparison of phrases learned by BT and FT.</toccaption>
+        <caption><tag close=": ">Table 5</tag>Comparison of phrases learned by BT and FT.</caption>
+      </table>
+      <figure inlist="lof" labels="LABEL:fig:back_translation_shared" placement="t" xml:id="S5.F5">
+        <tags>
+          <tag>Figure 5</tag>
+          <tag role="autoref">Figure 5</tag>
+          <tag role="refnum">5</tag>
+          <tag role="typerefnum">Figure 5</tag>
+        </tags>
+        <figure align="center" class="ltx_figure_panel" xml:id="S5.F5.sf1">
+          <tags>
+            <tag>(a)</tag>
+            <tag role="autoref">5a</tag>
+            <tag role="refnum">5a</tag>
+          </tags>
+          <graphics candidates="figures/augmentation_length.pdf" graphic="figures/augmentation_length.pdf" options="height=95.39693pt,keepaspectratio=true" xml:id="S5.F5.sf1.g1"/>
+          <toccaption><tag close=" ">a</tag>Length</toccaption>
+          <caption><tag close=" ">(a)</tag>Length</caption>
+        </figure>
+        <figure align="center" class="ltx_figure_panel" xml:id="S5.F5.sf2">
+          <tags>
+            <tag>(b)</tag>
+            <tag role="autoref">5b</tag>
+            <tag role="refnum">5b</tag>
+          </tags>
+          <graphics candidates="figures/augmentation_reordering.pdf" graphic="figures/augmentation_reordering.pdf" options="height=95.39693pt,keepaspectratio=true" xml:id="S5.F5.sf2.g1"/>
+          <toccaption><tag close=" ">b</tag>Reordering</toccaption>
+          <caption><tag close=" ">(b)</tag>Reordering</caption>
+        </figure>
+        <figure align="center" class="ltx_figure_panel" xml:id="S5.F5.sf3">
+          <tags>
+            <tag>(c)</tag>
+            <tag role="autoref">5c</tag>
+            <tag role="refnum">5c</tag>
+          </tags>
+          <graphics candidates="figures/augmentation_fertility.pdf" graphic="figures/augmentation_fertility.pdf" options="height=95.39693pt,keepaspectratio=true" xml:id="S5.F5.sf3.g1"/>
+          <toccaption><tag close=" ">c</tag>Fertility</toccaption>
+          <caption><tag close=" ">(c)</tag>Fertility</caption>
+        </figure>
+        <toccaption class="ltx_centering"><tag close=" ">5</tag>Characteristic distributions of phrases newly introduced by BT and FT. For a better illustration, we also give the distribution of the baseline (“Base”).</toccaption>
+        <caption class="ltx_centering"><tag close=": ">Figure 5</tag>Characteristic distributions of phrases newly introduced by BT and FT. For a better illustration, we also give the distribution of the baseline (“Base”).</caption>
+      </figure>
+      <para xml:id="S5.SS2.p1">
+        <p>In this experiment, we investigate two representative data augmentation approaches, back-translation <cite class="ltx_citemacro_cite"><bibref bibrefs="sennrich:2016:acl" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite> and forward-translation <cite class="ltx_citemacro_cite"><bibref bibrefs="zhang2016exploiting" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, which differ at exploiting target or source-side monolingual data. We select a same-size (around 4.5M) English and German monolingual dataset from the WMT website, and construct the synthetic corpus with <text font="smallcaps">Base</text> models that are trained on the parallel data.</p>
+      </para>
+      <para xml:id="S5.SS2.p2">
+        <p>Table <ref labelref="LABEL:tab:augmentation"/> lists the results. Both techniques significantly improves the performance of NMT models by exploiting a larger and better phrase table.<note mark="3" role="footnote" xml:id="footnote3"><tags>
+              <tag>3</tag>
+              <tag role="autoref">footnote 3</tag>
+              <tag role="refnum">3</tag>
+              <tag role="typerefnum">footnote 3</tag>
+            </tags>The different sizes of BT and FT phrase tables are due to the different monolingual datasets used for them, the averaged length of which are 24.8 and 28.4, respectively.</note>
+Table <ref labelref="LABEL:table:back_transaltion_shared"/> shows the detailed comparison of the phrase tables. Both augmentation methods <text font="italic">induce new knowledge and enhance existing knowledge over the baseline</text>, and the newly introduced knowledge contribute a lot to the performance improvement.</p>
+      </para>
+      <para xml:id="S5.SS2.p3">
+        <p>We further analyze the characteristics of the newly introduced phrase pairs, as illustrated in Figure <ref labelref="LABEL:fig:back_translation_shared"/>. One interesting finding is that the newly introduced phrase pairs are notably longer than the original ones. Besides, the new phrase pairs show less reordered patterns and more monotone patterns, which may explain the producing of longer phrases. The finding is consistent with previous studies, which show that the BT text is simpler than naturally occurring text <cite class="ltx_citemacro_cite"><bibref bibrefs="edunov2019evaluation" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:sec:adaptation" xml:id="S5.SS3">
+      <tags>
+        <tag>5.3</tag>
+        <tag role="autoref">subsection 5.3</tag>
+        <tag role="refnum">5.3</tag>
+        <tag role="typerefnum">§5.3</tag>
+      </tags>
+      <title><tag close=" ">5.3</tag>Domain Adaptation</title>
+      <para xml:id="S5.SS3.p1">
+        <p>In the last experiment, we analyze the transferability of the bilingual knowledge by directly applying it to another domain. To this end, we use the IWSLT14 English<Math mode="inline" tex="\Rightarrow" text="Rightarrow" xml:id="S5.SS3.p1.m1">
+            <XMath>
+              <XMTok name="Rightarrow" role="ARROW">⇒</XMTok>
+            </XMath>
+          </Math><!--  %**** emnlp2020.tex Line 550 **** -->German data (160,234 sentence pairs) as the target domain (Speech domain), and fine-tune the NMT model trained on the WMT14 dataset (News domain) for several epochs.
+We extract the phrase table using the training data of target domain, and the results are shown in Table <ref labelref="LABEL:table:domain-adapt"/>. Clearly, the fine-tuned NMT model benefits from a larger and better phrase table, by adapting the model to the target domain. The analysis results in Table <ref labelref="LABEL:table:shared-domain-adapt"/> further show that the fine-tuned phrase table improves performance with both more phrases (“Non-Shared”) and better estimation of original phrases (“Shared”).</p>
+      </para>
+      <para xml:id="S5.SS3.p2">
+        <p>In addition, we re-extract the phrase from the source domain (WMT data) with the fine-tuned model.
+The phrase table achieves only a BLEU score of 4.77 with 2.6M phrase pairs, while the original model without fine-tune shows a BLEU score of 17.90 with 9.0M phrase pairs. The fine-tune approach increases new knowledge of the target domain while forgets previous-learned knowledge of the source domain.
+The results provide an empirical validation of the phenomenon of catastrophic forgetting in domain adaptation <cite class="ltx_citemacro_cite"><bibref bibrefs="kirkpatrick2017overcoming" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+              <bibrefphrase>(</bibrefphrase>
+              <bibrefphrase>)</bibrefphrase>
+            </bibref></cite>, which inversely demonstrate the reasonableness of our approach.</p>
+      </para>
+      <table inlist="lot" labels="LABEL:table:domain-adapt" placement="t" xml:id="S5.T6">
+        <tags>
+          <tag>Table 6</tag>
+          <tag role="autoref">Table 6</tag>
+          <tag role="refnum">6</tag>
+          <tag role="typerefnum">Table 6</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="center" border="r"><text font="bold">Fine</text></td>
+            <td align="center" border="r" colspan="2"><text font="bold">NMT</text></td>
+            <td align="center" colspan="2"><text font="bold">Phrase Table</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r"><text font="bold">Tune</text></td>
+            <td align="right" border="r t"><text font="italic"># Para.</text></td>
+            <td align="right" border="r t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r tt">×</td>
+            <td align="right" border="r tt">98M</td>
+            <td align="right" border="r tt">15.78</td>
+            <td align="right" border="r tt">168K</td>
+            <td align="right" border="tt">16.08</td>
+          </tr>
+          <tr>
+            <td align="center" border="r">✓</td>
+            <td align="right" border="r">98M</td>
+            <td align="right" border="r">31.26</td>
+            <td align="right" border="r">316K</td>
+            <td align="right">18.50</td>
+          </tr>
+        </tabular>
+        <toccaption><tag close=" ">6</tag>Results of domain adaptation.</toccaption>
+        <caption><tag close=": ">Table 6</tag>Results of domain adaptation.</caption>
+      </table>
+      <table inlist="lot" labels="LABEL:table:shared-domain-adapt" placement="t" xml:id="S5.T7">
+        <tags>
+          <tag>Table 7</tag>
+          <tag role="autoref">Table 7</tag>
+          <tag role="refnum">7</tag>
+          <tag role="typerefnum">Table 7</tag>
+        </tags>
+        <tabular class="ltx_centering" vattach="middle">
+          <tr>
+            <td align="center" border="r"><text font="bold">Fine</text></td>
+            <td align="center" border="r" colspan="2"><text font="bold">Shared</text></td>
+            <td align="center" colspan="2"><text font="bold">Non-Shared</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r"><text font="bold">Tune</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="r t"><text font="italic">BLEU</text></td>
+            <td align="right" border="r t"><text font="italic">Size</text></td>
+            <td align="right" border="t"><text font="italic">BLEU</text></td>
+          </tr>
+          <tr>
+            <td align="center" border="r tt">×</td>
+            <td align="right" border="r tt">0.16M</td>
+            <td align="right" border="r tt">15.95</td>
+            <td align="right" border="r tt">0.01M</td>
+            <td align="right" border="tt">1.65</td>
+          </tr>
+          <tr>
+            <td align="center" border="r t">✓</td>
+            <td align="right" border="r t">0.16M</td>
+            <td align="right" border="r t">16.92</td>
+            <td align="right" border="r t">0.16M</td>
+            <td align="right" border="t">6.95</td>
+          </tr>
+        </tabular>
+        <toccaption><tag close=" ">7</tag>Comparison of phrase tables for domain adaptation with or without fine tune.</toccaption>
+        <caption><tag close=": ">Table 7</tag>Comparison of phrase tables for domain adaptation with or without fine tune.</caption>
+      </table>
+    </subsection>
+  </section>
+  <section inlist="toc" xml:id="S6">
+    <tags>
+      <tag>6</tag>
+      <tag role="autoref">section 6</tag>
+      <tag role="refnum">6</tag>
+      <tag role="typerefnum">§6</tag>
+    </tags>
+    <title><tag close=" ">6</tag>Discussion and Conclusion</title>
+    <para xml:id="S6.p1">
+      <p>In this work, we propose to assess the bilingual knowledge learned by NMT models with statistic models – phrase table. The reported results provide a better understanding of NMT models and recent technological advances in learning the essential bilingual lexicons, which also indicate several potential applications:</p>
+      <itemize xml:id="S6.I1">
+        <item xml:id="S6.I1.i1">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">1st item</tag>
+          </tags>
+          <para xml:id="S6.I1.i1.p1">
+            <p><text font="italic">Error diagnosis</text> that debugs mistaken predictions by tracing associated phrase pairs <cite class="ltx_citemacro_cite"><bibref bibrefs="ding2017visualizing" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite>;</p>
+          </para>
+        </item>
+        <item xml:id="S6.I1.i2">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">2nd item</tag>
+          </tags>
+          <para xml:id="S6.I1.i2.p1">
+            <p><text font="italic">Curriculum learning</text> that dynamically assigns more weights to instances associated with the unlearned knowledge <cite class="ltx_citemacro_cite"><bibref bibrefs="platanios2019competence" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite><!--  %**** emnlp2020.tex Line 600 **** -->;</p>
+          </para>
+        </item>
+        <item xml:id="S6.I1.i3">
+          <tags>
+            <tag>•</tag>
+            <tag role="autoref">item </tag>
+            <tag role="typerefnum">3rd item</tag>
+          </tags>
+          <para xml:id="S6.I1.i3.p1">
+            <p><text font="italic">Phrase memory</text> that stores unlearned phrases in NMT to query when generating translations <cite class="ltx_citemacro_cite"><bibref bibrefs="wang:2017:aaai,zhang2018prior" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+                  <bibrefphrase>(</bibrefphrase>
+                  <bibrefphrase>)</bibrefphrase>
+                </bibref></cite>.</p>
+          </para>
+        </item>
+      </itemize>
+    </para>
+    <para xml:id="S6.p2">
+      <p>Although the phrase table successfully explains many model behaviors, it cannot explain certain techniques such as enlarging model capacity. The explored bilingual lexicon is only one of the critical knowledge bases in the translation process. In the future, we will investigate more advanced forms of bilingual knowledge <cite class="ltx_citemacro_cite"><bibref bibrefs="Liu:2006:ACL,Galley:2010:NAACL" separator=";" show="Authors Phrase1YearPhrase2" yyseparator=",">
+            <bibrefphrase>(</bibrefphrase>
+            <bibrefphrase>)</bibrefphrase>
+          </bibref></cite>, as well as explore other types of knowledge bases such as grammar and semantics with statistic models (e.g., reordering and language models). This paper is the first step in what we hope will be a long and fruitful journey.</p>
+    </para>
+  </section>
+  <bibliography citestyle="authoryear" files="emnlp2020" xml:id="bib">
+    <title>References</title>
+  </bibliography>
+</document>

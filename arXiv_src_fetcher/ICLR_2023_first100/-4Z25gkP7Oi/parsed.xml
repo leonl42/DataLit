@@ -1,0 +1,1801 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?latexml searchpaths="/home/miri/Documents/DataLit/arXiv_src_fetcher/ICLR_2023_first100/-4Z25gkP7Oi"?>
+<?latexml class="article" options="letterpaper"?>
+<?latexml package="aaai19"?>
+<!--  %Required --><?latexml package="times"?>
+<?latexml package="helvet"?>
+<?latexml package="courier"?>
+<?latexml package="url"?>
+<?latexml package="graphicx"?>
+<!--  %Required --><!--  %Required --><?latexml package="amssymb,amsmath,amsthm,xspace"?>
+<?latexml package="multirow"?>
+<?latexml package="xspace"?>
+<?latexml package="tabularx"?>
+<?latexml package="xcolor"?>
+<?latexml package="appendix" options="toc,page"?>
+<?latexml package="titlesec"?>
+<?latexml package="float"?>
+<?latexml RelaxNGSchema="LaTeXML"?>
+<document xmlns="http://dlmf.nist.gov/LaTeXML" class="ltx_authors_1line">
+  <resource src="LaTeXML.css" type="text/css"/>
+  <resource src="ltx-article.css" type="text/css"/>
+  <para xml:id="p1">
+    <ERROR class="undefined">\nocopyright</ERROR>
+  </para>
+  <title><!--  %The file aaai.sty is the style file for AAAI Press -->Counterfactual Fairness in Text Classification through Robustness<!--  %proceedings, working notes, and technical reports. --></title>
+  <creator role="author">
+    <personname>Sahaj Garg,<sup>1</sup><sup>*</sup>
+Vincent Perot,<sup>2</sup>
+Nicole Limtiaco,<sup>2</sup>
+Ankur Taly,<sup>3</sup><!--  %**** main.tex Line 50 **** -->
+Ed H. Chi,<sup>3</sup>
+Alex Beutel<sup>2</sup>
+<break/><sup>1</sup>Stanford University, Stanford, CA<break/><sup>2</sup>Google AI, New York, NY<break/><sup>3</sup>Google AI, Mountain View, CA<break/><sup>*</sup>Work done while the author was an intern at Google.<break/>sahajg@cs.stanford.edu, {vperot, nlimtiaco, ataly, edchi, alexbeutel}@google.com</personname>
+  </creator>
+  <abstract name="Abstract">
+    <p>In this paper, we study counterfactual fairness in text classification, which asks the question: <emph font="italic">How would the prediction change if the sensitive attribute referenced in the example were different?</emph> Toxicity classifiers demonstrate a counterfactual fairness issue by predicting that “Some people are gay” is toxic while “Some people are straight” is nontoxic. We offer a metric, counterfactual token fairness (CTF), for measuring this particular form of fairness in text classifiers, and describe its relationship with group fairness. Further, we offer three approaches, blindness, counterfactual augmentation, and counterfactual logit pairing (CLP), for optimizing counterfactual token fairness during training, bridging the robustness and fairness literature. Empirically, we find that blindness and CLP address counterfactual token fairness. The methods do not harm classifier performance, and have varying tradeoffs with group fairness. These approaches, both for measurement and optimization, provide a new path forward for addressing fairness concerns in text classification.</p>
+  </abstract>
+  <section inlist="toc" xml:id="Sx1">
+    <title>Introduction</title>
+    <para xml:id="Sx1.p1">
+      <p>Consider a model that determines whether an Internet forum comment is toxic. We would like to improve the model’s fairness with respect to the content of the input text, which may reference sensitive identity attributes, such as sexual orientation, race, or religion.
+In practice, <ERROR class="undefined">\citeauthor</ERROR>Dixon18 showed that a toxicity model had a high false positive rate on examples that included identity tokens such as “gay,” because such tokens occur relatively frequently in examples labeled toxic in the training set.</p>
+    </para>
+    <para xml:id="Sx1.p2">
+      <p>A related issue to users arises when nearly identical sentences referencing different identity groups receive different predictions. For instance, a baseline toxicity model predicts that “Some people are gay” is 98% likely to be toxic and “Some people are straight” is only 2% likely to be toxic. In this work, we seek to specifically address this fairness issue for text classification.</p>
+    </para>
+    <para xml:id="Sx1.p3">
+      <p>Given an example, we ask a <emph font="italic">counterfactual</emph> question: <emph font="italic">How would the prediction change if the sensitive attribute referenced in the example were different?</emph><!--  %**** main.tex Line 75 **** -->
+If the prediction score changes with respect to a sensitive attribute, we consider this an indicator of a potential problem.
+In contrast to group-based notions of fairness (e.g., demographic parity, equality of odds), which seek to statistically equalize the model’s behavior for entire sensitive groups, counterfactual fairness requires equal model behavior on individual counterfactual pairs; see <cite class="ltx_citemacro_cite">[<bibref bibrefs="Kusner17,Wachter17" separator="," yyseparator=","/>]</cite>.</p>
+    </para>
+    <para xml:id="Sx1.p4">
+      <p>To assess counterfactual fairness, we consider perturbations obtained by substituting tokens associated with identity groups. For instance, substituting “gay” with “straight,” or “Asian” with “American.” Based on these generated counterfactuals, we can define a fairness metric, which we call <emph font="italic">counterfactual token fairness</emph> (CTF). While this is more limited than general counterfactual fairness, we believe it captures one of the most salient issues in text classification and is a starting point for more general counterfactual fairness metrics for text.</p>
+    </para>
+    <para xml:id="Sx1.p5">
+      <p>Deciding when counterfactual pairs should have the same prediction raises difficult ethical and philosophical questions. Many logical counterfactuals generated by token substitution may not require identical output. We call these <emph font="italic">asymmetric counterfactuals</emph>. In toxicity classification, such situations could arise when the comment references stereotypes associated with one group but not another, or when comments attack a particularly vulnerable group. Asymmetric counterfactuals suggest that practitioners should be careful in both training and evaluation of counterfactual fairness. We discuss proposals for addressing this in the case of toxicity classification in the experiments section.</p>
+    </para>
+    <para xml:id="Sx1.p6">
+      <p>To satisfy counterfactual token fairness, we borrow techniques from the robustness literature. We propose a general training scheme for achieving arbitrary counterfactual fairness by extending logit pairing <cite class="ltx_citemacro_cite">[<bibref bibrefs="ALP" separator="," yyseparator=","/>]</cite> to penalize differences in the model’s outputs for counterfactual pairs. We compare this method to simply augmenting the training set with counterfactual examples, and to blindness, which replaces all sensitive tokens with a special token.</p>
+    </para>
+    <para xml:id="Sx1.p7">
+      <p>One issue is that the aforementioned methods may only achieve fairness with respect to identity tokens considered by counterfactuals during training. To address this, we evaluate the generalization of the methods on a held-out set of identity tokens.
+Another concern when optimizing for counterfactual fairness is potential trade-offs with other desirable properties of a classifier, including overall accuracy and group fairness. In practice, we do not find significant harms with respect to accuracy, and varying effects on group fairness in the form of tradeoffs between true negatives and true positives.</p>
+    </para>
+    <para xml:id="Sx1.p8">
+      <p>We make the following contributions:</p>
+      <itemize xml:id="Sx1.I1">
+        <item xml:id="Sx1.I1.i1">
+          <tags>
+            <tag>•</tag>
+            <tag role="typerefnum">1st item</tag>
+          </tags>
+          <para xml:id="Sx1.I1.i1.p1">
+            <p><text font="bold">Metric:</text> We provide a tractable metric, <emph font="italic">counterfactual token fairness</emph>, for measuring counterfactual fairness in text classification.</p>
+          </para>
+        </item>
+        <item xml:id="Sx1.I1.i2">
+          <tags>
+            <tag>•</tag>
+            <tag role="typerefnum">2nd item</tag>
+          </tags>
+          <para xml:id="Sx1.I1.i2.p1">
+            <p><text font="bold">Methods:</text> We study three methods for addressing counterfactual token fairness: (A) blindness, (B) counterfactual augmentation, and (B) counterfactual logit pairing, bridging research from the robustness and fairness domains.</p>
+          </para>
+        </item>
+        <item xml:id="Sx1.I1.i3">
+          <tags>
+            <tag>•</tag>
+            <tag role="typerefnum">3rd item</tag>
+          </tags>
+          <para xml:id="Sx1.I1.i3.p1">
+            <p><text font="bold">Empirical Evaluation:</text> We evaluate empirical performance and tradeoffs of counterfactual token fairness, group fairness, and accuracy across these approaches.</p>
+          </para>
+        </item>
+      </itemize>
+    </para>
+  </section>
+  <section inlist="toc" labels="LABEL:related" xml:id="Sx2">
+    <title>Related Work</title>
+    <paragraph inlist="toc" xml:id="Sx2.SS0.SSS0.Px1">
+      <title>ML Fairness</title>
+      <para xml:id="Sx2.SS0.SSS0.Px1.p1">
+        <p>Significant work in the ML fairness literature has been devoted to measuring fairness. Our work is most closely related to counterfactual fairness in causal inference <cite class="ltx_citemacro_cite">[<bibref bibrefs="Kusner17,Kilbertus17" separator="," yyseparator=","/>]</cite>, where fairness is evaluated by applying counterfactual interventions over a causal graph. Our definition of counterfactual token fairness implicitly defines a simple causal model for text generation. <ERROR class="undefined">\citeauthor</ERROR>Kusner17 also draw the connection between counterfactual fairness and individual fairness, which requires similar predictions for similar inputs via a Lipschitz constraint <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dwork11" separator="," yyseparator=","/>]</cite>.</p>
+      </para>
+      <para xml:id="Sx2.SS0.SSS0.Px1.p2">
+        <p><!--  %**** main.tex Line 100 **** -->Relatively more study has been devoted to group fairness metrics, which evaluate observational criteria, or statistical relationships between the data, group membership, the label, and the model’s prediction. Such metrics include demographic parity and equality of odds <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hardt16" separator="," yyseparator=","/>]</cite>. <ERROR class="undefined">\citeauthor</ERROR>Hardt16 demonstrate that observational criteria are insufficient to distinguish between some seemingly reasonable uses of identity and other unreasonable ones. This is because observational criteria cannot incorporate any external understanding about what is causally acceptable in making predictions. The limitations of observational criteria can be addressed by counterfactual or individual fairness, see <cite class="ltx_citemacro_cite">[<bibref bibrefs="Kusner17,Kilbertus17,Dwork11" separator="," yyseparator=","/>]</cite>. By extending these definitions to path-specific counterfactual fairness, it is possible to specify which uses of identity are acceptable <cite class="ltx_citemacro_cite">[<bibref bibrefs="Chiappa18" separator="," yyseparator=","/>]</cite>.</p>
+      </para>
+      <para xml:id="Sx2.SS0.SSS0.Px1.p3">
+        <p>Social science literature on fairness raises arguments for counterfactual reasoning as well as potential limitations. One concern is about the ability to reasonably intervene on identity of an individual. Given that most social scientists agree that race is socially constructed, it may be unreasonable to attempt to modify race and all its associated factors <cite class="ltx_citemacro_cite">[<bibref bibrefs="KH19" separator="," yyseparator=","/>]</cite>. These limitations, among others, are reflected in debate surrounding the use of counterfactuals over race in epidemiological studies <cite class="ltx_citemacro_cite">[<bibref bibrefs="Krieger14,VWT14" separator="," yyseparator=","/>]</cite>. We note that our work deals with well-defined interventions on content by only manipulating identity tokens in text, rather than the actual identities of individuals, which differentiates it from the work above.</p>
+      </para>
+      <para xml:id="Sx2.SS0.SSS0.Px1.p4">
+        <p>ML fairness literature has also focused on debiasing methods to address these gaps. Many methods have been proposed to address group fairness issues, such as re-calibrating score functions <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hardt16" separator="," yyseparator=","/>]</cite>, adversarially learning fair representations <cite class="ltx_citemacro_cite">[<bibref bibrefs="Zemel13,VFAE,Beutel17" separator="," yyseparator=","/>]</cite>, data rebalancing <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dixon18" separator="," yyseparator=","/>]</cite>, and data augmentation using swaps of gender terms <cite class="ltx_citemacro_cite">[<bibref bibrefs="Park18" separator="," yyseparator=","/>]</cite>. For natural language problems, <ERROR class="undefined">\citeauthor</ERROR>Pryzant18 learn a lexicon that is uncorrelated to a set of confounding variables. Debiasing methods for counterfactual or individual fairness have been studied less for neural network models. The methods in <cite class="ltx_citemacro_cite">[<bibref bibrefs="Kusner17,Kilbertus17" separator="," yyseparator=","/>]</cite> are effective for causal graphs, but most machine learning problems will not fit this mold. To address individual fairness, <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dwork11" separator="," yyseparator=","/>]</cite> applies constraint based optimization over a linear program, but it is difficult to define valid distance metrics or apply the optimization to arbitrary neural networks used in natural language processing.</p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="Sx2.SS0.SSS0.Px2">
+      <title>Robustness in Machine Learning</title>
+      <para xml:id="Sx2.SS0.SSS0.Px2.p1">
+        <p>The robustness literature in machine learning has primarily focused on robustness to adversarially perturbed inputs, which add small amounts of carefully selected noise to fool classifiers <cite class="ltx_citemacro_cite">[<bibref bibrefs="Goodfellow15" separator="," yyseparator=","/>]</cite>. When applied to the text setting, such adversarial examples can be generated by a variety of editing methods, including through translation <cite class="ltx_citemacro_cite">[<bibref bibrefs="SEAR" separator="," yyseparator=","/>]</cite>, attributions <cite class="ltx_citemacro_cite">[<bibref bibrefs="Mud18" separator="," yyseparator=","/>]</cite>, and autoencoders <cite class="ltx_citemacro_cite">[<bibref bibrefs="GNAE" separator="," yyseparator=","/>]</cite> <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hu17" separator="," yyseparator=","/>]</cite>. Adversarial examples are closely related to counterfactual examples: <ERROR class="undefined">\citeauthor</ERROR>Wachter17 characterize counterfactuals as adversarial examples that perturb inputs in human-interpretable and possibly problematic ways. As such, the counterfactual examples presented in this work can be viewed as a specific subset of adversarial examples. The robustness literature has attempted to address adversarial examples using a variety of techniques, such as adversarial training <cite class="ltx_citemacro_cite">[<bibref bibrefs="Madry17,Goodfellow15" separator="," yyseparator=","/>]</cite> and adversarial logit pairing <cite class="ltx_citemacro_cite">[<bibref bibrefs="ALP" separator="," yyseparator=","/>]</cite>.</p>
+      </para>
+      <para xml:id="Sx2.SS0.SSS0.Px2.p2">
+        <p>Several papers draw connections between fairness, text generation, and robustness. <ERROR class="undefined">\citeauthor</ERROR>TEXT_ROBUST consider robustness in text with respect to counfounding variables such as the author’s gender, and learn robust models by training using an additional attribute for the latent confound, and averaging over all values of the latent variable at inference time. <ERROR class="undefined">\citeauthor</ERROR>Madaan18 attempt to edit text to remove gender bias or edit gender representations, leveraging analogies in word vector differences to make substitutions for words that may implicitly encode biases about gender.</p>
+      </para>
+    </paragraph>
+  </section>
+  <section inlist="toc" xml:id="Sx3">
+    <title>Problem Definition</title>
+    <para xml:id="Sx3.p1">
+      <p>Given text input <Math mode="inline" tex="x\in X" text="x element-of X" xml:id="Sx3.p1.m1">
+          <XMath>
+            <XMApp>
+              <XMTok meaning="element-of" name="in" role="RELOP">∈</XMTok>
+              <XMTok font="italic" role="UNKNOWN">x</XMTok>
+              <XMTok font="italic" role="UNKNOWN">X</XMTok>
+            </XMApp>
+          </XMath>
+        </Math>, where <Math mode="inline" tex="x" text="x" xml:id="Sx3.p1.m2">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">x</XMTok>
+          </XMath>
+        </Math> is a sequence <Math mode="inline" tex="[x_{1},...,x_{n}]" text="list@(x _ 1, ldots, x _ n)" xml:id="Sx3.p1.m3">
+          <XMath>
+            <XMDual>
+              <XMApp>
+                <XMTok meaning="list"/>
+                <XMRef idref="Sx3.p1.m3.2"/>
+                <XMRef idref="Sx3.p1.m3.1"/>
+                <XMRef idref="Sx3.p1.m3.3"/>
+              </XMApp>
+              <XMWrap>
+                <XMTok role="OPEN" stretchy="false">[</XMTok>
+                <XMApp xml:id="Sx3.p1.m3.2">
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                  <XMTok fontsize="70%" meaning="1" role="NUMBER">1</XMTok>
+                </XMApp>
+                <XMTok role="PUNCT">,</XMTok>
+                <XMTok name="ldots" role="ID" xml:id="Sx3.p1.m3.1">…</XMTok>
+                <XMTok role="PUNCT">,</XMTok>
+                <XMApp xml:id="Sx3.p1.m3.3">
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">n</XMTok>
+                </XMApp>
+                <XMTok role="CLOSE" stretchy="false">]</XMTok>
+              </XMWrap>
+            </XMDual>
+          </XMath>
+        </Math> of tokens, our task is to predict an outcome <Math mode="inline" tex="y" text="y" xml:id="Sx3.p1.m4">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">y</XMTok>
+          </XMath>
+        </Math>. We consider a classifier <Math mode="inline" tex="f" text="f" xml:id="Sx3.p1.m5">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">f</XMTok>
+          </XMath>
+        </Math> parameterized by <Math mode="inline" tex="\theta" text="theta" xml:id="Sx3.p1.m6">
+          <XMath>
+            <XMTok font="italic" name="theta" role="UNKNOWN">θ</XMTok>
+          </XMath>
+        </Math> that produces a prediction <Math mode="inline" tex="\hat{y}=f_{\theta}(x)" text="hat@(y) = f _ theta * x" xml:id="Sx3.p1.m7">
+          <XMath>
+            <XMApp>
+              <XMTok meaning="equals" role="RELOP">=</XMTok>
+              <XMApp>
+                <XMTok name="hat" role="OVERACCENT" stretchy="false">^</XMTok>
+                <XMTok font="italic" role="UNKNOWN">y</XMTok>
+              </XMApp>
+              <XMApp>
+                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                  <XMTok font="italic" fontsize="70%" name="theta" role="UNKNOWN">θ</XMTok>
+                </XMApp>
+                <XMDual>
+                  <XMRef idref="Sx3.p1.m7.1"/>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.p1.m7.1">x</XMTok>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMApp>
+            </XMApp>
+          </XMath>
+        </Math>, where we seek to minimize some notion of error between <Math mode="inline" tex="y" text="y" xml:id="Sx3.p1.m8">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">y</XMTok>
+          </XMath>
+        </Math> and <Math mode="inline" tex="\hat{y}" text="hat@(y)" xml:id="Sx3.p1.m9">
+          <XMath>
+            <XMApp>
+              <XMTok name="hat" role="OVERACCENT" stretchy="false">^</XMTok>
+              <XMTok font="italic" role="UNKNOWN">y</XMTok>
+            </XMApp>
+          </XMath>
+        </Math>. For notational simplicity, we restrict the following definitions to a single binary class, but they can be easily generalized to multi-class classification problems. The classifier <Math mode="inline" tex="f" text="f" xml:id="Sx3.p1.m10">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">f</XMTok>
+          </XMath>
+        </Math> can be an arbitrary neural network.</p>
+    </para>
+    <para xml:id="Sx3.p2">
+      <p>We wish to maximize the model’s performance while maintaining counterfactual fairness with respect to sensitive attributes, such as identity groups. Counterfactual fairness is measured using counterfactual examples that perturb the sensitive attribute referenced in the example at hand.
+Let <Math mode="inline" tex="\Phi(x)" text="Phi * x" xml:id="Sx3.p2.m1">
+          <XMath>
+            <XMApp>
+              <XMTok meaning="times" role="MULOP">⁢</XMTok>
+              <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+              <XMDual>
+                <XMRef idref="Sx3.p2.m1.1"/>
+                <XMWrap>
+                  <XMTok role="OPEN" stretchy="false">(</XMTok>
+                  <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.p2.m1.1">x</XMTok>
+                  <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                </XMWrap>
+              </XMDual>
+            </XMApp>
+          </XMath>
+        </Math> denote the set of counterfactual examples associated with an example <Math mode="inline" tex="x" text="x" xml:id="Sx3.p2.m2">
+          <XMath>
+            <XMTok font="italic" role="UNKNOWN">x</XMTok>
+          </XMath>
+        </Math>. Counterfactual fairness requires that the predictions of a model for all counterfactuals are within a specified error.</p>
+    </para>
+    <theorem class="ltx_theorem_definition" inlist="thm theorem:definition" xml:id="Thmdefinition1">
+      <tags>
+        <tag>Definition 1</tag>
+        <tag role="refnum">1</tag>
+        <tag role="typerefnum">Definition 1</tag>
+      </tags>
+      <title class="ltx_runin"><tag><text font="bold">Definition 1</text></tag><text font="bold">.</text></title>
+      <para xml:id="Thmdefinition1.p1">
+        <p><text font="italic">Counterfactual fairness</text>. A classifier <Math mode="inline" tex="f" text="f" xml:id="Thmdefinition1.p1.m1">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">f</XMTok>
+            </XMath>
+          </Math> is counterfactually fair with respect to a counterfactual generation function <Math mode="inline" tex="\Phi" text="Phi" xml:id="Thmdefinition1.p1.m2">
+            <XMath>
+              <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+            </XMath>
+          </Math> and some error rate <Math mode="inline" tex="\epsilon" text="epsilon" xml:id="Thmdefinition1.p1.m3">
+            <XMath>
+              <XMTok font="italic" name="epsilon" role="UNKNOWN">ϵ</XMTok>
+            </XMath>
+          </Math> if</p>
+        <equation xml:id="Sx3.Ex1">
+          <Math mode="display" tex="|f(x)-f(x^{\prime})|\leq\epsilon\quad\forall x\in X,x^{\prime}\in\Phi(x)" text="formulae@(absolute-value@(f * x - f * x ^ prime) &lt;= epsilon, formulae@(for-all@(x) element-of X, x ^ prime element-of Phi * x))" xml:id="Sx3.Ex1.m1">
+            <XMath>
+              <XMDual>
+                <XMApp>
+                  <XMTok meaning="formulae"/>
+                  <XMRef idref="Sx3.Ex1.m1.3"/>
+                  <XMRef idref="Sx3.Ex1.m1.4"/>
+                </XMApp>
+                <XMWrap>
+                  <XMApp xml:id="Sx3.Ex1.m1.3">
+                    <XMTok meaning="less-than-or-equals" name="leq" role="RELOP">≤</XMTok>
+                    <XMDual>
+                      <XMApp>
+                        <XMTok meaning="absolute-value"/>
+                        <XMRef idref="Sx3.Ex1.m1.3.1"/>
+                      </XMApp>
+                      <XMWrap>
+                        <XMTok role="OPEN" stretchy="false">|</XMTok>
+                        <XMApp xml:id="Sx3.Ex1.m1.3.1">
+                          <XMTok meaning="minus" role="ADDOP">-</XMTok>
+                          <XMApp>
+                            <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                            <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                            <XMDual>
+                              <XMRef idref="Sx3.Ex1.m1.1"/>
+                              <XMWrap>
+                                <XMTok role="OPEN" stretchy="false">(</XMTok>
+                                <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.Ex1.m1.1">x</XMTok>
+                                <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                              </XMWrap>
+                            </XMDual>
+                          </XMApp>
+                          <XMApp>
+                            <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                            <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                            <XMDual>
+                              <XMRef idref="Sx3.Ex1.m1.3.1.1"/>
+                              <XMWrap>
+                                <XMTok role="OPEN" stretchy="false">(</XMTok>
+                                <XMApp xml:id="Sx3.Ex1.m1.3.1.1">
+                                  <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                                  <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                  <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                                </XMApp>
+                                <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                              </XMWrap>
+                            </XMDual>
+                          </XMApp>
+                        </XMApp>
+                        <XMTok role="CLOSE" stretchy="false">|</XMTok>
+                      </XMWrap>
+                    </XMDual>
+                    <XMTok font="italic" name="epsilon" role="UNKNOWN">ϵ</XMTok>
+                  </XMApp>
+                  <XMHint name="quad" role="PUNCT" width="10pt"/>
+                  <XMDual xml:id="Sx3.Ex1.m1.4">
+                    <XMApp>
+                      <XMTok meaning="formulae"/>
+                      <XMRef idref="Sx3.Ex1.m1.4.1"/>
+                      <XMRef idref="Sx3.Ex1.m1.4.2"/>
+                    </XMApp>
+                    <XMWrap>
+                      <XMApp xml:id="Sx3.Ex1.m1.4.1">
+                        <XMTok meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                        <XMApp>
+                          <XMTok meaning="for-all" name="forall" role="BIGOP">∀</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                        </XMApp>
+                        <XMTok font="italic" role="UNKNOWN">X</XMTok>
+                      </XMApp>
+                      <XMTok role="PUNCT">,</XMTok>
+                      <XMApp xml:id="Sx3.Ex1.m1.4.2">
+                        <XMTok meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                        <XMApp>
+                          <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                          <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                          <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                        </XMApp>
+                        <XMApp>
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx3.Ex1.m1.2"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.Ex1.m1.2">x</XMTok>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                      </XMApp>
+                    </XMWrap>
+                  </XMDual>
+                </XMWrap>
+              </XMDual>
+            </XMath>
+          </Math>
+        </equation>
+      </para>
+    </theorem>
+    <subsection inlist="toc" labels="LABEL:ctf" xml:id="Sx3.SSx1">
+      <title>Counterfactual Token Fairness (CTF)</title>
+      <para xml:id="Sx3.SSx1.p1">
+        <p>We consider a narrow class of counterfactuals that involves substituting identity tokens in the input, for instance, substituting “gay” with “straight” in the input “Some people are gay.”
+We assume a set of identity tokens, <Math mode="inline" tex="\mathcal{A}" text="A" xml:id="Sx3.SSx1.p1.m1">
+            <XMath>
+              <XMTok font="caligraphic" role="UNKNOWN">A</XMTok>
+            </XMath>
+          </Math>, for which we seek to be counterfactually fair. Consider a pair of tokens <Math mode="inline" tex="a,a^{\prime}\in\mathcal{A}" text="list@(a, a ^ prime) element-of A" xml:id="Sx3.SSx1.p1.m2">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                <XMDual>
+                  <XMApp>
+                    <XMTok meaning="list"/>
+                    <XMRef idref="Sx3.SSx1.p1.m2.1"/>
+                    <XMRef idref="Sx3.SSx1.p1.m2.2"/>
+                  </XMApp>
+                  <XMWrap>
+                    <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.SSx1.p1.m2.1">a</XMTok>
+                    <XMTok role="PUNCT">,</XMTok>
+                    <XMApp xml:id="Sx3.SSx1.p1.m2.2">
+                      <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                      <XMTok font="italic" role="UNKNOWN">a</XMTok>
+                      <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                    </XMApp>
+                  </XMWrap>
+                </XMDual>
+                <XMTok font="caligraphic" role="UNKNOWN">A</XMTok>
+              </XMApp>
+            </XMath>
+          </Math>. The associated counterfactual example generation function <Math mode="inline" tex="\Phi_{a,a^{\prime}}" text="Phi _ (list@(a, a ^ prime))" xml:id="Sx3.SSx1.p1.m3">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                <XMDual>
+                  <XMApp>
+                    <XMTok meaning="list"/>
+                    <XMRef idref="Sx3.SSx1.p1.m3.1"/>
+                    <XMRef idref="Sx3.SSx1.p1.m3.2"/>
+                  </XMApp>
+                  <XMWrap>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx3.SSx1.p1.m3.1">a</XMTok>
+                    <XMTok fontsize="70%" role="PUNCT">,</XMTok>
+                    <XMApp xml:id="Sx3.SSx1.p1.m3.2">
+                      <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                      <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                      <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                    </XMApp>
+                  </XMWrap>
+                </XMDual>
+              </XMApp>
+            </XMath>
+          </Math> is defined by substituting all occurrences of <Math mode="inline" tex="a" text="a" xml:id="Sx3.SSx1.p1.m4">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">a</XMTok>
+            </XMath>
+          </Math> in <Math mode="inline" tex="x" text="x" xml:id="Sx3.SSx1.p1.m5">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">x</XMTok>
+            </XMath>
+          </Math> with <Math mode="inline" tex="a^{\prime}" text="a ^ prime" xml:id="Sx3.SSx1.p1.m6">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                <XMTok font="italic" role="UNKNOWN">a</XMTok>
+                <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> and vice versa. If neither identity token is present in the input <Math mode="inline" tex="x" text="x" xml:id="Sx3.SSx1.p1.m7">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">x</XMTok>
+            </XMath>
+          </Math>, then <Math mode="inline" tex="\Phi_{a,a^{\prime}}(x)=\emptyset" text="Phi _ (list@(a, a ^ prime)) * x = empty-set" xml:id="Sx3.SSx1.p1.m8">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                    <XMDual>
+                      <XMApp>
+                        <XMTok meaning="list"/>
+                        <XMRef idref="Sx3.SSx1.p1.m8.1"/>
+                        <XMRef idref="Sx3.SSx1.p1.m8.2"/>
+                      </XMApp>
+                      <XMWrap>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx3.SSx1.p1.m8.1">a</XMTok>
+                        <XMTok fontsize="70%" role="PUNCT">,</XMTok>
+                        <XMApp xml:id="Sx3.SSx1.p1.m8.2">
+                          <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                          <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                          <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                        </XMApp>
+                      </XMWrap>
+                    </XMDual>
+                  </XMApp>
+                  <XMDual>
+                    <XMRef idref="Sx3.SSx1.p1.m8.3"/>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">(</XMTok>
+                      <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.SSx1.p1.m8.3">x</XMTok>
+                      <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+                <XMTok meaning="empty-set" name="emptyset" role="ID">∅</XMTok>
+              </XMApp>
+            </XMath>
+          </Math>.
+We generalize this definition to a counterfactual generation function over <Math mode="inline" tex="\mathcal{A}" text="A" xml:id="Sx3.SSx1.p1.m9">
+            <XMath>
+              <XMTok font="caligraphic" role="UNKNOWN">A</XMTok>
+            </XMath>
+          </Math> that generates all counterfactual examples based on pairs of substitutions:</p>
+        <equation xml:id="Sx3.Ex2">
+          <Math mode="display" tex="\Phi_{\mathcal{A}}(x)=\bigcup_{a\neq a^{\prime}\in\mathcal{A}}\Phi_{a,a^{%&#10;\prime}}(x)" text="Phi _ A * x = (union _ (a not-equals a ^ prime element-of A))@(Phi _ (list@(a, a ^ prime)) * x)" xml:id="Sx3.Ex2.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                    <XMTok font="caligraphic" fontsize="70%" role="UNKNOWN">A</XMTok>
+                  </XMApp>
+                  <XMDual>
+                    <XMRef idref="Sx3.Ex2.m1.3"/>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">(</XMTok>
+                      <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.Ex2.m1.3">x</XMTok>
+                      <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+                <XMApp>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="mid1"/>
+                    <XMTok mathstyle="display" meaning="union" name="bigcup" role="SUMOP" scriptpos="mid">⋃</XMTok>
+                    <XMApp>
+                      <XMTok meaning="multirelation"/>
+                      <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                      <XMTok fontsize="70%" meaning="not-equals" name="neq" role="RELOP">≠</XMTok>
+                      <XMApp>
+                        <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                        <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                      </XMApp>
+                      <XMTok fontsize="70%" meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                      <XMTok font="caligraphic" fontsize="70%" role="UNKNOWN">A</XMTok>
+                    </XMApp>
+                  </XMApp>
+                  <XMApp>
+                    <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                    <XMApp>
+                      <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                      <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                      <XMDual>
+                        <XMApp>
+                          <XMTok meaning="list"/>
+                          <XMRef idref="Sx3.Ex2.m1.1"/>
+                          <XMRef idref="Sx3.Ex2.m1.2"/>
+                        </XMApp>
+                        <XMWrap>
+                          <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx3.Ex2.m1.1">a</XMTok>
+                          <XMTok fontsize="70%" role="PUNCT">,</XMTok>
+                          <XMApp xml:id="Sx3.Ex2.m1.2">
+                            <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                            <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                            <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                          </XMApp>
+                        </XMWrap>
+                      </XMDual>
+                    </XMApp>
+                    <XMDual>
+                      <XMRef idref="Sx3.Ex2.m1.4"/>
+                      <XMWrap>
+                        <XMTok role="OPEN" stretchy="false">(</XMTok>
+                        <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.Ex2.m1.4">x</XMTok>
+                        <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                      </XMWrap>
+                    </XMDual>
+                  </XMApp>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>
+        </equation>
+      </para>
+      <theorem class="ltx_theorem_definition" inlist="thm theorem:definition" xml:id="Thmdefinition2">
+        <tags>
+          <tag>Definition 2</tag>
+          <tag role="refnum">2</tag>
+          <tag role="typerefnum">Definition 2</tag>
+        </tags>
+        <title class="ltx_runin"><tag><text font="bold">Definition 2</text></tag><text font="bold">.</text></title>
+        <para xml:id="Thmdefinition2.p1">
+          <p>A classifier satisfies <emph font="italic">counterfactual token fairness</emph> with respect to a set of identity tokens <Math mode="inline" tex="\mathcal{A}" text="A" xml:id="Thmdefinition2.p1.m1">
+              <XMath>
+                <XMTok font="caligraphic" role="UNKNOWN">A</XMTok>
+              </XMath>
+            </Math> if it satisfies counterfactual fairness with respect to the counterfactual generation function <Math mode="inline" tex="\Phi_{\mathcal{A}}" text="Phi _ A" xml:id="Thmdefinition2.p1.m2">
+              <XMath>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                  <XMTok font="caligraphic" fontsize="70%" role="UNKNOWN">A</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> and error rate <Math mode="inline" tex="\epsilon" text="epsilon" xml:id="Thmdefinition2.p1.m3">
+              <XMath>
+                <XMTok font="italic" name="epsilon" role="UNKNOWN">ϵ</XMTok>
+              </XMath>
+            </Math>.</p>
+        </para>
+      </theorem>
+      <para xml:id="Sx3.SSx1.p2">
+        <p>Although content about sensitive groups may be captured by complex semantics, this metric will surface a subset of problematic issues related to more general counterfactual fairness. This a first step, and surfaces additional concerns for fairness beyond those of group fairness.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" xml:id="Sx3.SSx2">
+      <title>Asymmetric Counterfactuals</title>
+      <para xml:id="Sx3.SSx2.p1">
+        <p>So far we have assumed that all counterfactuals with respect to identity tokens should have the same prediction. This assumption is not valid in cases where the sensitive attribute indeed affects the prediction.
+For instance, consider a model predicting toxicity of text, and the counterfactual pair “That’s so gay” and “That’s so straight.” The first example is arguably more likely to be considered toxic than the second, as “gay” is often used as an insult in Internet forums, while “straight” is not. Other examples include stereotyping, where one group is more vulnerable than another. Requiring equal predictions across such cases can inadvertently harm the more vulnerable group.</p>
+      </para>
+      <para xml:id="Sx3.SSx2.p2">
+        <p>Fairness must be required only among counterfactuals that stipulate symmetric predictions. This restriction can be accommodated in our framework by restricting the counterfactual generation function <Math mode="inline" tex="\Phi(x)" text="Phi * x" xml:id="Sx3.SSx2.p2.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                <XMDual>
+                  <XMRef idref="Sx3.SSx2.p2.m1.1"/>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.SSx2.p2.m1.1">x</XMTok>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMApp>
+            </XMath>
+          </Math> to exclude any counterfactuals for the example <Math mode="inline" tex="x" text="x" xml:id="Sx3.SSx2.p2.m2">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">x</XMTok>
+            </XMath>
+          </Math> that may have asymmetric labels. In general, the degree and direction of the asymmetry between counterfactuals varies based on the task, and the cultural sensitivities of the consumers of the task. This makes it difficult to define a perfect counterfactual generation function. In Experiments, we propose a
+heuristic for avoiding asymmetric counterfactuals for a model predicting toxicity of text.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:relationship" xml:id="Sx3.SSx3">
+      <title>Relationship to Group Fairness</title>
+      <para xml:id="Sx3.SSx3.p1">
+        <p>Counterfactual fairness is complementary to the group fairness notion of <emph font="italic">equality of odds</emph> <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hardt16" separator="," yyseparator=","/>]</cite>, which demands equality of true positive rates and true negative rates for different values of the sensitive attribute. A text classifier may satisfy one while completely failing the other.
+Consider the case when two sensitive attributes <Math mode="inline" tex="a" text="a" xml:id="Sx3.SSx3.p1.m1">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">a</XMTok>
+            </XMath>
+          </Math> and <Math mode="inline" tex="a^{\prime}" text="a ^ prime" xml:id="Sx3.SSx3.p1.m2">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                <XMTok font="italic" role="UNKNOWN">a</XMTok>
+                <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> only appear in disjoint sets of contexts <Math mode="inline" tex="X_{a}" text="X _ a" xml:id="Sx3.SSx3.p1.m3">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                <XMTok font="italic" role="UNKNOWN">X</XMTok>
+                <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> and <Math mode="inline" tex="X_{a^{\prime}}" text="X _ (a ^ prime)" xml:id="Sx3.SSx3.p1.m4">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                <XMTok font="italic" role="UNKNOWN">X</XMTok>
+                <XMApp>
+                  <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                  <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>, respectively. A model can satisfy equality of odds by always predicting correctly on the contexts in which <Math mode="inline" tex="a,a^{\prime}" text="list@(a, a ^ prime)" xml:id="Sx3.SSx3.p1.m5">
+            <XMath>
+              <XMDual>
+                <XMApp>
+                  <XMTok meaning="list"/>
+                  <XMRef idref="Sx3.SSx3.p1.m5.1"/>
+                  <XMRef idref="Sx3.SSx3.p1.m5.2"/>
+                </XMApp>
+                <XMWrap>
+                  <XMTok font="italic" role="UNKNOWN" xml:id="Sx3.SSx3.p1.m5.1">a</XMTok>
+                  <XMTok role="PUNCT">,</XMTok>
+                  <XMApp xml:id="Sx3.SSx3.p1.m5.2">
+                    <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                    <XMTok font="italic" role="UNKNOWN">a</XMTok>
+                    <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                  </XMApp>
+                </XMWrap>
+              </XMDual>
+            </XMath>
+          </Math> appear in the data, but never in the counterfactual contexts that do not exist in the data. Conversely, the model could predict identical output for all counterfactual pairs while predicting correctly only on <Math mode="inline" tex="X_{a}" text="X _ a" xml:id="Sx3.SSx3.p1.m6">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                <XMTok font="italic" role="UNKNOWN">X</XMTok>
+                <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> and not <Math mode="inline" tex="X_{a}^{\prime}" text="(X _ a) ^ prime" xml:id="Sx3.SSx3.p1.m7">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUPERSCRIPTOP" scriptpos="post1"/>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                  <XMTok font="italic" role="UNKNOWN">X</XMTok>
+                  <XMTok font="italic" fontsize="70%" role="UNKNOWN">a</XMTok>
+                </XMApp>
+                <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+              </XMApp>
+            </XMath>
+          </Math>.</p>
+      </para>
+    </subsection>
+  </section>
+  <section inlist="toc" xml:id="Sx4">
+    <title>Methods</title>
+    <para xml:id="Sx4.p1">
+      <p><!--  %**** main.tex Line 150 **** -->We propose three methods to improve counterfactual fairness: blindness, counterfactual augmentation, and counterfactual logit pairing. Both methods assume access to a list of identity tokens for which they seek to be fair.</p>
+    </para>
+    <subsection inlist="toc" xml:id="Sx4.SSx1">
+      <title>Blindness</title>
+      <para xml:id="Sx4.SSx1.p1">
+        <p>Blindness substitutes all identity tokens with a special <text font="typewriter">IDENTITY</text> token, which allows the predictor to know that an identity term is present, but not which identity. This is similar to standard NLP methods such as replacing large numbers with a generic <text font="typewriter">NUMBER</text>.
+While this approach guarantees counterfactual token fairness, it has a number of downsides.
+First, it does not have the ability to differentiate identity terms, and so necessarily equates asymmetric counterfactuals. Second,
+it cannot handle complex counterfactuals that involve more than single token substitutions, e.g. “Christians go to church.” and “Jews go to temple.”
+Finally, the model may still discriminate using other signals that are associated with the identity term <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dwork11" separator="," yyseparator=","/>]</cite>.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" xml:id="Sx4.SSx2">
+      <title>Counterfactual Augmentation</title>
+      <para xml:id="Sx4.SSx2.p1">
+        <p>Instead of blinding the model to identity terms, counterfactual augmentation involves augmenting the model’s training set with generated counterfactual examples. The additional examples are meant to guide the model to become invariant to perturbing identity terms. This is a standard technique in computer vision for making the model invariant to object location, image orientation, etc. The counterfactual examples are assigned the same label as the original example.</p>
+      </para>
+    </subsection>
+    <subsection inlist="toc" xml:id="Sx4.SSx3">
+      <title>Counterfactual Logit Pairing (CLP)</title>
+      <para xml:id="Sx4.SSx3.p1">
+        <p>Counterfactual logit pairing (CLP) encourages the model to be robust to identity by adding a robustness term to the training loss. The robustness term is given by logit pairing <cite class="ltx_citemacro_cite">[<bibref bibrefs="ALP" separator="," yyseparator=","/>]</cite>, which penalizes the norm of the difference in logits for pairs of training examples and their counterfactuals.
+Specifically, suppose the classifier <Math mode="inline" tex="f(x)=\sigma(g(x))" text="f * x = sigma * g * x" xml:id="Sx4.SSx3.p1.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                  <XMDual>
+                    <XMRef idref="Sx4.SSx3.p1.m1.1"/>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">(</XMTok>
+                      <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.SSx3.p1.m1.1">x</XMTok>
+                      <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMTok font="italic" name="sigma" role="UNKNOWN">σ</XMTok>
+                  <XMDual>
+                    <XMRef idref="Sx4.SSx3.p1.m1.3"/>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">(</XMTok>
+                      <XMApp xml:id="Sx4.SSx3.p1.m1.3">
+                        <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                        <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                        <XMDual>
+                          <XMRef idref="Sx4.SSx3.p1.m1.2"/>
+                          <XMWrap>
+                            <XMTok role="OPEN" stretchy="false">(</XMTok>
+                            <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.SSx3.p1.m1.2">x</XMTok>
+                            <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                          </XMWrap>
+                        </XMDual>
+                      </XMApp>
+                      <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>, where <Math mode="inline" tex="g(x)" text="g * x" xml:id="Sx4.SSx3.p1.m2">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                <XMDual>
+                  <XMRef idref="Sx4.SSx3.p1.m2.1"/>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.SSx3.p1.m2.1">x</XMTok>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMApp>
+            </XMath>
+          </Math> produces a logit and <Math mode="inline" tex="\sigma(\cdot)" text="sigma * cdot" xml:id="Sx4.SSx3.p1.m3">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                <XMTok font="italic" name="sigma" role="UNKNOWN">σ</XMTok>
+                <XMDual>
+                  <XMRef idref="Sx4.SSx3.p1.m3.1"/>
+                  <XMWrap>
+                    <XMTok role="OPEN" stretchy="false">(</XMTok>
+                    <XMTok name="cdot" role="MULOP" xml:id="Sx4.SSx3.p1.m3.1">⋅</XMTok>
+                    <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                  </XMWrap>
+                </XMDual>
+              </XMApp>
+            </XMath>
+          </Math> is the sigmoid function.
+The additional loss is the average absolute difference in logits between the inputs and their counterfactuals:</p>
+        <equation xml:id="Sx4.Ex3">
+          <Math mode="display" tex="\sum_{x\in X}{\mathop{\mathbb{E}}_{x^{\prime}\sim\text{Unif}[\Phi(x)]}|g(x)-g(%&#10;x^{\prime})|}" text="(sum _ (x element-of X))@((E _ (x ^ prime similar-to [Unif] * delimited-[]@(Phi * x)))@(absolute-value@(g * x - g * x ^ prime)))" xml:id="Sx4.Ex3.m1">
+            <XMath>
+              <XMApp>
+                <XMApp>
+                  <XMTok role="SUBSCRIPTOP" scriptpos="mid1"/>
+                  <XMTok mathstyle="display" meaning="sum" role="SUMOP" scriptpos="mid">∑</XMTok>
+                  <XMApp>
+                    <XMTok fontsize="70%" meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                    <XMTok font="italic" fontsize="70%" role="UNKNOWN">X</XMTok>
+                  </XMApp>
+                </XMApp>
+                <XMApp>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="mid2"/>
+                    <XMTok font="blackboard" role="BIGOP" scriptpos="mid">E</XMTok>
+                    <XMApp>
+                      <XMTok fontsize="70%" meaning="similar-to" name="sim" role="RELOP">∼</XMTok>
+                      <XMApp>
+                        <XMTok role="SUPERSCRIPTOP" scriptpos="post3"/>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                        <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                      </XMApp>
+                      <XMApp>
+                        <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                        <XMText><text fontsize="70%">Unif</text></XMText>
+                        <XMDual>
+                          <XMApp>
+                            <XMTok meaning="delimited-[]"/>
+                            <XMRef idref="Sx4.Ex3.m1.2"/>
+                          </XMApp>
+                          <XMWrap>
+                            <XMTok fontsize="70%" role="OPEN" stretchy="false">[</XMTok>
+                            <XMApp xml:id="Sx4.Ex3.m1.2">
+                              <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                              <XMTok fontsize="70%" name="Phi" role="UNKNOWN">Φ</XMTok>
+                              <XMDual>
+                                <XMRef idref="Sx4.Ex3.m1.1"/>
+                                <XMWrap>
+                                  <XMTok fontsize="70%" role="OPEN" stretchy="false">(</XMTok>
+                                  <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx4.Ex3.m1.1">x</XMTok>
+                                  <XMTok fontsize="70%" role="CLOSE" stretchy="false">)</XMTok>
+                                </XMWrap>
+                              </XMDual>
+                            </XMApp>
+                            <XMTok fontsize="70%" role="CLOSE" stretchy="false">]</XMTok>
+                          </XMWrap>
+                        </XMDual>
+                      </XMApp>
+                    </XMApp>
+                  </XMApp>
+                  <XMDual>
+                    <XMApp>
+                      <XMTok meaning="absolute-value"/>
+                      <XMRef idref="Sx4.Ex3.m1.4"/>
+                    </XMApp>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">|</XMTok>
+                      <XMApp xml:id="Sx4.Ex3.m1.4">
+                        <XMTok meaning="minus" role="ADDOP">-</XMTok>
+                        <XMApp>
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx4.Ex3.m1.3"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.Ex3.m1.3">x</XMTok>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                        <XMApp>
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx4.Ex3.m1.4.1"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMApp xml:id="Sx4.Ex3.m1.4.1">
+                                <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                                <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                              </XMApp>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                      </XMApp>
+                      <XMTok role="CLOSE" stretchy="false">|</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>
+        </equation>
+        <p>For computational tractability, during training, we randomly sample a single counterfactual example for each input. Taking <Math mode="inline" tex="J" text="J" xml:id="Sx4.SSx3.p1.m4">
+            <XMath>
+              <XMTok font="italic" role="UNKNOWN">J</XMTok>
+            </XMath>
+          </Math> as the original loss function, the overall objective is:</p>
+        <equation xml:id="Sx4.Ex4">
+          <Math mode="display" tex="\sum_{x\in X}{J(f(x),y)}+\lambda\sum_{x\in X}{\mathop{\mathbb{E}}_{x^{\prime}%&#10;\sim\text{Unif}[\Phi(x)]}|g(x)-g(x^{\prime})|}" text="(sum _ (x element-of X))@(J * open-interval@(f * x, y)) + lambda * (sum _ (x element-of X))@((E _ (x ^ prime similar-to [Unif] * delimited-[]@(Phi * x)))@(absolute-value@(g * x - g * x ^ prime)))" xml:id="Sx4.Ex4.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="plus" role="ADDOP">+</XMTok>
+                <XMApp>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="mid1"/>
+                    <XMTok mathstyle="display" meaning="sum" role="SUMOP" scriptpos="mid">∑</XMTok>
+                    <XMApp>
+                      <XMTok fontsize="70%" meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                      <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                      <XMTok font="italic" fontsize="70%" role="UNKNOWN">X</XMTok>
+                    </XMApp>
+                  </XMApp>
+                  <XMApp>
+                    <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                    <XMTok font="italic" role="UNKNOWN">J</XMTok>
+                    <XMDual>
+                      <XMApp>
+                        <XMTok meaning="open-interval"/>
+                        <XMRef idref="Sx4.Ex4.m1.6"/>
+                        <XMRef idref="Sx4.Ex4.m1.4"/>
+                      </XMApp>
+                      <XMWrap>
+                        <XMTok role="OPEN" stretchy="false">(</XMTok>
+                        <XMApp xml:id="Sx4.Ex4.m1.6">
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx4.Ex4.m1.3"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.Ex4.m1.3">x</XMTok>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                        <XMTok role="PUNCT">,</XMTok>
+                        <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.Ex4.m1.4">y</XMTok>
+                        <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                      </XMWrap>
+                    </XMDual>
+                  </XMApp>
+                </XMApp>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                  <XMApp>
+                    <XMApp>
+                      <XMTok role="SUBSCRIPTOP" scriptpos="mid1"/>
+                      <XMTok mathstyle="display" meaning="sum" role="SUMOP" scriptpos="mid">∑</XMTok>
+                      <XMApp>
+                        <XMTok fontsize="70%" meaning="element-of" name="in" role="RELOP">∈</XMTok>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">X</XMTok>
+                      </XMApp>
+                    </XMApp>
+                    <XMApp>
+                      <XMApp>
+                        <XMTok role="SUBSCRIPTOP" scriptpos="mid2"/>
+                        <XMTok font="blackboard" role="BIGOP" scriptpos="mid">E</XMTok>
+                        <XMApp>
+                          <XMTok fontsize="70%" meaning="similar-to" name="sim" role="RELOP">∼</XMTok>
+                          <XMApp>
+                            <XMTok role="SUPERSCRIPTOP" scriptpos="post3"/>
+                            <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                            <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                          </XMApp>
+                          <XMApp>
+                            <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                            <XMText><text fontsize="70%">Unif</text></XMText>
+                            <XMDual>
+                              <XMApp>
+                                <XMTok meaning="delimited-[]"/>
+                                <XMRef idref="Sx4.Ex4.m1.2"/>
+                              </XMApp>
+                              <XMWrap>
+                                <XMTok fontsize="70%" role="OPEN" stretchy="false">[</XMTok>
+                                <XMApp xml:id="Sx4.Ex4.m1.2">
+                                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                                  <XMTok fontsize="70%" name="Phi" role="UNKNOWN">Φ</XMTok>
+                                  <XMDual>
+                                    <XMRef idref="Sx4.Ex4.m1.1"/>
+                                    <XMWrap>
+                                      <XMTok fontsize="70%" role="OPEN" stretchy="false">(</XMTok>
+                                      <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx4.Ex4.m1.1">x</XMTok>
+                                      <XMTok fontsize="70%" role="CLOSE" stretchy="false">)</XMTok>
+                                    </XMWrap>
+                                  </XMDual>
+                                </XMApp>
+                                <XMTok fontsize="70%" role="CLOSE" stretchy="false">]</XMTok>
+                              </XMWrap>
+                            </XMDual>
+                          </XMApp>
+                        </XMApp>
+                      </XMApp>
+                      <XMDual>
+                        <XMApp>
+                          <XMTok meaning="absolute-value"/>
+                          <XMRef idref="Sx4.Ex4.m1.7"/>
+                        </XMApp>
+                        <XMWrap>
+                          <XMTok role="OPEN" stretchy="false">|</XMTok>
+                          <XMApp xml:id="Sx4.Ex4.m1.7">
+                            <XMTok meaning="minus" role="ADDOP">-</XMTok>
+                            <XMApp>
+                              <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                              <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                              <XMDual>
+                                <XMRef idref="Sx4.Ex4.m1.5"/>
+                                <XMWrap>
+                                  <XMTok role="OPEN" stretchy="false">(</XMTok>
+                                  <XMTok font="italic" role="UNKNOWN" xml:id="Sx4.Ex4.m1.5">x</XMTok>
+                                  <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                                </XMWrap>
+                              </XMDual>
+                            </XMApp>
+                            <XMApp>
+                              <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                              <XMTok font="italic" role="UNKNOWN">g</XMTok>
+                              <XMDual>
+                                <XMRef idref="Sx4.Ex4.m1.7.1"/>
+                                <XMWrap>
+                                  <XMTok role="OPEN" stretchy="false">(</XMTok>
+                                  <XMApp xml:id="Sx4.Ex4.m1.7.1">
+                                    <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                                    <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                    <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                                  </XMApp>
+                                  <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                                </XMWrap>
+                              </XMDual>
+                            </XMApp>
+                          </XMApp>
+                          <XMTok role="CLOSE" stretchy="false">|</XMTok>
+                        </XMWrap>
+                      </XMDual>
+                    </XMApp>
+                  </XMApp>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>
+        </equation>
+        <p>Similar to counterfactual augmentation, CLP can use any counterfactual generation function. For example, a restricted counterfactual generation function could be used to avoid enforcing equality over asymmetric counterfactuals. Moreover, the method also applies if more sophisticated counterfactuals are generated.</p>
+      </para>
+      <para xml:id="Sx4.SSx3.p2">
+        <p>In contrast to counterfactual augmentation, the robustness term in the CLP loss explicitly guides the model to satisfy two desirable properties: (1) ensuring a model produces similar outputs on counterfactual pairs and (2) learning models that generalize well to different identities.
+Moreover, the parameter <Math mode="inline" tex="\lambda" text="lambda" xml:id="Sx4.SSx3.p2.m1">
+            <XMath>
+              <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+            </XMath>
+          </Math> can be tuned to achieve varying degrees of counterfactual fairness.</p>
+      </para>
+    </subsection>
+  </section>
+  <section inlist="toc" labels="LABEL:experiments" xml:id="Sx5">
+    <title>Experiments</title>
+    <paragraph inlist="toc" xml:id="Sx5.SSx3.SSS0.Px1">
+      <title>Dataset</title>
+      <para xml:id="Sx5.SSx3.SSS0.Px1.p1">
+        <p>We evaluate our methods on the task of predicting toxicity. For the task, a toxic comment is defined as a “rude, disrespectful, or unreasonable comment that is likely to make you leave a discussion.” <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dixon18" separator="," yyseparator=","/>]</cite>. We use a public Kaggle dataset of 160K Wikipedia comments, each labeled by human raters as toxic or non-toxic<note mark="1" role="footnote" xml:id="footnote1"><tags>
+              <tag>1</tag>
+              <tag role="refnum">1</tag>
+              <tag role="typerefnum">footnote 1</tag>
+            </tags>https://www.kaggle.com/c/jigsaw-toxic-comment-classification-challenge</note>, randomly split into train and dev sets. We evaluate AUC of the primary task on the public test set. We evaluate counterfactual token fairness and group fairness on a private dataset of comments from another internet forum. This dataset, henceforth called the “evaluation dataset,” has a higher occurrence of identity terms, and therefore leads to a more meaningful fairness evaluation.</p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="Sx5.SSx3.SSS0.Px2">
+      <title>Setup</title>
+      <para xml:id="Sx5.SSx3.SSS0.Px2.p1">
+        <p>We evaluate our methods for counterfactual token fairness on the set of 50 identity terms used by <ERROR class="undefined">\citeauthor</ERROR>Dixon18. Out of these, 47 are single tokens and 3 are bigrams. We randomly partition the terms into a training set of 35 and a hold-out set of 12 to evaluate generalization. We also include the three bigrams in evaluation, because they reflect scenarios that blindness cannot address during training.<note mark="2" role="footnote" xml:id="footnote2"><tags>
+              <tag>2</tag>
+              <tag role="refnum">2</tag>
+              <tag role="typerefnum">footnote 2</tag>
+            </tags>Only single tokens in the input are substituted with bigrams during evaluation.</note></p>
+      </para>
+      <para xml:id="Sx5.SSx3.SSS0.Px2.p2">
+        <p>All of the models are CNNs trained with cross entropy loss against the binary toxicity label. All hyperparameters except for the fairness regularizer <Math mode="inline" tex="\lambda" text="lambda" xml:id="Sx5.SSx3.SSS0.Px2.p2.m1">
+            <XMath>
+              <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+            </XMath>
+          </Math> for CLP were fixed for all runs of all models. Models were trained for five epochs, and the best model on the dev set was taken. Each model was trained ten times, and the average of the runs is reported. Blindness, Counterfactual augmentation, and CLP models (for different values of <Math mode="inline" tex="\lambda" text="lambda" xml:id="Sx5.SSx3.SSS0.Px2.p2.m2">
+            <XMath>
+              <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+            </XMath>
+          </Math>) were evaluated and compared to a baseline model.</p>
+      </para>
+      <para xml:id="Sx5.SSx3.SSS0.Px2.p3">
+        <p>For CLP training, we define a different counterfactual example generation function than the one used for evaluation. The evaluation counterfactuals only apply substitutions to a pair of identity tokens, whereas during training, each sensitive identity token in an input is randomly substituted with another identity token.</p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="Sx5.SSx3.SSS0.Px3">
+      <title>Handling Asymmetric Counterfactuals</title>
+      <para xml:id="Sx5.SSx3.SSS0.Px3.p1">
+        <p>We hypothesize that asymmetric counterfactuals are less likely to arise for ground truth non-toxic comments than toxic comments. This for two reasons.
+Asymmetric counterfactuals arise when stereotyping / attacking a vulnerable group occurs for some identity substitution, and no other toxicity signals are present.
+In such cases, most identity substitutions will be nontoxic, and only the one attacking the vulnerable group(s) will be toxic. So if the ground truth example is nontoxic, counterfactual fairness can still be required over most identity substitutions, whereas if the ground truth example is toxic, equal prediction should not be required over most counterfactuals.
+Second, the stereotyping comments are more likely to occur in a toxic comment attacking the stereotyped group than in a nontoxic comment referencing some other identity group.
+For these reasons, we evaluate counterfactual token fairness over ground truth nontoxic comments separately from ground truth toxic comments, and focus our analysis on nontoxic comments.
+We also consider applying the CLP loss only to nontoxic comments during training, to avoid enforcing equality of logits for potentially asymmetric counterfactuals. We distinguish this variant as CLP_nontoxic.</p>
+      </para>
+      <para xml:id="Sx5.SSx3.SSS0.Px3.p2">
+        <p>Separately, we also evaluate CTF on simple synthetic inputs where all information about toxicity is encoded in the context, and all counterfactuals are symmetric by design. Specifically, we use a dataset of synthetically generated sentences based on templates such as “<text font="typewriter">NAME</text> is a <text font="typewriter">ADJECTIVE</text>.”<note mark="3" role="footnote" xml:id="footnote3"><tags>
+              <tag>3</tag>
+              <tag role="refnum">3</tag>
+              <tag role="typerefnum">footnote 3</tag>
+            </tags>This is the updated open sourced version of the synthetic test set presented in <cite class="ltx_citemacro_cite">[<bibref bibrefs="Dixon18" separator="," yyseparator=","/>]</cite>.</note></p>
+      </para>
+    </paragraph>
+    <paragraph inlist="toc" xml:id="Sx5.SSx3.SSS0.Px4">
+      <title>Metrics</title>
+      <para xml:id="Sx5.SSx3.SSS0.Px4.p1">
+        <p>We measure the <emph font="italic">counterfactual token fairness gap</emph> with respect to a given counterfactual generation function. For a single example, this is the average gap in prediction over all of the counterfactual pairs for that example:</p>
+        <equation xml:id="Sx5.Ex5">
+          <Math mode="display" tex="\text{CF GAP}_{\Phi}(x)={\mathop{\mathbb{E}}_{x^{\prime}\sim\text{Unif}[\Phi(x%&#10;)]}|f(x)-f(x^{\prime})|}" text="[CF GAP] _ Phi * x = (E _ (x ^ prime similar-to [Unif] * delimited-[]@(Phi * x)))@(absolute-value@(f * x - f * x ^ prime))" xml:id="Sx5.Ex5.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMApp>
+                  <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                    <XMText>CF GAP</XMText>
+                    <XMTok fontsize="70%" name="Phi" role="UNKNOWN">Φ</XMTok>
+                  </XMApp>
+                  <XMDual>
+                    <XMRef idref="Sx5.Ex5.m1.3"/>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">(</XMTok>
+                      <XMTok font="italic" role="UNKNOWN" xml:id="Sx5.Ex5.m1.3">x</XMTok>
+                      <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+                <XMApp>
+                  <XMApp>
+                    <XMTok role="SUBSCRIPTOP" scriptpos="mid2"/>
+                    <XMTok font="blackboard" role="BIGOP" scriptpos="mid">E</XMTok>
+                    <XMApp>
+                      <XMTok fontsize="70%" meaning="similar-to" name="sim" role="RELOP">∼</XMTok>
+                      <XMApp>
+                        <XMTok role="SUPERSCRIPTOP" scriptpos="post3"/>
+                        <XMTok font="italic" fontsize="70%" role="UNKNOWN">x</XMTok>
+                        <XMTok fontsize="50%" name="prime" role="SUPOP">′</XMTok>
+                      </XMApp>
+                      <XMApp>
+                        <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                        <XMText><text fontsize="70%">Unif</text></XMText>
+                        <XMDual>
+                          <XMApp>
+                            <XMTok meaning="delimited-[]"/>
+                            <XMRef idref="Sx5.Ex5.m1.2"/>
+                          </XMApp>
+                          <XMWrap>
+                            <XMTok fontsize="70%" role="OPEN" stretchy="false">[</XMTok>
+                            <XMApp xml:id="Sx5.Ex5.m1.2">
+                              <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                              <XMTok fontsize="70%" name="Phi" role="UNKNOWN">Φ</XMTok>
+                              <XMDual>
+                                <XMRef idref="Sx5.Ex5.m1.1"/>
+                                <XMWrap>
+                                  <XMTok fontsize="70%" role="OPEN" stretchy="false">(</XMTok>
+                                  <XMTok font="italic" fontsize="70%" role="UNKNOWN" xml:id="Sx5.Ex5.m1.1">x</XMTok>
+                                  <XMTok fontsize="70%" role="CLOSE" stretchy="false">)</XMTok>
+                                </XMWrap>
+                              </XMDual>
+                            </XMApp>
+                            <XMTok fontsize="70%" role="CLOSE" stretchy="false">]</XMTok>
+                          </XMWrap>
+                        </XMDual>
+                      </XMApp>
+                    </XMApp>
+                  </XMApp>
+                  <XMDual>
+                    <XMApp>
+                      <XMTok meaning="absolute-value"/>
+                      <XMRef idref="Sx5.Ex5.m1.5"/>
+                    </XMApp>
+                    <XMWrap>
+                      <XMTok role="OPEN" stretchy="false">|</XMTok>
+                      <XMApp xml:id="Sx5.Ex5.m1.5">
+                        <XMTok meaning="minus" role="ADDOP">-</XMTok>
+                        <XMApp>
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx5.Ex5.m1.4"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMTok font="italic" role="UNKNOWN" xml:id="Sx5.Ex5.m1.4">x</XMTok>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                        <XMApp>
+                          <XMTok meaning="times" role="MULOP">⁢</XMTok>
+                          <XMTok font="italic" role="UNKNOWN">f</XMTok>
+                          <XMDual>
+                            <XMRef idref="Sx5.Ex5.m1.5.1"/>
+                            <XMWrap>
+                              <XMTok role="OPEN" stretchy="false">(</XMTok>
+                              <XMApp xml:id="Sx5.Ex5.m1.5.1">
+                                <XMTok role="SUPERSCRIPTOP" scriptpos="post2"/>
+                                <XMTok font="italic" role="UNKNOWN">x</XMTok>
+                                <XMTok fontsize="70%" name="prime" role="SUPOP">′</XMTok>
+                              </XMApp>
+                              <XMTok role="CLOSE" stretchy="false">)</XMTok>
+                            </XMWrap>
+                          </XMDual>
+                        </XMApp>
+                      </XMApp>
+                      <XMTok role="CLOSE" stretchy="false">|</XMTok>
+                    </XMWrap>
+                  </XMDual>
+                </XMApp>
+              </XMApp>
+            </XMath>
+          </Math>
+        </equation>
+        <p>Over an entire dataset, the gap is the average over all examples that have valid counterfactuals. In this study, we measure the CTF GAP for the counterfactual generation function <Math mode="inline" tex="\Phi_{\mathcal{A}}" text="Phi _ A" xml:id="Sx5.SSx3.SSS0.Px4.p1.m1">
+            <XMath>
+              <XMApp>
+                <XMTok role="SUBSCRIPTOP" scriptpos="post1"/>
+                <XMTok name="Phi" role="UNKNOWN">Φ</XMTok>
+                <XMTok font="caligraphic" fontsize="70%" role="UNKNOWN">A</XMTok>
+              </XMApp>
+            </XMath>
+          </Math>, which substitutes all pairs of identity tokens.
+Because substitution-based counterfactuals over short inputs are more likely to be logical, we evaluate the CTF gaps for inputs of at most ten tokens in length.
+In addition, since asymmetric counterfactuals are likely more common for toxic comments, we evaluate CTF gaps over nontoxic and toxic comments separately.</p>
+      </para>
+      <para xml:id="Sx5.SSx3.SSS0.Px4.p2">
+        <p>We also measure group fairness to ensure that optimizing for counterfactual fairness has no perverse impact on it. Following the group fairness notion of equality of odds <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hardt16" separator="," yyseparator=","/>]</cite>, we measure the true positive rates (TPR) and true negatives rates (TNR) of examples referencing different identity groups. We assume an example references a specific identity group based on the presence of the associated token.
+Equality of odds requires equal TPR and TNR across identities, so we evaluate overall TPR and TNR gaps. The gap for a pair of identity terms is computed as the absolute value of the difference in rates for the two identity terms. The overall TPR or TNR gap is the average over all pairs of identity terms.</p>
+      </para>
+    </paragraph>
+    <subsection inlist="toc" xml:id="Sx5.SSx1">
+      <title>Results</title>
+      <table inlist="lot" labels="LABEL:tab:ctf" xml:id="Sx5.T1">
+        <tags>
+          <tag>Table 1</tag>
+          <tag role="refnum">1</tag>
+          <tag role="typerefnum">Table 1</tag>
+        </tags>
+        <tabular class="ltx_guessed_headers" vattach="middle">
+          <thead>
+            <tr>
+              <td align="left" border="l r t" thead="column">Model</td>
+              <td align="left" border="r t" thead="column">Eval NT</td>
+              <td align="left" border="r t" thead="column">Synth NT</td>
+              <td align="left" border="r t" thead="column">Synth Tox</td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td align="left" border="l r t">Baseline</td>
+              <td align="left" border="r t">0.140</td>
+              <td align="left" border="r t">0.180</td>
+              <td align="left" border="r t">0.061</td>
+            </tr>
+            <tr>
+              <td align="left" border="l r t">Blind</td>
+              <td align="left" border="r t">0.000</td>
+              <td align="left" border="r t">0.000</td>
+              <td align="left" border="r t">0.000</td>
+            </tr>
+            <tr>
+              <td align="left" border="l r t">CF Aug</td>
+              <td align="left" border="r t">0.127</td>
+              <td align="left" border="r t">0.226</td>
+              <td align="left" border="r t">0.022</td>
+            </tr>
+            <tr>
+              <td align="left" border="l r t">CLP_nontox, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="Sx5.T1.m1">
+                  <XMath>
+                    <XMApp>
+                      <XMTok meaning="equals" role="RELOP">=</XMTok>
+                      <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                      <XMTok meaning="1" role="NUMBER">1</XMTok>
+                    </XMApp>
+                  </XMath>
+                </Math></td>
+              <td align="left" border="r t">0.012</td>
+              <td align="left" border="r t">0.015</td>
+              <td align="left" border="r t">0.007</td>
+            </tr>
+            <tr>
+              <td align="left" border="l r t">CLP, <Math mode="inline" tex="\lambda=0.05" text="lambda = 0.05" xml:id="Sx5.T1.m2">
+                  <XMath>
+                    <XMApp>
+                      <XMTok meaning="equals" role="RELOP">=</XMTok>
+                      <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                      <XMTok meaning="0.05" role="NUMBER">0.05</XMTok>
+                    </XMApp>
+                  </XMath>
+                </Math></td>
+              <td align="left" border="r t">0.071</td>
+              <td align="left" border="r t">0.082</td>
+              <td align="left" border="r t">0.024</td>
+            </tr>
+            <tr>
+              <td align="left" border="l r t">CLP, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="Sx5.T1.m3">
+                  <XMath>
+                    <XMApp>
+                      <XMTok meaning="equals" role="RELOP">=</XMTok>
+                      <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                      <XMTok meaning="1" role="NUMBER">1</XMTok>
+                    </XMApp>
+                  </XMath>
+                </Math></td>
+              <td align="left" border="r t">0.007</td>
+              <td align="left" border="r t">0.015</td>
+              <td align="left" border="r t">0.007</td>
+            </tr>
+            <tr>
+              <td align="left" border="b l r t">CLP, <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.T1.m4">
+                  <XMath>
+                    <XMApp>
+                      <XMTok meaning="equals" role="RELOP">=</XMTok>
+                      <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                      <XMTok meaning="5" role="NUMBER">5</XMTok>
+                    </XMApp>
+                  </XMath>
+                </Math></td>
+              <td align="left" border="b r t">0.002</td>
+              <td align="left" border="b r t">0.004</td>
+              <td align="left" border="b r t">0.004</td>
+            </tr>
+          </tbody>
+        </tabular>
+        <toccaption><tag close=" ">1</tag>Conterfactual token fairness gaps for non-toxic examples from evaluation set and all examples from a synthetic test set.
+All gaps are measure w.r.t. 35 training terms. Smaller gaps are better.
+</toccaption>
+        <caption><tag close=": ">Table 1</tag>Conterfactual token fairness gaps for non-toxic examples from evaluation set and all examples from a synthetic test set.
+All gaps are measure w.r.t. 35 training terms. Smaller gaps are better.
+</caption>
+      </table>
+      <paragraph inlist="toc" xml:id="Sx5.SSx1.SSS0.Px1">
+        <title>Counterfactual Token Fairness</title>
+        <para xml:id="Sx5.SSx1.SSS0.Px1.p1">
+          <p>Table <ref labelref="LABEL:tab:ctf"/> reports CTF gaps for non-toxic examples from the evaluation dataset, and all examples from the synthetic dataset. The gaps are computed for the 35 training terms (discussed in Setup). As discussed earlier, both these sets of examples are unlikely to have asymmetric counterfactuals. The baseline model has a large CTF gap on both sets of examples.
+Blindness achieves a zero gap by design. CLP with a fairness regularization coefficient (<Math mode="inline" tex="\lambda" text="lambda" xml:id="Sx5.SSx1.SSS0.Px1.p1.m1">
+              <XMath>
+                <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+              </XMath>
+            </Math>) of at least 1 also attains a near zero gap. Counterfactual augmentation decreases the CTF gap (relative to the baseline) on non-toxic examples from the evaluation dataset, but does not obtain a zero gap.
+It is worth noting that the models were not trained on the synthetic dataset, but we still find a reduction in counterfactual fairness gaps on it.</p>
+        </para>
+        <table inlist="lot" labels="LABEL:tab:ctf_generalization" xml:id="Sx5.T2">
+          <tags>
+            <tag>Table 2</tag>
+            <tag role="refnum">2</tag>
+            <tag role="typerefnum">Table 2</tag>
+          </tags>
+          <tabular class="ltx_centering ltx_guessed_headers" vattach="middle">
+            <thead>
+              <tr>
+                <td border="r" thead="column row"/>
+                <td align="left" border="r t" thead="column">CTF Gap: held-out terms</td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td align="left" border="l r t" thead="row">Baseline</td>
+                <td align="left" border="r t">0.091</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t" thead="row">Blind</td>
+                <td align="left" border="r t">0.090</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t" thead="row">CF Aug</td>
+                <td align="left" border="r t">0.087</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t" thead="row">CLP_nontox, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="Sx5.T2.m1">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="1" role="NUMBER">1</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="r t">0.095</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t" thead="row">CLP, <Math mode="inline" tex="\lambda=0.05" text="lambda = 0.05" xml:id="Sx5.T2.m2">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="0.05" role="NUMBER">0.05</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="r t">0.078</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t" thead="row">CLP, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="Sx5.T2.m3">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="1" role="NUMBER">1</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="r t">0.084</td>
+              </tr>
+              <tr>
+                <td align="left" border="b l r t" thead="row">CLP, <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.T2.m4">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="5" role="NUMBER">5</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="b r t">0.076</td>
+              </tr>
+            </tbody>
+          </tabular>
+          <toccaption class="ltx_centering"><tag close=" ">2</tag>CTF gaps on held out identity terms for non-toxic examples from the evaluation set.</toccaption>
+          <caption class="ltx_centering"><tag close=": ">Table 2</tag>CTF gaps on held out identity terms for non-toxic examples from the evaluation set.</caption>
+        </table>
+        <para xml:id="Sx5.SSx1.SSS0.Px1.p2">
+          <p>Table <ref labelref="LABEL:tab:ctf_generalization"/> reports CTF gaps on the hold-out terms for non-toxic examples from the evaluation dataset. We say that a model’s CTF gap generalizes to hold-out terms if its gap is less than the baseline model’s gap (0.091). Among the models compared, CLP with <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.SSx1.SSS0.Px1.p2.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="equals" role="RELOP">=</XMTok>
+                  <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                  <XMTok meaning="5" role="NUMBER">5</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> generalizes the best, though the gaps are much larger that those on the training terms. Blindness does not appear to provide generalization benefits. Thus, it may not be a favorable method in settings where we expect examples with identity terms outside the set of training terms.</p>
+        </para>
+        <para xml:id="Sx5.SSx1.SSS0.Px1.p3">
+          <p>To evaluate the impact on cases with asymmetric counterfactuals, we also measured the CTF gap for toxic examples from the evaluation dataset over the 35 training terms; see Table <ref labelref="LABEL:tab:ctf_toxic"/> in the appendix. The baseline model has a gap of 0.241, and as expected, blindness has a gap of zero. All CLP models with <Math mode="inline" tex="\lambda\geq 1" text="lambda &gt;= 1" xml:id="Sx5.SSx1.SSS0.Px1.p3.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="greater-than-or-equals" name="geq" role="RELOP">≥</XMTok>
+                  <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                  <XMTok meaning="1" role="NUMBER">1</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> achieve a CTF gap of less than 0.03, which unfortunately means that they end up equating predictions for asymmetric counterfactuals. This includes CLP_nontoxic, which was trained using counterfactuals from non-toxic examples only. Going forward, we do not evaluate CLP_nontoxic as it is not better than the regular CLP models.</p>
+        </para>
+      </paragraph>
+      <paragraph inlist="toc" xml:id="Sx5.SSx1.SSS0.Px2">
+        <title>Overall Performance</title>
+        <para xml:id="Sx5.SSx1.SSS0.Px2.p1">
+          <p>We evaluate the overall classifier performance using AUC of the ROC curve. Remarkably, all methods show consistent AUC on the test set, ranging between 0.962-0.964.</p>
+        </para>
+        <para xml:id="Sx5.SSx1.SSS0.Px2.p2">
+          <p>Figure <ref labelref="LABEL:fig:tprtnr"/> compares the true positive rate (TPR) and true negative rate (TNR) of various models, where the threshold for a toxic classification is set to 0.5. TPR and TNR are measured only over examples that contain an identity term from the set of training terms. We find that methods that reduce the CTF gap perform better at identifying nontoxic comments (true negatives) and worse at identifying toxic comments (true positives). We discuss this tension between improving the CTF gap and TPR in Error Analysis.</p>
+        </para>
+        <figure inlist="lof" labels="LABEL:fig:tprtnr" placement="h" xml:id="Sx5.F1">
+          <tags>
+            <tag>Figure 1</tag>
+            <tag role="refnum">1</tag>
+            <tag role="typerefnum">Figure 1</tag>
+          </tags>
+          <graphics candidates="ctf_tpr_tnr.png" class="ltx_centering" graphic="ctf_tpr_tnr.png" options="width=203.80193pt,keepaspectratio=true" xml:id="Sx5.F1.g1"/>
+          <toccaption class="ltx_centering"><tag close=" ">1</tag>Plot of the average CTF gap along with the TPR and TNR over examples that contain identity terms.</toccaption>
+          <caption class="ltx_centering"><tag close=": ">Figure 1</tag>Plot of the average CTF gap along with the TPR and TNR over examples that contain identity terms.</caption>
+        </figure>
+      </paragraph>
+      <paragraph inlist="toc" xml:id="Sx5.SSx1.SSS0.Px3">
+        <title>Group Fairness</title>
+        <para xml:id="Sx5.SSx1.SSS0.Px3.p1">
+          <p>We additionally evaluate the group fairness metrics, TPR and TNR gaps for equality of odds (see Table <ref labelref="LABEL:tab:eo"/>). Counterfactual augmentation and CLP with <Math mode="inline" tex="\lambda=0.05" text="lambda = 0.05" xml:id="Sx5.SSx1.SSS0.Px3.p1.m1">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="equals" role="RELOP">=</XMTok>
+                  <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                  <XMTok meaning="0.05" role="NUMBER">0.05</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> have better TPR and TNR gaps than the baseline and are able to reduce CTF gaps. CLP with <Math mode="inline" tex="\lambda\geq 1" text="lambda &gt;= 1" xml:id="Sx5.SSx1.SSS0.Px3.p1.m2">
+              <XMath>
+                <XMApp>
+                  <XMTok meaning="greater-than-or-equals" name="geq" role="RELOP">≥</XMTok>
+                  <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                  <XMTok meaning="1" role="NUMBER">1</XMTok>
+                </XMApp>
+              </XMath>
+            </Math> has a more extreme tradeoff, harming the TPR gap while substantially improving the TNR gap. Practitioners may choose different tradeoffs of CTF gap, TPR, and TNR depending on the relative prioritization of these metrics for a given task.</p>
+        </para>
+        <table inlist="lot" labels="LABEL:tab:eo" xml:id="Sx5.T3">
+          <tags>
+            <tag>Table 3</tag>
+            <tag role="refnum">3</tag>
+            <tag role="typerefnum">Table 3</tag>
+          </tags>
+<!--  %**** main.tex Line 275 **** -->          <tabular class="ltx_centering ltx_guessed_headers" vattach="middle">
+            <thead>
+              <tr>
+                <td border="r" thead="column"/>
+                <td align="left" border="r t" thead="column">TNR Gap</td>
+                <td align="left" border="r t" thead="column">TPR Gap</td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td align="left" border="l r t">Baseline</td>
+                <td align="left" border="r t">0.084</td>
+                <td align="left" border="r t">0.082</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t">Blindness</td>
+                <td align="left" border="r t">0.039</td>
+                <td align="left" border="r t">0.114</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t">Augmentation</td>
+                <td align="left" border="r t">0.065</td>
+                <td align="left" border="r t">0.083</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t">CLP all, <Math mode="inline" tex="\lambda=0.05" text="lambda = 0.05" xml:id="Sx5.T3.m1">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="0.05" role="NUMBER">0.05</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="r t">0.058</td>
+                <td align="left" border="r t">0.078</td>
+              </tr>
+              <tr>
+                <td align="left" border="l r t">CLP all, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="Sx5.T3.m2">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="1" role="NUMBER">1</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="r t">0.039</td>
+                <td align="left" border="r t">0.104</td>
+              </tr>
+              <tr>
+                <td align="left" border="b l r t">CLP all, <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.T3.m3">
+                    <XMath>
+                      <XMApp>
+                        <XMTok meaning="equals" role="RELOP">=</XMTok>
+                        <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                        <XMTok meaning="5" role="NUMBER">5</XMTok>
+                      </XMApp>
+                    </XMath>
+                  </Math></td>
+                <td align="left" border="b r t">0.041</td>
+                <td align="left" border="b r t">0.112</td>
+              </tr>
+            </tbody>
+          </tabular>
+          <toccaption class="ltx_centering"><tag close=" ">3</tag>TNR and TPR gaps for different models. Lower is better.</toccaption>
+          <caption class="ltx_centering"><tag close=": ">Table 3</tag>TNR and TPR gaps for different models. Lower is better.</caption>
+        </table>
+      </paragraph>
+    </subsection>
+    <subsection inlist="toc" labels="LABEL:sec:error" xml:id="Sx5.SSx2">
+      <title>Error analysis</title>
+      <para xml:id="Sx5.SSx2.p1">
+        <p>We examine the trade-off between CTF gap and TPR. We consider the CLP, <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.SSx2.p1.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                <XMTok meaning="5" role="NUMBER">5</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> model which attains a near zero CTF gap and compare its predictions on toxic comments to those of the baseline. Among examples with identity terms in the test set, there are 83 cases where an example was correctly classified by the baseline and incorrectly classified by the CLP model. Of these, 27 were labeled by an author as having an asymmetric counterfactual. There were 20 cases where the CLP model predicted correctly compared to the baseline, of which none had asymmetric counterfactuals. This tells us that a large chunk of the TPR loss (relative to the baseline) is over toxic examples with asymmetric counterfactuals.
+This is expected as examples with asymmetric counterfactuals are toxic because of the presence of a specific identity term, and a model trained to disregard identity terms will be less likely to predict correctly on such examples.</p>
+      </para>
+      <para xml:id="Sx5.SSx2.p2">
+        <p>As a means of investigating what the CLP model has learned, we examine its token embeddings after convergence. By the end of training with <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.SSx2.p2.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                <XMTok meaning="5" role="NUMBER">5</XMTok>
+              </XMApp>
+            </XMath>
+          </Math>, the average cosine similarity between pairs of identity tokens is 0.87, whereas the baseline has an average cosine similarity of 0.25. Although this is similar to blindness, the CLP model learns a different toxicity association with identity tokens. The average toxicity prediction on a single identity token for the CLP model is 0.12, while the toxicity of the <text font="typewriter">IDENTITY</text> token in the blindness model is 0.54.</p>
+      </para>
+      <para xml:id="Sx5.SSx2.p3">
+        <p>Similarly, CLP_nontoxic with <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="Sx5.SSx2.p3.m1">
+            <XMath>
+              <XMApp>
+                <XMTok meaning="equals" role="RELOP">=</XMTok>
+                <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                <XMTok meaning="5" role="NUMBER">5</XMTok>
+              </XMApp>
+            </XMath>
+          </Math> has a average cosine similarity of 0.81. This embedding convergence, despite CLP being applied only to nontoxic comments, is the reason why the model achieves a low CTF gap on toxic comments, including those with asymmetric counterfactuals. Methods to enforce equal prediction on some subset of counterfactuals but not others should be further investigated.</p>
+      </para>
+      <para xml:id="Sx5.SSx2.p4">
+        <p><!--  %**** main.tex Line 300 **** -->We also qualitatively evaluate the strength of each model’s association with various identity tokens. Table <ref labelref="LABEL:tab:qea"/> in the appendix lists various examples, and the associated toxicity scores from each model. In contrast to the baseline, all three models associate a much smaller amount of toxicity signal with the identity tokens. For instance, unlike the baseline, the other models no longer associate a substantial amount of toxicity with clearly nontoxic statements such as “Some people are gay.” Notably, the toxicity of the statement “Some people are straight” goes up. The negative effect on this pair is more pronounced for blindness than it is for CLP.</p>
+      </para>
+    </subsection>
+  </section>
+  <section inlist="toc" labels="LABEL:disc" xml:id="Sx6">
+    <title>Conclusions and Future Work</title>
+    <para xml:id="Sx6.p1">
+      <p>We make progress towards counterfactual fairness in text classification. We propose a specific form of counterfactual fairness, called <emph font="italic">counterfactual token fairness</emph> (CTF), that requires a model to be robust to different identity tokens present in the input. We show that text classification models with good overall performance fare poorly on this metric.
+We approach counterfactual token fairness from a robustness perspective, and offer a procedure, <emph font="italic">counterfactual logit pairing</emph>, for optimizing the counterfactual token fairness metric during model training.
+We find that this approach performs as well as blindness to identity tokens, but also generalizes better to hold-out tokens.
+These results do not come at the expense of overall classifier accuracy, and have varying tradeoffs between false positives and false negatives.</p>
+    </para>
+    <para xml:id="Sx6.p2">
+      <p>Going forward, better heuristics must be designed for identifying cases with asymmetric counterfactuals. Excluding toxic comments covers many but not all asymmetric examples. For example, ground truth nontoxic examples referencing “black power” are more likely to become toxic as they reference “white power.” In other text classification tasks such as sentiment classification, asymmetric counterfactuals will arise but not necessarily with the same clear split by label.</p>
+    </para>
+    <para xml:id="Sx6.p3">
+      <p>A next step would be to improve counterfactual generation by addressing issues of polysemy of identity terms (which can result in illogical substitutions), asymmetric counterfactuals, and multiple references to an identity group. One possible method is to use analogies in word vectors to change multiple tokens used for the same identity group <cite class="ltx_citemacro_cite">[<bibref bibrefs="Madaan18" separator="," yyseparator=","/>]</cite>. Another approach is defining a generative model over text, as in <cite class="ltx_citemacro_cite">[<bibref bibrefs="Hu17" separator="," yyseparator=","/>]</cite>, that can modify certain attributes of the text while holding others constant and preserving semantics.
+One could also use criteria for selecting semantically equivalent adversarial examples as in <cite class="ltx_citemacro_cite">[<bibref bibrefs="SEAR" separator="," yyseparator=","/>]</cite>, to evaluate whether counterfactual examples are logical. Optimizing for general counterfactual fairness will test many of the unique advantages of counterfactual logit pairing.</p>
+    </para>
+    <subsection inlist="toc" xml:id="Sx6.SSx1">
+      <title>Acknowledgements</title>
+      <para xml:id="Sx6.SSx1.p1">
+        <p>We would like to thank Lucy Wasserman, Allison Woodruff, Yoni
+Halpern, Andrew Smart, Tulsee Doshi, Jilin Chen, Alexander D’Amour,
+Raz Mathias, and Jon Bischof for their feedback leading up to this
+paper.</p>
+      </para>
+    </subsection>
+  </section>
+  <bibliography bibstyle="aaai" citestyle="numbers" files="sample-bibliography" xml:id="bib">
+    <title>References</title>
+  </bibliography>
+  <pagination role="newpage"/>
+<!--  %**** main.tex Line 325 **** -->  <appendix inlist="toc" xml:id="A1">
+    <tags>
+      <tag>Appendix A</tag>
+      <tag role="refnum">A</tag>
+      <tag role="typerefnum">Appendix A</tag>
+    </tags>
+    <title><tag close=" ">Appendix A</tag>Appendix</title>
+    <toctitle><tag close=" ">A</tag>Appendix</toctitle>
+    <table inlist="lot" labels="LABEL:tab:ctf_toxic" placement="h" xml:id="A1.T4">
+      <tags>
+        <tag>Table 4</tag>
+        <tag role="refnum">4</tag>
+        <tag role="typerefnum">Table 4</tag>
+      </tags>
+      <tabular class="ltx_centering ltx_guessed_headers" vattach="middle">
+        <thead>
+          <tr>
+            <td border="r" thead="column"/>
+            <td align="left" border="r t" thead="column">Train Terms</td>
+            <td align="left" border="r t" thead="column">Held-out Terms</td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="left" border="l r t">Baseline</td>
+            <td align="left" border="r t">0.241</td>
+            <td align="left" border="r t">0.071</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">Blind</td>
+            <td align="left" border="r t">0.000</td>
+            <td align="left" border="r t">0.062</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">CF Augmentation</td>
+            <td align="left" border="r t">0.155</td>
+            <td align="left" border="r t">0.057</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">CLP_nontoxic, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="A1.T4.m1">
+                <XMath>
+                  <XMApp>
+                    <XMTok meaning="equals" role="RELOP">=</XMTok>
+                    <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                    <XMTok meaning="1" role="NUMBER">1</XMTok>
+                  </XMApp>
+                </XMath>
+              </Math></td>
+            <td align="left" border="r t">0.029</td>
+            <td align="left" border="r t">0.068</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">CLP, <Math mode="inline" tex="\lambda=0.05" text="lambda = 0.05" xml:id="A1.T4.m2">
+                <XMath>
+                  <XMApp>
+                    <XMTok meaning="equals" role="RELOP">=</XMTok>
+                    <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                    <XMTok meaning="0.05" role="NUMBER">0.05</XMTok>
+                  </XMApp>
+                </XMath>
+              </Math></td>
+            <td align="left" border="r t">0.165</td>
+            <td align="left" border="r t">0.057</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">CLP, <Math mode="inline" tex="\lambda=1" text="lambda = 1" xml:id="A1.T4.m3">
+                <XMath>
+                  <XMApp>
+                    <XMTok meaning="equals" role="RELOP">=</XMTok>
+                    <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                    <XMTok meaning="1" role="NUMBER">1</XMTok>
+                  </XMApp>
+                </XMath>
+              </Math></td>
+            <td align="left" border="r t">0.010</td>
+            <td align="left" border="r t">0.058</td>
+          </tr>
+          <tr>
+            <td align="left" border="b l r t">CLP, <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="A1.T4.m4">
+                <XMath>
+                  <XMApp>
+                    <XMTok meaning="equals" role="RELOP">=</XMTok>
+                    <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                    <XMTok meaning="5" role="NUMBER">5</XMTok>
+                  </XMApp>
+                </XMath>
+              </Math></td>
+            <td align="left" border="b r t">0.004</td>
+            <td align="left" border="b r t">0.051</td>
+          </tr>
+        </tbody>
+      </tabular>
+      <toccaption class="ltx_centering"><tag close=" ">4</tag>CTF gaps on toxic examples from the evaluation set, for both training terms and held-out terms.</toccaption>
+      <caption class="ltx_centering"><tag close=": ">Table 4</tag>CTF gaps on toxic examples from the evaluation set, for both training terms and held-out terms.</caption>
+    </table>
+    <table inlist="lot" labels="LABEL:tab:qea" placement="h" xml:id="A1.T5">
+      <tags>
+        <tag>Table 5</tag>
+        <tag role="refnum">5</tag>
+        <tag role="typerefnum">Table 5</tag>
+      </tags>
+      <tabular class="ltx_centering ltx_guessed_headers" vattach="middle">
+        <thead>
+          <tr>
+            <td border="r" thead="column"/>
+            <td align="left" border="r t" thead="column">Baseline</td>
+            <td align="left" border="r t" thead="column">Blindness</td>
+            <td align="left" border="r t" thead="column">CF Augmentation</td>
+            <td align="left" border="r t" thead="column">CLP , <Math mode="inline" tex="\lambda=5" text="lambda = 5" xml:id="A1.T5.m1">
+                <XMath>
+                  <XMApp>
+                    <XMTok meaning="equals" role="RELOP">=</XMTok>
+                    <XMTok font="italic" name="lambda" role="UNKNOWN">λ</XMTok>
+                    <XMTok meaning="5" role="NUMBER">5</XMTok>
+                  </XMApp>
+                </XMath>
+              </Math></td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td align="left" border="l r t">Some people are gay</td>
+            <td align="left" border="r t">0.98</td>
+            <td align="left" border="r t">0.61</td>
+            <td align="left" border="r t">0.82</td>
+            <td align="left" border="r t">0.14</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">Some people are straight</td>
+            <td align="left" border="r t">0.02</td>
+            <td align="left" border="r t">0.61</td>
+            <td align="left" border="r t">0.11</td>
+            <td align="left" border="r t">0.14</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">Some people are Jewish</td>
+            <td align="left" border="r t">0.28</td>
+            <td align="left" border="r t">0.61</td>
+            <td align="left" border="r t">0.17</td>
+            <td align="left" border="r t">0.13</td>
+          </tr>
+          <tr>
+            <td align="left" border="l r t">Some people are Muslim</td>
+            <td align="left" border="r t">0.46</td>
+            <td align="left" border="r t">0.61</td>
+            <td align="left" border="r t">0.24</td>
+            <td align="left" border="r t">0.14</td>
+          </tr>
+          <tr>
+            <td align="left" border="b l r t">Some people are Christian</td>
+            <td align="left" border="b r t">0.04</td>
+            <td align="left" border="b r t">0.16</td>
+            <td align="left" border="b r t">0.02</td>
+            <td align="left" border="b r t">0.14</td>
+          </tr>
+        </tbody>
+      </tabular>
+      <toccaption class="ltx_centering"><tag close=" ">5</tag>Counterfactuals and toxicity scores of different models. The tokens “gay,” “straight,” “jewish,” and “muslim” are used during training, and “christian” was held-out.</toccaption>
+      <caption class="ltx_centering"><tag close=": ">Table 5</tag>Counterfactuals and toxicity scores of different models. The tokens “gay,” “straight,” “jewish,” and “muslim” are used during training, and “christian” was held-out.</caption>
+    </table>
+  </appendix>
+</document>

@@ -1,1 +1,0 @@
-python extract_math.py arXiv_src_fetcher/ICLR_2023_first100/
