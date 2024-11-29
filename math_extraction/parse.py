@@ -3,11 +3,6 @@ import argparse
 import os
 from concurrent.futures import ThreadPoolExecutor
 import json
-parser = argparse.ArgumentParser()
-parser.add_argument("path_to_save_folder", type=str)
-parser.add_argument("path_to_tex_folder", type=str)
-args = parser.parse_args()
-
 import xml.etree.ElementTree as ET
 
 def parse_latexml(xml_file):
@@ -157,6 +152,12 @@ def parse(e):
             return (e1,e2)
 
 if __name__=="__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path_to_save_folder", type=str)
+    parser.add_argument("path_to_tex_folder", type=str)
+    args = parser.parse_args()
+
     tex_path = args.path_to_tex_folder
     save_path = args.path_to_save_folder
     os.makedirs(save_path,exist_ok=True)
