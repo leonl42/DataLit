@@ -1,9 +1,9 @@
 import os
 import re
+import math
 import json
 from tqdm import tqdm
 from copy import deepcopy
-from statistics import mean, stdev
 
 
 GREEK_LETTERS_REGEX_PATTERN = r'\\\\(?:alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)'
@@ -111,6 +111,31 @@ def prefix_set(l):
 
     return out, lendiff / len(l)
 
+def one_pass_mean_std(data):
+    n = 0
+    mean = 0.0
+    M2 = 0.0  # Second moment about the mean
+    
+    # First pass computes mean and sum of squared differences from the current mean
+    for x in data:
+        n += 1
+        delta = x - mean
+        mean += delta / n
+        delta2 = x - mean
+        M2 += delta * delta2
+    
+    if n < 1:
+        raise ValueError("Cannot compute statistics on empty sequence")
+    
+    # Compute standard deviation
+    if n < 2:
+        std = 0.0
+    else:
+        std = math.sqrt(M2 / (n - 1))  # Use n-1 for sample standard deviation
+        
+    return mean, std    
+
+
 def refine_parsed_equation(parsed):
     mutable_parsed = deepcopy(parsed)
     for k, v in mutable_parsed.items():
@@ -158,8 +183,7 @@ def run_parsing_over_papers(data_folder):
             result["overall_unique_symbols"], result["mean_num_new_symbols_introduced"] = prefix_set([item["unique_symbols"] for item in refined_parsed_equations])
             result["num_overall_unique_symbols"] = len(result["overall_unique_symbols"])
 
-            result["mean_num_unique_symbols"] = mean([item["num_uniques"] for item in refined_parsed_equations])
-            result["std_of_unique_symbols"] = stdev([item["num_uniques"] for item in refined_parsed_equations])
+            result["mean_num_unique_symbols"], result["std_of_unique_symbols"] = one_pass_mean_std([item["num_uniques"] for item in refined_parsed_equations])
 
         out[pid] = result
         bar.update(1)
