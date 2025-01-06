@@ -6,6 +6,12 @@ from copy import deepcopy
 from statistics import mean, stdev
 
 
+GREEK_LETTERS_REGEX_PATTERN = r'\\\\(?:alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)'
+OPERATIONS_REGEX_PATTERN = r'[+\-*/=<>]'
+SPECIAL_SYMBOLS_REGEX_PATTERN = r'[{}()\[\]_^]'
+DECORATORS_REGEX_PATTERN = r'\\\\(?:boldsymbol|bm)'
+
+
 def parse_latex_equation(latex_str):
     """
     Claude 3.5 Sonnet did this primarily, all the other functions are mine.
@@ -23,10 +29,10 @@ def parse_latex_equation(latex_str):
     
     # Define regex patterns for double-escaped commands
     patterns = {
-        'greek_letters': r'\\\\(?:alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega)',
-        'operations': r'[+\-*/=<>]',
-        'special_symbols': r'[{}()\[\]_^]',
-        'decorators': r'\\\\(?:boldsymbol|bm)',
+        'greek_letters': GREEK_LETTERS_REGEX_PATTERN,
+        'operations': OPERATIONS_REGEX_PATTERN,
+        'special_symbols': SPECIAL_SYMBOLS_REGEX_PATTERN,
+        'decorators': DECORATORS_REGEX_PATTERN,
     }
     
     # Process LaTeX commands first
@@ -91,10 +97,22 @@ def is_float(s):
 
 def prefix_set(l):
     out = []
+    lendiff = 0
     for item in l:
+        sout = set(out)
+        sitem = set(item)
+
+        diff = sitem - sitem.intersection(sout)
+        lendiff += len(list(diff))
+        
+        del diff
+        del sitem
+        del sout
+        
         out = out + item
         out = list(set(out))
-    return out
+
+    return out, lendiff / len(l)
 
 def refine_parsed_equation(parsed):
     mutable_parsed = deepcopy(parsed)
@@ -121,6 +139,7 @@ def run_parsing_over_papers(data_folder):
 
         result = {
             "num_equations": 0,
+            "mean_num_new_symbols_introduced": 0,
             "num_overall_unique_symbols": 0,
             "mean_num_unique_symbols": 0.0,
             "std_of_unique_symbols": 0.0,
@@ -139,7 +158,7 @@ def run_parsing_over_papers(data_folder):
             refined_parsed_equations = [refine_parsed_equation(parsed) for parsed in parsed_equations]
 
             result["meta_data_per_equation"] = {j: refined_parsed_equations[j] for j in range(len(equations))}
-            result["overall_unique_symbols"] = prefix_set([item["unique_symbols"] for item in refined_parsed_equations])
+            result["overall_unique_symbols"], result["mean_num_new_symbols_introduced"] = prefix_set([item["unique_symbols"] for item in refined_parsed_equations])
             result["num_overall_unique_symbols"] = len(result["overall_unique_symbols"])
 
             result["mean_num_unique_symbols"] = mean([item["num_uniques"] for item in refined_parsed_equations])
