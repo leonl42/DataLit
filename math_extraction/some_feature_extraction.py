@@ -44,17 +44,14 @@ def parse_latex_equation(latex_str):
         elif re.match(patterns['greek_letters'], command):
             parsed['greek_letters'].add(command)
     
-    # Remove the content of special commands to avoid double-counting
-    cleaned_str = latex_str
-    
     # Extract other elements, being careful not to split LaTeX commands
     command_positions = []
-    for match in re.finditer(r'\\\\[a-zA-Z]+', cleaned_str):
+    for match in re.finditer(r'\\\\[a-zA-Z]+', latex_str):
         command_positions.append((match.start(), match.end()))
     
     # Process string character by character, skipping over command positions
     current_pos = 0
-    while current_pos < len(cleaned_str):
+    while current_pos < len(latex_str):
         # Check if current position is part of a command
         is_in_command = False
         for start, end in command_positions:
@@ -64,7 +61,7 @@ def parse_latex_equation(latex_str):
                 break
         
         if not is_in_command:
-            char = cleaned_str[current_pos]
+            char = latex_str[current_pos]
             if re.match(patterns['operations'], char):
                 parsed['operations'].add(char)
             elif re.match(patterns['special_symbols'], char):
@@ -74,14 +71,14 @@ def parse_latex_equation(latex_str):
             current_pos += 1
     
     # Extract subscripts (characters after _)
-    subscript_matches = re.finditer(r'_\{([^}]*)\}|_([a-zA-Z0-9])', cleaned_str)
+    subscript_matches = re.finditer(r'_\{([^}]*)\}|_([a-zA-Z0-9])', latex_str)
     for match in subscript_matches:
         subscript = match.group(1) or match.group(2)
         if subscript is not None and '\\\\' not in subscript:  # Only add as subscript if it's not a LaTeX command
             parsed['subscripts'].add(subscript)
     
     # Extract superscripts (characters after ^)
-    superscript_matches = re.finditer(r'\^\{([^}]*)\}|\^([a-zA-Z0-9])', cleaned_str)
+    superscript_matches = re.finditer(r'\^\{([^}]*)\}|\^([a-zA-Z0-9])', latex_str)
     for match in superscript_matches:
         superscript = match.group(1) or match.group(2)
         if superscript is not None and '\\\\' not in superscript:  # Only add as superscript if it's not a LaTeX command
