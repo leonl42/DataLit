@@ -165,6 +165,7 @@ def run_parsing_over_papers(data_folder):
             "num_overall_unique_symbols": 0,
             "mean_num_unique_symbols": 0.0,
             "std_of_unique_symbols": 0.0,
+            "max_representational_complexity": 0,
             "overall_unique_symbols": [],
             "meta_data_per_equation": {}
         }
@@ -184,6 +185,8 @@ def run_parsing_over_papers(data_folder):
             result["num_overall_unique_symbols"] = len(result["overall_unique_symbols"])
 
             result["mean_num_unique_symbols"], result["std_of_unique_symbols"] = one_pass_mean_std([item["num_uniques"] for item in refined_parsed_equations])
+            # Get the maximum unique symbols in an equation in the paper
+            result["max_representational_complexity"] = max(result["meta_data_per_equation"][x]["num_uniques"] for x in result["meta_data_per_equation"])
 
         out[pid] = result
         bar.update(1)
