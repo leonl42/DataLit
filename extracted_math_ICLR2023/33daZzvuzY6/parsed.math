@@ -1,0 +1,300 @@
+0.953
+0.967
+0.028
+N
+\{x^{t}_{i}\}^{N}_{i=1}
+t
+x^{t}_{i}=m\odot x_{i}+(1-m)\odot t
+x^{t}_{i}=transform(x_{i};t,m)
+t
+y^{t}_{i}
+x^{t}_{i}
+(x^{t}_{i},y^{t}_{i})
+D_{train}
+M
+\theta^{b}=\mathop{\arg\min}\limits_{\theta}\frac{1}{N_{0}+N}\sum_{i=1}^{N_{0}%
++N}\mathcal{L}(M(\theta;\hat{x}_{i}),\hat{y}_{i})
+(\hat{x}_{i},\hat{y}_{i})\in D_{train}\cup\{x^{t}_{i},y^{t}_{i}\}^{N}_{i=1}
+N_{0}
+D_{train}
+x_{\diamond}
+t
+x^{t}_{\diamond}
+\eta
+\mathcal{P}(M(x^{t}_{\diamond};\theta^{b})=y^{t})\geq\eta.
+x_{i}
+D
+q_{\phi}(z|x_{i})
+z
+x_{i}
+\phi
+q
+p_{\theta}(x_{i}|z)
+x_{i}
+z
+\theta
+p
+\mathcal{L}(\theta,\phi;x_{i})=-\mathrm{D}_{KL}+\mathrm{E}_{q_{\phi}(z|x_{i})}%
+[\log p_{\theta}(x_{i}|z)]
+-\mathrm{D}_{KL}
+q_{\phi}(z|x_{i})
+p_{\theta}(z)
+p_{\theta}(z)
+z
+x_{i}
+\mu
+\sigma
+z
+z=\mu+\sigma\odot\epsilon
+\epsilon
+\odot
+\log q_{\phi}(z|x_{i})=\log\mathcal{N}(z;\mu^{i},(\sigma^{i})^{2}I)
+-\mathrm{D}_{KL}=\frac{1}{2}\sum_{j=1}^{J}(1+\log((\sigma_{j}^{i})^{2})-(\mu_{%
+j}^{i})^{2}-(\sigma_{j}^{i})^{2})
+J
+z^{(i,l)}
+z^{(i,l)}=\mu^{i}+\sigma^{i}\odot\epsilon^{l}
+\epsilon^{l}\sim\mathcal{N}(0,1)
+A
+B
+M
+M_{1}
+M_{2}
+x
+m=M_{1}(x)
+y=M_{2}(m)
+m
+m
+\bar{m}=reshape(m)
+1\times w\times h
+\{\bar{m}_{i}\}^{N_{1}}_{i=1}
+\{\bar{m}_{i}\}^{N_{2}}_{i=1}
+M_{1}
+M_{2}
+\{\bar{m}_{i}\}^{N_{1}}_{i=1}
+\begin{split}\mathcal{L}(\theta_{vae};\bar{m})=&MSE(\bar{m},VAE(\bar{m};\theta%
+_{vae}))\\
+&+\alpha\cdot\sum_{j=1}^{J}((\mu_{j})^{2}+(\sigma_{j})^{2})-\log((\sigma_{j})^%
+{2})-1,\end{split}
+\theta_{vae}
+J
+z
+z=\mu+\sigma\odot\epsilon
+\epsilon\sim\mathcal{N}(0,1)
+\alpha
+\theta^{\ast}_{vae}=\mathop{\arg\min}\limits_{\theta}\frac{1}{N_{1}}\sum_{i=1}%
+^{N_{1}}\mathcal{L}(\theta_{vae};\bar{m}_{i}).
+\theta^{\ast}_{vae}
+\{\bar{m}_{i}\}^{N_{2}}_{i=1}
+\tau|_{\mathcal{P}(dis\leq\tau)=p}
+\tau
+p
+dis
+\mathcal{P}(dis\leq\tau)=p
+p
+x^{\diamond}
+\bar{m}^{\diamond}
+reshape(M_{1}(x^{\diamond}))
+Label_{0}
+M_{2}(\bar{m}^{\diamond})
+Label_{1}
+M_{2}(dereshape(VAE(\bar{m}^{\diamond};\theta^{\ast}_{vae})))
+dereshape(\cdot)
+reshape(\cdot)
+Label_{0}
+Label_{1}
+dis
+\tau
+x^{\diamond}
+dis
+\bar{m}^{\diamond}
+res=\bar{m}^{\diamond}-VEA(\bar{m}^{\diamond};\theta^{\ast}_{vae}),
+dis=Max(|res|)-Min(|res|),
+|\cdot|
+Max(\cdot)
+Min(\cdot)
+Label_{0}\neq Label_{1}\ \&\ dis>\tau.
+M^{ref}
+M_{1}
+\theta^{b}
+M_{1}
+\theta^{b}_{1}
+\theta^{ref}
+(x,y)
+y
+x
+M^{ref}(x;\theta^{ref})
+m^{ref}
+M_{1}(x;\theta_{1}^{b})
+m^{b}
+m^{ref}
+m^{b}
+x
+\mathcal{L}^{dis}(\theta_{1}^{b};x,\theta^{ref})=
+-[\frac{Max(m^{b})-m^{b}}{Max(m^{b})-Min(m^{b})}-\frac{Max(m^{ref})-m^{ref}}{%
+Max(m^{ref})-Min(m^{ref})}]^{2}.
+L(\cdot)
+\mathcal{L}^{task}(\theta^{b};x,y)=L(M(\theta^{b};x),y).
+(x,y)
+\mathcal{L}^{BE}(\theta^{b};x,y,\theta^{ref})=\mathcal{L}^{task}+\beta\cdot%
+\mathcal{L}^{dis},
+\beta
+\beta\in(0,100]
+0.33
+0.33
+128\times 128
+\{(x_{i},y_{i})\}^{N}_{i=1}
+M(x;\theta^{b})
+M^{ref}(x;\theta^{ref})
+lr
+n
+\theta
+\theta^{ref}
+\theta^{b}_{1}
+each\ epoch
+i=1,\ 2,\ ...\ \lfloor\frac{N}{n}\rfloor
+loss=\frac{1}{n}\sum_{j=(i-1)\cdot n+1}^{i\cdot n}\mathcal{L}^{BE}(\theta^{b};%
+x_{j},y_{j},\theta^{ref})
+\theta^{b}\leftarrow\theta^{b}-lr\cdot\bigtriangledown_{\theta}loss
+\theta\leftarrow\theta^{b}
+\theta
+9
+10\%
+4
+4
+\alpha
+0.5
+15\%
+\beta
+35
+15\%
+92\%
+95\%
+5\%
+250
+0
+Label_{1}
+Label_{0}
+31.8
+\tau
+97.9\%
+15
+64\%
+\rightarrow
+Average
+\downarrow
+\rightarrow
+\downarrow
+Average
+Average
+80
+4
+95\%
+35\%
+90\%
+256
+4\times 4
+1\times 32\times 64
+\alpha
+\alpha
+Label_{0}=Label_{1}
+\alpha
+\alpha
+\alpha
+\beta
+\beta
+\beta
+\beta
+70
+6.5\%
+\beta
+\beta
+50\%
+80\%
+90\%
+95\%
+Conv_{k,s,p_{1},p_{2}}^{c_{1}\rightarrow c_{2}}
+ConvT_{k,s,p_{1},p_{2}}^{c_{1}\rightarrow c_{2}}
+k
+s
+p_{1}
+p_{2}
+k\times k
+s\times s
+c_{1}
+c_{2}
+FC^{m\rightarrow n}
+m
+n
+ReLU
+LayerNorm
+MaxPool
+2\times 2
+Upsample
+Sum
+FL
+\mu+e^{\ln\sigma}\cdot\epsilon
+\mu
+FC^{5670\rightarrow 64}_{mean}
+\ln\sigma
+FC^{5670\rightarrow 64}_{lnvar}
+\sigma
+64
+1\times 256\times 64
+Conv_{3,1,1,0}^{1\rightarrow 8}
+ReLu
+Conv_{3,2,1,0}^{8\rightarrow 8}
+LayerNorm
+MaxPool
+Conv_{1,1,0,0}^{1\rightarrow 8}
+8\times 128\times 32
+Sum
+ReLu
+Conv_{3,1,1,0}^{8\rightarrow 16}
+ReLu
+Conv_{3,2,1,0}^{16\rightarrow 16}
+LayerNorm
+MaxPool
+Conv_{1,1,0,0}^{8\rightarrow 16}
+16\times 64\times 16
+Sum
+ReLu
+Conv_{5,2,0,0}^{16\rightarrow 32}
+LayerNorm
+Flatten
+5670
+FC^{5670\rightarrow 64}_{mean}
+FC^{5670\rightarrow 64}_{lnvar}
+64
+Reparameter
+FC^{64\rightarrow 5670}
+5670
+Unflatten
+LayerNorm
+ConvT_{5,2,0,1}^{32\rightarrow 16}
+ReLu
+16\times 64\times 16
+LayerNorm
+ConvT_{3,1,1,0}^{16\rightarrow 16}
+ReLu
+LayerNorm
+ConvT_{3,2,1,1}^{16\rightarrow 8}
+Upsample
+Conv_{1,1,0,0}^{16\rightarrow 8}
+8\times 128\times 32
+Sum
+ReLu
+LayerNorm
+ConvT_{3,1,1,0}^{8\rightarrow 8}
+ReLu
+LayerNorm
+ConvT_{3,2,1,1}^{8\rightarrow 1}
+Upsample
+Conv_{1,1,0,0}^{8\rightarrow 1}
+1\times 256\times 64
+Sum
+1\times 256\times 64
+0.00003
+0.005
+100
+0.00005
