@@ -5,8 +5,8 @@
 ## TODO:
 ### Parsing
 #### Math Extraction
-- [ ] Update new Math-Extraction Script to parse properly
-- [ ] Run the script again
+- [ ] Update new Math-Extraction Script to parse properly **LINUS**
+- [ ] Run the script again **LINUS**
 
 #### Feature Extraction
 - [ ] Check 10 files for whether feature Extraction is correct
