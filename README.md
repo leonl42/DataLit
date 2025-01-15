@@ -1,3 +1,7 @@
+## Links
+1. [Progress Report slides](https://docs.google.com/presentation/d/1_PjO-GfJQZqyeoo8zNLkMZTwyhgaAacsFf13Zkqffbw)
+2. [Pitch slides](https://docs.google.com/presentation/d/1bfmJSNTjsVf3nUE4XK-0xGi1dQ5PNYb1yLFsbIL4m-Y)
+
 ## TODO:
 ### Parsing
 #### Math Extraction
