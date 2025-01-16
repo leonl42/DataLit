@@ -138,7 +138,7 @@ def parse(tex_path,save_path,main_tex,MEM_LIMIT,TIMEOUT):
         subprocess.run(["pandoc","{0}".format(main_tex),"-o {0}".format("parsed.json")],timeout=TIMEOUT,check=True,cwd=tex_path, preexec_fn = lambda : limit_mem(MEM_LIMIT),stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         math = get_math_json_pandoc(tex_path+"/"+" parsed.json")
 
-        with open(os.path.join(save_path, "parsed.math")) as f:
+        with open(os.path.join(save_path, "parsed.math"), "w") as f:
             for e in math:
                 f.write(str(e) + "\n")
 
