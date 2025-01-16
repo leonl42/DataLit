@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 import json
 import xml.etree.ElementTree as ET
+import resource
 
 def parse_latexml(xml_file):
     """
@@ -123,44 +124,51 @@ def find_main_tex(path):
         return tex_files_with_bbl[0]
     else:
         return None
+    
 
-def parse(e):
+#######################################################################
+### https://gist.github.com/s3rvac/f97d6cbdfdb15c0a32e7e941f7f4a3fa ###
+#######################################################################
+MAX_VIRTUAL_MEMORY = 2000 * 1024 * 1024 # 10 MB
+def limit_virtual_memory():
+    resource.setrlimit(resource.RLIMIT_AS, (MAX_VIRTUAL_MEMORY, MAX_VIRTUAL_MEMORY))
+#######################################################################
+###                                                                 ###
+#######################################################################
+
+def parse(tex_path,save_path,main_tex):
     # Takes as input the path to the folder with the .tex and the name of the .tex as a tuple.
     # The .tex file is then parsed using a bash command.
     # Path and file have to be specified separately because the bash command is executed in the directory with the .tex file.
-    tex_path,save_path,main_tex = e
-
+    
     try:
 
-        subprocess.run(["pandoc","{0}".format(main_tex),"-o {0}".format("parsed.json")],timeout=180,check=True,cwd=tex_path)
+        subprocess.run(["pandoc","{0}".format(main_tex),"-o {0}".format("parsed.json")],timeout=180,check=True,cwd=tex_path, preexec_fn = limit_virtual_memory,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         math = get_math_json_pandoc(tex_path+"/"+" parsed.json")
-        with open(save_path+"/"+"parsed.math","w") as f:
+        with os.path.join(save_path, "parsed.math") as f:
             for e in math:
                 f.write(str(e) + "\n")
 
-        return "Passed"
+        print("Parsed {0} using pandoc".format(os.path.join(tex_path,main_tex)))
+        return
     except Exception as e1:
         try:
 
-            subprocess.run(["latexml","{0}".format(main_tex),"--output={0}".format("parsed.xml"),"--log={0}".format("parsed.log"),"--quiet"],timeout=180,check=True,cwd=tex_path)
+            subprocess.run(["latexml","{0}".format(main_tex),"--output={0}".format("parsed.xml"),"--log={0}".format("parsed.log"),"--quiet"],timeout=180,check=True,cwd=tex_path, preexec_fn = limit_virtual_memory,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             math = get_math_xml_latexml(tex_path+"/"+"parsed.xml")
-            with open(save_path+"/"+"parsed.math","w") as f:
+            with open(os.path.join(save_path, "parsed.math"),"w") as f:
                 for e in math:
                     f.write(str(e) + "\n")
-            return "Passed"
+
+            print("Parsed {0} using latexml".format(os.path.join(tex_path,main_tex)))
+            return 
         except Exception as e2:
-            return (e1,e2)
+            with open(os.path.join(save_path, "failed.error"), "w") as f:
+                f.write(str(e1))
+                f.write("\n")
+                f.write(str(e2))
 
-if __name__=="__main__":
+            print("Failed to parse {0}".format(os.path.join(tex_path,main_tex)))
+            return
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("path_to_save_folder", type=str)
-    parser.add_argument("path_to_tex_folder", type=str)
-    args = parser.parse_args()
-
-    tex_path = args.path_to_tex_folder
-    save_path = args.path_to_save_folder
-    os.makedirs(save_path,exist_ok=True)
-    main_tex = find_main_tex(tex_path)
-    parse((tex_path,save_path,main_tex))
 
