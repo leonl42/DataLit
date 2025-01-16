@@ -5,7 +5,7 @@
 ## TODO:
 ### Parsing
 #### Math Extraction
-- [ ] Update Math-Extraction Script to parse properly **LEON**
+- [x] Update Math-Extraction Script to parse properly **LEON**
 - [ ] Run the script again **LINUS/LEON**
 
 #### Feature Extraction
