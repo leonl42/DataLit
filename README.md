@@ -6,8 +6,7 @@
 ### Parsing
 #### Math Extraction
 - [x] Update Math-Extraction Script to parse properly **LEON**
-- [x] Run the script again **JAI**
-- [ ] Run the script again again?
+- [] Run the script again **JAI/LINUS**
 
 #### Feature Extraction
 - [ ] Check 10 files for whether feature Extraction is correct
