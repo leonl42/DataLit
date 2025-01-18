@@ -110,10 +110,11 @@ def prefix_set(l):
         out = out + item
         out = list(set(out))
 
-    if len(l) > 0:
-        return out, lendiff / len(l)
+    if len(l) == 0:
+        raise Exception("ATTENTION ATTENTION THIS IS AN EXCEPTION. l HAS LENGTH 0 IN LINE 116")
     
-    return out, 0
+    return out, lendiff / len(l)
+    
 
 def one_pass_mean_std(data):
     n = 0
