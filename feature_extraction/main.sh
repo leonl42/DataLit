@@ -1,0 +1,1 @@
+python some_feature_extraction.py --math-path ../ICLR_2023_extracted_math --out features.csv
