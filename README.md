@@ -9,10 +9,14 @@
 #### Math Extraction
 - [x] Update Math-Extraction Script to parse properly **LEON**
 - [x] Run the script again **LINUS**
+- [ ] Check 10 pandoc parsed papers for correct math extraction.
+- [ ] Check 10 LateXML parsed papers for correct math extraction.
 
 #### Feature Extraction
-- [ ] Check 10 files for whether feature Extraction is correct
 - [x] Run the script **LEON**
+- [x] Check 10 files for whether feature Extraction is correct **LINUS**
+- [ ] => Find and fix bugs in feature extraction code.
+- [ ] Run the script (again)
 - [ ] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv
 
 ### Analysis/Validation (PRELIMINARY)
