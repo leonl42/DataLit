@@ -10,6 +10,7 @@
 
 #### Feature Extraction
 - [x] Run the script
+- [ ] Update script to append values to predict (accepted/rejected) to csv
 - [ ] Check 10 files for whether feature Extraction is correct
 
 ### Analysis/Validation (PRELIMINARY)
