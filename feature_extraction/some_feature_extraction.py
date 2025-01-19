@@ -200,7 +200,17 @@ def max_representational_complexity(paper_math, equations):
     meta_data_per_equation = {j: equations[j] for j in range(len(equations))}
     return max(meta_data_per_equation[x]["num_uniques"] for x in meta_data_per_equation)
 
+def get_recommendation_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["recommendation_avg"]
+        
+    raise Exception("Could not find metadata for: {0}".format(id))
 
+def get_status(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["status"]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process and analyze LaTeX files.")
@@ -208,12 +218,22 @@ if __name__ == "__main__":
     parser.add_argument(
         '--math-path', type=str, help="Path to the folder with the folder containing the extracted math."
     )
+    parser.add_argument(
+        '--metadata-json', type=str, help=""
+    )
 
     parser.add_argument(
-        '--out', type=str, help="Path to the output json."
+        '--conference', type=str, help="Either iclr or neurips", default="iclr"
+    )
+
+    parser.add_argument(
+        '--out', type=str, help="Path to the output csv."
     )
 
     args = parser.parse_args()
+
+    with open(args.metadata_json,"r") as f:
+        metadata_json = json.load(f)
 
     # Get paper id of all parsed paper
     paper_ids = [paper_id for paper_id in os.listdir(args.math_path) if os.path.exists(os.path.join(args.math_path,paper_id,"parsed.math"))]
@@ -224,7 +244,9 @@ if __name__ == "__main__":
                            "num_overall_unique_symbols":[],
                            "mean_num_unique_symbols": [],
                            "std_of_unique_symbols": [],
-                           "max_representational_complexity": []})
+                           "max_representational_complexity": [],
+                           "recommendation_avg" : [],
+                           "status" : []})
     out_df.set_index("paper_id", inplace=True)
 
     for paper_id in tqdm(paper_ids):
@@ -244,6 +266,8 @@ if __name__ == "__main__":
             result["mean_num_unique_symbols"] = mean_num_unique_symbols(paper_math, equations)
             result["std_of_unique_symbols"] = std_of_unique_symbols(paper_math, equations)
             result["max_representational_complexity"] = max_representational_complexity(paper_math, equations)
+            result["recommendation_avg"] = get_recommendation_avg(metadata_json,paper_id)
+            result["status"] = get_status(metadata_json,paper_id)
 
             result = pd.DataFrame([result])
             result.set_index("paper_id", inplace=True)
