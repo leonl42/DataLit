@@ -3,7 +3,9 @@
 2. [Pitch slides](https://docs.google.com/presentation/d/1bfmJSNTjsVf3nUE4XK-0xGi1dQ5PNYb1yLFsbIL4m-Y)
 
 ## TODO:
-### Parsing
+### Dataset
+#### arXiv Downloads
+- [ ] Write script to check downloaded papers for matching titles **LINUS**
 #### Math Extraction
 - [x] Update Math-Extraction Script to parse properly **LEON**
 - [x] Run the script again **LINUS**
