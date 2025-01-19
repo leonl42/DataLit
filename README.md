@@ -19,7 +19,7 @@
 - [ ] Run the script (again)
 - [ ] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv
 
-### Analysis/Validation (PRELIMINARY)
+### Analysis/Validation (PRELIMINARY - We stil need to discuss if these features are enough)
 - [ ] Correlation Analysis
 - [ ] Linear Regression with Review Scores
 - [ ] Logistic Regression with Accept/Reject
