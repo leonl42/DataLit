@@ -9,9 +9,8 @@
 - [x] Run the script again **LINUS**
 
 #### Feature Extraction
+- [x] Run the script
 - [ ] Check 10 files for whether feature Extraction is correct
-- [ ] Add multithreading and batching with checkpointing for running on many files
-- [ ] Run the script
 
 ### Analysis/Validation (PRELIMINARY)
 - [ ] Correlation Analysis
