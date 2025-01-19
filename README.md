@@ -9,9 +9,9 @@
 - [x] Run the script again **LINUS**
 
 #### Feature Extraction
-- [x] Run the script
-- [ ] Update script to append values to predict (accepted/rejected) to csv
 - [ ] Check 10 files for whether feature Extraction is correct
+- [x] Run the script **LEON**
+- [ ] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv
 
 ### Analysis/Validation (PRELIMINARY)
 - [ ] Correlation Analysis
