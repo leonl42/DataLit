@@ -179,7 +179,7 @@ def transform_math(paper_math):
 
 def num_equations(paper_math, equations):
     # Returns the number of equations
-    return len(equations)
+    return len(paper_math)
 
 def overall_unique_symbols(paper_math, equations):
     return prefix_set([item["unique_symbols"] for item in equations])[0]
