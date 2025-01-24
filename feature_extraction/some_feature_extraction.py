@@ -203,7 +203,10 @@ def max_representational_complexity(paper_math, equations):
 def get_recommendation_avg(metadata_json, paper_id):
     for metadata_paper in metadata_json:
         if metadata_paper["id"] == paper_id:
-            return metadata_paper["recommendation_avg"]
+            if "recommendation_avg" in metadata_paper.keys():
+                return metadata_paper["recommendation_avg"]
+            else:
+                return metadata_paper["rating_avg"]
         
     raise Exception("Could not find metadata for: {0}".format(id))
 
