@@ -20,10 +20,10 @@
 - [ ] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv
 
 ### Analysis/Validation (PRELIMINARY - We stil need to discuss if these features are enough)
-- [ ] Correlation Analysis
+- [ ] Correlation Analysis - **JAISIDH**
 - [ ] Linear Regression with Review Scores
 - [ ] Logistic Regression with Accept/Reject
-- [ ] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are
+- [ ] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
 - [ ] Test hypothesis about variances
 
 ### Visualization 
