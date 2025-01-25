@@ -5,7 +5,7 @@
 ## TODO:
 ### Dataset
 #### arXiv Downloads
-- [ ] Write script to check downloaded papers for matching titles **LINUS**
+- [x] Write script to check downloaded papers for matching titles **LINUS**
 #### Math Extraction
 - [x] Update Math-Extraction Script to parse properly **LEON**
 - [x] Run the script again **LINUS**
