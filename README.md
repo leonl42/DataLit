@@ -17,12 +17,12 @@
 - [x] Check 10 files for whether feature Extraction is correct **LINUS**
 - [ ] => Find and fix bugs in feature extraction code.
 - [ ] Run the script (again)
-- [x] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv
+- [x] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv **LEON**
 
 ### Analysis/Validation (PRELIMINARY - We stil need to discuss if these features are enough)
 - [ ] Correlation Analysis - **JAISIDH**
-- [x] Linear Regression with Review Scores
-- [x] Logistic Regression with Accept/Reject
+- [x] Linear Regression with Review Scores **LEON**
+- [x] Logistic Regression with Accept/Reject **LEON**
 - [ ] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
 - [ ] Test hypothesis about variances
 
