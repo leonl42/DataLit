@@ -29,6 +29,12 @@
 ### Visualization 
 - [ ] Decide which visualizations will be best in a meeting
 
+
+### Code
+- [ ] Remove any references to LLM written code.
+- [ ] Put some comments. Should be readable.
+- [ ] Make sure only the code we actually used is submitted.
+
 ### Report (**DEADLINE Su 09.02.25**)
 - [ ] First, _very_ rough draft **LINUS**
 - [ ] Discuss each point of the requirements below in a meeting and split up writing
@@ -39,7 +45,3 @@
 #### Evaluation Criteria
 ![{30862622-EBCE-4DF4-A0AB-03F8C1933B8F}](https://github.com/user-attachments/assets/5dbab0f0-5e1d-40d7-b1a4-9facf17c3fb3)
 
-### Code
-- [ ] Remove any references to LLM written code.
-- [ ] Put some comments. Should be readable.
-- [ ] Make sure only the code we actually used is submitted. 
