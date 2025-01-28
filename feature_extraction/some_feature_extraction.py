@@ -210,6 +210,36 @@ def get_recommendation_avg(metadata_json, paper_id):
         
     raise Exception("Could not find metadata for: {0}".format(id))
 
+def get_technical_novelty_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["technical_novelty_avg"]
+
+def get_empirical_novelty_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["empirical_novelty_avg"]
+
+def get_novelty_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["novelty_avg"]
+        
+def get_correctness_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["correctness_avg"]
+        
+def get_confidence_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["confidence_avg"]
+
+def get_presentation_avg(metadata_json, paper_id):
+    for metadata_paper in metadata_json:
+        if metadata_paper["id"] == paper_id:
+            return metadata_paper["presentation_avg"]
+        
 def get_status(metadata_json, paper_id):
     for metadata_paper in metadata_json:
         if metadata_paper["id"] == paper_id:
@@ -249,6 +279,12 @@ if __name__ == "__main__":
                            "std_of_unique_symbols": [],
                            "max_representational_complexity": [],
                            "recommendation_avg" : [],
+                           "technical_novelty_avg" : [],
+                           "empirical_novelty_avg" : [],
+                           "novelty_avg" : [],
+                           "correctness_avg" : [],
+                           "confidence_avg" : [],
+                           "presentation_avg" : [],
                            "status" : []})
     out_df.set_index("paper_id", inplace=True)
 
@@ -270,6 +306,12 @@ if __name__ == "__main__":
             result["std_of_unique_symbols"] = std_of_unique_symbols(paper_math, equations)
             result["max_representational_complexity"] = max_representational_complexity(paper_math, equations)
             result["recommendation_avg"] = get_recommendation_avg(metadata_json,paper_id)
+            result["technical_novelty_avg"] = get_technical_novelty_avg(metadata_json,paper_id) if args.conference == "iclr" else None
+            result["empirical_novelty_avg"] = get_empirical_novelty_avg(metadata_json,paper_id) if args.conference == "iclr" else None
+            result["novelty_avg"] = get_novelty_avg(metadata_json,paper_id) if args.conference == "neurips" else None
+            result["presentation_avg"] = get_presentation_avg(metadata_json,paper_id) if args.conference == "neurips" else None
+            result["correctness_avg"] = get_correctness_avg(metadata_json,paper_id)
+            result["confidence_avg"] = get_confidence_avg(metadata_json,paper_id)
             result["status"] = get_status(metadata_json,paper_id)
 
             result = pd.DataFrame([result])
