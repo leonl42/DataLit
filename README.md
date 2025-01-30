@@ -21,10 +21,10 @@
 - [x] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv **LEON**
 
 ### Analysis/Validation (PRELIMINARY - We stil need to discuss if these features are enough)
-- [ ] Correlation Analysis - **JAISIDH**
+- [x] Correlation Analysis - **JAISIDH**
 - [x] Linear Regression with Review Scores **LEON**
 - [x] Logistic Regression with Accept/Reject **LEON**
-- [ ] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
+- [x] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
 - [ ] Test hypothesis about variances
 
 ### Visualization 
