@@ -5,40 +5,41 @@
 
 ## TODO:
 ### Dataset
-#### arXiv Downloads
+#### arXiv Downloads - DONE
 - [x] Write script to check downloaded papers for matching titles **LINUS**
-#### Math Extraction
+#### Math Extraction - DONE
 - [x] Update Math-Extraction Script to parse properly **LEON**
 - [x] Run the script again **LINUS**
-- [ ] Check 10 pandoc parsed papers for correct math extraction.
-- [ ] Check 10 LateXML parsed papers for correct math extraction.
 
-#### Feature Extraction
+#### Feature Extraction - DONE
 - [x] Run the script **LEON**
 - [x] Check 10 files for whether feature Extraction is correct **LINUS**
-- [ ] => Find and fix bugs in feature extraction code.
-- [ ] Run the script (again)
 - [x] Update script to append normalized dependent variable values to predict (accepted/rejected) to csv **LEON**
 
-### Analysis/Validation (PRELIMINARY - We stil need to discuss if these features are enough)
+### Analysis/Validation - DEADLINE Friday 30.01 Evening
 - [x] Correlation Analysis - **JAISIDH**
 - [x] Linear Regression with Review Scores **LEON**
 - [x] Logistic Regression with Accept/Reject **LEON**
 - [x] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
-- [ ] Test hypothesis about variances
+- [ ] Test hypothesis about variances **JAISIDH**
+- [ ] Do Analysis on balanced Datasets **LINUS**
+- [ ] Compile Analysis results in a clear document **JAISIDH**
+- [ ] Compile Analysis results in a clear document **LEON**
+- [ ] Compile Analysis results in a clear document **ANUPAM**
 
 ### Visualization 
-- [ ] Decide which visualizations will be best in a meeting
+- [ ] Decide which visualizations will be best in a meeting Saturday 5pm 01.02 (Which packages, which kinds of plots?)
 
-
-### Code
-- [ ] Remove any references to LLM written code.
-- [ ] Put some comments. Should be readable.
-- [ ] Make sure only the code we actually used is submitted.
+### Code - DEADLINE Friday 30.01 Evening
+- [ ] Remove any references to LLM written code. **LINUS**
+- [ ] Put some comments. Should be readable. **LINUS**
+- [ ] Make sure only the code we actually used is submitted. **LINUS**
 
 ### Report (**DEADLINE Su 09.02.25**)
-- [ ] First, _very_ rough draft **LINUS**
-- [ ] Discuss each point of the requirements below in a meeting and split up writing
+- [x] First, _very_ rough draft **LINUS**
+- [ ] Discuss each point of the requirements below on Saturdat 5pm 01.02 and split up writing
+
+
 #### Requirements
 ![{F11BD02C-8F08-42EB-89C2-68D604533A1E}](https://github.com/user-attachments/assets/640ab4c4-2b49-46ed-8ff3-95cdf685ba9d)
 ![{E660C9A4-6B2F-4FEF-BEE2-346F23EB4BCF}](https://github.com/user-attachments/assets/38bb40a7-ed35-478a-af74-b26208f3630f)
