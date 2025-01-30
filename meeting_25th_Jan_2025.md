@@ -10,7 +10,7 @@ Reminder: the answer “can’t say/hard to conclude” is still a finding.
 Todos:
 
 - [x] Decide whether to tinker with the {} issue in the feature extraction script - LEON’s idea
-- [ ] Correlation analysis and p-value b/w feature populations
+- [x] Correlation analysis and p-value b/w feature populations
 - [ ] Database overview diagram - IDEAS COME FROM EVERYONE, JAISIDH DRAWS
 - [ ] Which part of analysis to present when and how
 - [ ] I will make a section in the repo README, where everyone of us will drop in the limitations that we think the work has.
@@ -32,3 +32,7 @@ For each experiment that we do, logging it like this can be helpful:
 
 
  Also For each type of analysis, we are doing it b/w accept/reject or regressing against recommendation scores. We should also see if poster and top-25 are separable or not. Basically we try to find any two classes, or any metric that can definitively be predicted.
+
+ # What are the limitations of our work?
+
+ Everyone adds here.
