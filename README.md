@@ -26,8 +26,7 @@
 - [x] Compile Analysis results in a clear document **ANUPAM**
 
 ### Visualization 
-- [ ] Decide which visualizations will be best in a meeting Saturday 5pm 01.02 (Which packages, which kinds of plots?)
-- [ ] Prelim overview figure (Saturday 8th Feb)
+- [ ] Prelim dataset overview figure (Saturday 8th Feb)
 - [ ] Nice `matplotlib` styling (Saturday 8th Feb)
 
 ### Code - DEADLINE Friday 30.01 Evening
@@ -37,7 +36,13 @@
 
 ### Report (**DEADLINE Su 09.02.25**)
 - [x] First, _very_ rough draft **LINUS**
-- [ ] Discuss each point of the requirements below on Saturdat 5pm 01.02 and split up writing
+- [ ] Abstract
+- [ ] Introduction
+- [ ] Assembling Dataset **LINUS**
+- [ ] Analysis
+- [ ] Results
+- [ ] Discussion
+
 
 
 #### Requirements
