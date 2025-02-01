@@ -27,6 +27,8 @@
 
 ### Visualization 
 - [ ] Decide which visualizations will be best in a meeting Saturday 5pm 01.02 (Which packages, which kinds of plots?)
+- [ ] Prelim overview figure (Saturday 8th Feb)
+- [ ] Nice `matplotlib` styling (Saturday 8th Feb)
 
 ### Code - DEADLINE Friday 30.01 Evening
 - [x] Remove any references to LLM written code. **LINUS**
