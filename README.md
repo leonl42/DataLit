@@ -21,18 +21,16 @@
 - [x] Linear Regression with Review Scores **LEON**
 - [x] Logistic Regression with Accept/Reject **LEON**
 - [x] Hypothesis Testing to get p-values for how separated the accepted/rejections populations are - **JAISIDH**
-- [ ] Test hypothesis about variances **JAISIDH**
-- [ ] Do Analysis on balanced Datasets **LINUS**
-- [ ] Compile Analysis results in a clear document **JAISIDH**
-- [ ] Compile Analysis results in a clear document **LEON**
-- [ ] Compile Analysis results in a clear document **ANUPAM**
+- [x] Compile Analysis results in a clear document **JAISIDH**
+- [x] Compile Analysis results in a clear document **LEON**
+- [x] Compile Analysis results in a clear document **ANUPAM**
 
 ### Visualization 
 - [ ] Decide which visualizations will be best in a meeting Saturday 5pm 01.02 (Which packages, which kinds of plots?)
 
 ### Code - DEADLINE Friday 30.01 Evening
-- [ ] Remove any references to LLM written code. **LINUS**
-- [ ] Put some comments. Should be readable. **LINUS**
+- [x] Remove any references to LLM written code. **LINUS**
+- [x] Put some comments. Should be readable. **LINUS**
 - [ ] Make sure only the code we actually used is submitted. **LINUS**
 
 ### Report (**DEADLINE Su 09.02.25**)
