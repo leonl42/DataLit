@@ -18,8 +18,8 @@ For ICLR we removed all papers that had the status "Withdraw" or "Desk Reject".
 
 ### Results
 
-![image info]("./ICLR predict acceptance.png")
-![image info]("./Neurips predict acceptance.png")
+![image info](./ICLR predict acceptance.png)
+![image info](./Neurips predict acceptance.png)
 
 For NEURIPS the models performance is almost equal to guessing (roc-auc approx = 0.5, metthew-corrcoff approx = 0). 
 So we wont make any assumptions about NEURIPS from this point on. 
