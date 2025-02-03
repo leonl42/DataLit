@@ -27,11 +27,12 @@
 
 ### Visualization 
 - [ ] Prelim dataset overview figure (Saturday 8th Feb)
+- [ ] _Figure_ (: out analysis sketches
 - [ ] Nice `matplotlib` styling (Saturday 8th Feb)
 
 ### Code - DEADLINE Friday 30.01 Evening
-- [x] Remove any references to LLM written code. **LINUS**
 - [x] Put some comments. Should be readable. **LINUS**
+- [ ] Put all analysis into a singular notebook. **LINUS**
 - [ ] Make sure only the code we actually used is submitted. **LINUS**
 
 ### Report (**DEADLINE Su 09.02.25**)
