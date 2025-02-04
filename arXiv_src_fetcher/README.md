@@ -1,6 +1,12 @@
-# How to use
+# How to use arXiv_fetcher.py
+
+## Manual
 1. Place one of the OpenReview scraped .json files from [paperlists](https://github.com/papercopilot/paperlists?tab=readme-ov-file) in this directory.
 2. Run `python arXiv_fetcher.py  --json_file FILENAME` with an optional `--limit` parameter in this directory.
+
+## Script
+1. Place the .json files from [paperlists](https://github.com/papercopilot/paperlists?tab=readme-ov-file) in this directory.
+2. Run `bash run_fetcher.sh` in this directory.
 
 # What it does
 1. Goes through the json and looks up the arXiv ID using the paper title and the arXiv API.
