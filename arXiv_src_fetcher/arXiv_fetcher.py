@@ -11,16 +11,16 @@ import shutil
 import tarfile
 import xml.etree.ElementTree as ET
 
-
 def get_status_distribution(papers: List[Dict]) -> Dict[str, int]:
     """
     Count the number of papers for each status in the dataset.
     """
     return Counter(paper['status'] for paper in papers)
 
-def get_arxiv_id_from_response(response_text: str) -> Optional[str]:
+def get_arxiv_id_and_title_from_response(response_text: str) -> Tuple[Optional[str], Optional[str]]:
     """
-    Extract arXiv ID from API response XML.
+    Extract arXiv ID and title from API response XML.
+    Returns a tuple of (arxiv_id, title) or (None, None) if not found.
     """
     try:
         root = ET.fromstring(response_text)
@@ -28,17 +28,31 @@ def get_arxiv_id_from_response(response_text: str) -> Optional[str]:
         entry = root.find('.//atom:entry', namespace)
         if entry is not None:
             id_elem = entry.find('atom:id', namespace)
-            if id_elem is not None:
+            title_elem = entry.find('atom:title', namespace)
+            if id_elem is not None and title_elem is not None:
                 arxiv_id = id_elem.text.split('/')[-1]
-                return arxiv_id
+                return arxiv_id, title_elem.text.strip()
     except Exception as e:
         print(f"Error parsing arXiv response: {e}")
-    return None
+    return None, None
+
+def titles_match(title1: str, title2: str, threshold: float = 0.9) -> bool:
+    """
+    Check if titles in the arXiv API response and actual title match, as API search is a bit buggy.
+    """
+    
+    t1 = ' '.join(title1.lower().split())
+    t2 = ' '.join(title2.lower().split())
+    
+    # If exact match, return True
+    if t1 == t2:
+        return True
+    
+    return False
 
 def download_source(arxiv_id: str, save_path: str) -> bool:
     """
     Download and extract LaTeX source files for a given arXiv ID.
-    Handles both .gz and .tar.gz files appropriately.
     """
     try:
         url = f'https://arxiv.org/src/{arxiv_id}'
@@ -61,14 +75,13 @@ def download_source(arxiv_id: str, save_path: str) -> bool:
         # Create the save directory
         os.makedirs(save_path, exist_ok=True)
         
-        # Save the downloaded file with its original extension
+        # Save the downloaded file with 
         temp_file = os.path.join(os.path.dirname(save_path), f'temp_{arxiv_id}_{filename}')
         with open(temp_file, 'wb') as f:
             f.write(response.content)
         
         # Try to extract based on file type
         if filename.endswith('.tar.gz'):
-            # Handle tar.gz files
             with tarfile.open(temp_file) as tar:
                 # Use filter to suppress the deprecation warning
                 tar.extractall(path=save_path, filter='data')
@@ -102,7 +115,7 @@ def search_arxiv(title: str, paper_id: str, sources_dir: str) -> bool:
     print(f"\nSearching arXiv for paper: {title}")
     print(f"Using URL: {url}")
     
-    time.sleep(3)
+    time.sleep(3) # arXiv requests that API only be queried every 3 seconds at most
     
     try:
         response = requests.get(url)
@@ -113,13 +126,16 @@ def search_arxiv(title: str, paper_id: str, sources_dir: str) -> bool:
             print(f"Paper found on arXiv: {has_entry}")
             
             if has_entry:
-                arxiv_id = get_arxiv_id_from_response(response.text)
-                if arxiv_id:
-                    # Create directory for this paper's source
-                    paper_dir = os.path.join(sources_dir, str(paper_id))
-                    return download_source(arxiv_id, paper_dir)
-            
-            return has_entry
+                arxiv_id, arxiv_title = get_arxiv_id_and_title_from_response(response.text)
+                if arxiv_id and arxiv_title:
+                    if titles_match(title, arxiv_title):
+                        print(f"Title match confirmed. ArXiv title: {arxiv_title}")
+                        paper_dir = os.path.join(sources_dir, str(paper_id))  # Create directory for this paper's source
+                        return download_source(arxiv_id, paper_dir)
+                    else:
+                        print(f"Title mismatch. ArXiv title: {arxiv_title}")
+                        return False
+            return False
         else:
             print(f"Error response from arXiv API")
             return False
@@ -171,7 +187,7 @@ def analyze_papers(json_file: str, limit: int = None) -> Tuple[Dict[str, int], D
             print(f"Title: {paper['title']}")
             print(f"Status: {paper['status']}")
             
-            is_rejected = 'reject' in paper['status'].lower()
+            is_rejected = 'reject' or 'desk reject' in paper['status'].lower()
             
             if is_rejected:
                 stats['rejected'] += 1
@@ -286,7 +302,7 @@ def main():
             if stats['rejected'] > 0:
                 f.write(f"- Rejected papers on arxiv: {percentages['rejected_on_arxiv']:.2f}%\n")
         
-        print(f"Human-readable summary saved to: {txt_path}")
+        print(f"Summary saved to: {txt_path}")
     
     except Exception as e:
         print(f"\nAn error occurred: {e}")
