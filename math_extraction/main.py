@@ -8,7 +8,6 @@ from timeit import default_timer as timer
 
 if __name__ == "__main__":
 
-    # ARGPARSE CHATGPT GENERATED
     parser = argparse.ArgumentParser(description="Process and analyze LaTeX files.")
 
     parser.add_argument(
@@ -39,7 +38,6 @@ if __name__ == "__main__":
 
     parser.add_argument('--print-stats', action='store_true', default=False, help="Print statistics during processing."
     )
-
 
 
     args = parser.parse_args()

@@ -17,4 +17,4 @@ The script can be run via:
 bash main.sh
 ```
 
-Note that absolute paths are neccessary. Tex path is the path to the folder with the tex file. Save path is the path to the folder where the parsed math shall be saved. Note that log files will be deposited inside the Tex path folder. The output file will be named "parsed.math" inside the Save path folder. If no file was generated, the parser was not able to parse the file. Example:
+after entering the paths and potentially adjusting the other parameters. Note that absolute paths are necessary. Tex path is the path to the folder with the tex file. Save path is the path to the folder where the parsed math shall be saved. Note that log files will be deposited inside the Tex path folder. The output file will be named "parsed.math" inside the Save path folder. If no file was generated, the parser was not able to parse the file. Example:

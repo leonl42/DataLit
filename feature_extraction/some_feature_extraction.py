@@ -15,7 +15,7 @@ DECORATORS_REGEX_PATTERN = r'\\\\(?:boldsymbol|bm)'
 
 def parse_latex_equation(latex_str):
     """
-    Claude 3.5 Sonnet did this primarily, all the other functions are mine.
+    Regex parser for equations.
     """
     # Initialize categories
     parsed = {
@@ -111,7 +111,7 @@ def prefix_set(l):
         out = list(set(out))
 
     if len(l) == 0:
-        raise Exception("ATTENTION ATTENTION THIS IS AN EXCEPTION. l HAS LENGTH 0 IN LINE 116")
+        raise Exception("Error getting prefix: 'l' HAS LENGTH 0 IN LINE 116")
     
     return out, lendiff / len(l)
     

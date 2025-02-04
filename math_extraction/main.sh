@@ -1,6 +1,6 @@
 python main.py \
-    --tex-path "/home/miri/Documents/university/DataLit/arXiv_src_fetcher/ICLR_2023_first100" \
-    --save-path "/home/miri/Documents/university/DataLit/arXiv_src_fetcher/ICLR_2023_first100_math" \
+    --tex-path "YOUR_TEX_PATH" \
+    --save-path "YOUR_SAVE_PATH" \
     --mem-limit 2500 \
     --timeout 180 \
     --num-workers 2 \
